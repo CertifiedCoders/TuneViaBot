@@ -1,13 +1,9 @@
+
 import random
 import string
-import asyncio
 
 from pyrogram import filters
-from pyrogram.types import (
-    InlineKeyboardMarkup,
-    InputMediaPhoto,
-    Message
-)
+from pyrogram.types import InlineKeyboardMarkup, InputMediaPhoto, Message
 from pytgcalls.exceptions import NoActiveGroupCall
 
 import config
@@ -54,26 +50,6 @@ async def play_commnd(
         _["play_2"].format(channel) if channel else _["play_1"]
     )
 
-    asyncio.create_task(
-        process_playback(
-            client, message, mystic, _,
-            chat_id, video, channel, playmode, url, fplay
-        )
-    )
-
-
-async def process_playback(
-    client,
-    message,
-    mystic,
-    _,
-    chat_id,
-    video,
-    channel,
-    playmode,
-    url,
-    fplay,
-):
     plist_id = None
     slider = None
     plist_type = None
@@ -110,7 +86,6 @@ async def process_playback(
                 "link": message_link,
                 "path": file_path,
                 "dur": dur,
-                # You can add "thumb": "some_url" if you have a thumb
             }
             try:
                 await stream(
@@ -128,13 +103,7 @@ async def process_playback(
                 ex_type = type(e).__name__
                 err = e if ex_type == "AssistantErr" else _["general_2"].format(ex_type)
                 return await mystic.edit_text(err)
-
-            # directly convert 🦋 --> photo if you have a thumbnail
-            return await convert_processing_to_photo(
-                mystic,
-                details.get("thumb"),  # or None
-                f"**{details['title']}**\nDuration: {duration_min}"
-            )
+            return await mystic.delete()
         return
 
     # --------------------------------------------------
@@ -174,7 +143,6 @@ async def process_playback(
                 "link": message_link,
                 "path": file_path,
                 "dur": dur,
-                # "thumb": "..." if you want
             }
             try:
                 await stream(
@@ -193,23 +161,13 @@ async def process_playback(
                 ex_type = type(e).__name__
                 err = e if ex_type == "AssistantErr" else _["general_2"].format(ex_type)
                 return await mystic.edit_text(err)
-
-            # replace 🦋 => photo
-            return await convert_processing_to_photo(
-                mystic,
-                details.get("thumb"),
-                f"**{details['title']}**\nDuration: {dur}"
-            )
+            return await mystic.delete()
         return
 
     # --------------------------------------------------
     # 3) If user gave a direct URL (YouTube, Spotify, Apple, etc.)
     # --------------------------------------------------
     if url:
-        # NOTE: 'img' and 'cap' will be used for final edits
-        img = None
-        cap = None
-
         # --- YOUTUBE URL DETECTED ---
         if await YouTube.exists(url):
             if "playlist" in url:
@@ -230,13 +188,17 @@ async def process_playback(
                 img = config.PLAYLIST_IMG_URL
                 cap = _["play_9"]
             else:
+                # single YouTube track link
                 try:
                     details, track_id = await YouTube.track(url)
                 except:
                     return await mystic.edit_text(_["play_3"])
                 streamtype = "youtube"
                 img = details["thumb"]
-                cap = _["play_10"].format(details["title"], details["duration_min"])
+                cap = _["play_10"].format(
+                    details["title"],
+                    details["duration_min"],
+                )
 
         # --- SPOTIFY URL DETECTED ---
         elif await Spotify.valid(url):
@@ -346,16 +308,7 @@ async def process_playback(
                 ex_type = type(e).__name__
                 err = e if ex_type == "AssistantErr" else _["general_2"].format(ex_type)
                 return await mystic.edit_text(err)
-
-            # turn 🦋 into photo message if we have a 'thumb'
-            return await convert_processing_to_photo(
-                mystic,
-                details.get("thumb"),
-                _["play_10"].format(
-                    details["title"],
-                    details.get("duration_min", "Unknown"),
-                )
-            )
+            return await mystic.delete()
 
         else:
             # fallback: maybe index/m3u8 link?
@@ -375,10 +328,10 @@ async def process_playback(
                 await stream(
                     _,
                     mystic,
-                    user_id,
+                    message.from_user.id,
                     url,
                     chat_id,
-                    user_name,
+                    message.from_user.first_name,
                     message.chat.id,
                     video=video,
                     streamtype="index",
@@ -392,7 +345,7 @@ async def process_playback(
 
     else:
         # --------------------------------------------------
-        # 4) No URL => parse /play <query> with FAST SEARCH
+        # 4) No URL given => parse /play <query> with FAST SEARCH
         # --------------------------------------------------
         if len(message.command) < 2:
             buttons = botplaylist_markup(_)
@@ -406,6 +359,7 @@ async def process_playback(
         if "-v" in query:
             query = query.replace("-v", "")
 
+        # Directly do fast_search (yt-dlp) instead of youtubesearchpython
         try:
             details, track_id = await YouTube.track(query)
         except:
@@ -414,10 +368,12 @@ async def process_playback(
         streamtype = "youtube"
 
     # --------------------------------------------------
-    # 5) We have details from platform or text-based search
+    # 5) We have details from platform or text-based fast_search
     # --------------------------------------------------
     if str(playmode) == "Direct":
+        # Direct streaming
         if not plist_type:
+            # Check duration limit if present
             if details.get("duration_min"):
                 duration_sec = time_to_seconds(details["duration_min"])
                 if duration_sec and duration_sec > config.DURATION_LIMIT:
@@ -425,6 +381,7 @@ async def process_playback(
                         _["play_6"].format(config.DURATION_LIMIT_MIN, app.mention)
                     )
             else:
+                # Possibly livestream or unknown
                 buttons = livestream_markup(
                     _,
                     track_id,
@@ -457,15 +414,8 @@ async def process_playback(
             err = e if ex_type == "AssistantErr" else _["general_2"].format(ex_type)
             return await mystic.edit_text(err)
 
-        # Instead of text, convert to photo
-        return await convert_processing_to_photo(
-            mystic,
-            details.get("thumb"),
-            _["play_10"].format(
-                details["title"],
-                details.get("duration_min", "Unknown"),
-            )
-        )
+        await mystic.delete()
+        return await play_logs(message, streamtype=streamtype)
 
     else:
         # Playlist or slider flow
@@ -477,15 +427,14 @@ async def process_playback(
             buttons = playlist_markup(
                 _,
                 ran_hash,
-                user_id,
+                message.from_user.id,
                 plist_type,
                 "c" if channel else "g",
                 "f" if fplay else "d",
             )
-            # If you want to transform 🦋 into a photo as well:
-            await mystic.edit_text("Playlist loaded - see new message!")
+            await mystic.delete()
             await message.reply_photo(
-                photo=details["thumb"] if plist_type == "yt" else (details if plist_type == "apple" else None),
+                photo=details["thumb"] if plist_type == "yt" else (details if plist_type == "apple" else img),
                 caption=cap,
                 reply_markup=InlineKeyboardMarkup(buttons),
             )
@@ -493,16 +442,17 @@ async def process_playback(
 
         else:
             if slider:
+                # slider mode
                 buttons = slider_markup(
                     _,
                     track_id,
-                    user_id,
+                    message.from_user.id,
                     query,
                     0,
                     "c" if channel else "g",
                     "f" if fplay else "d",
                 )
-                await mystic.edit_text("Slider found - see new message!")
+                await mystic.delete()
                 await message.reply_photo(
                     photo=details["thumb"],
                     caption=_["play_10"].format(
@@ -513,11 +463,12 @@ async def process_playback(
                 )
                 return await play_logs(message, streamtype="Searched on Youtube")
             else:
-                await mystic.edit_text("Single track - see new message!")
+                # Normal single track
+                await mystic.delete()
                 buttons = track_markup(
                     _,
                     track_id,
-                    user_id,
+                    message.from_user.id,
                     "c" if channel else "g",
                     "f" if fplay else "d",
                 )
@@ -532,29 +483,8 @@ async def process_playback(
                 return await play_logs(message, streamtype="URL Searched Inline")
 
 
-# ------------------------------------------------------
-# Convert existing text -> photo with new caption
-# ------------------------------------------------------
-async def convert_processing_to_photo(mystic: Message, thumb: str, caption: str):
-    """
-    Replaces the existing text-based message with a photo-based message.
-    If no 'thumb' is provided (None), we just do .edit_text(...) fallback.
-    """
-    if not thumb:
-        # fallback if there's no thumbnail
-        return await mystic.edit_text(caption)
-
-    try:
-        return await mystic.edit_media(
-            media=InputMediaPhoto(media=thumb, caption=caption)
-        )
-    except Exception as e:
-        # if edit_media fails (e.g. invalid thumb), fallback to text
-        return await mystic.edit_text(f"{caption}\n(Thumb error: {e})")
-
-
 # ---------------------------------------------------------------------------
-# Callbacks
+# Callback Queries
 # ---------------------------------------------------------------------------
 
 @app.on_callback_query(filters.regex("MusicStream") & ~BANNED_USERS)
@@ -587,6 +517,7 @@ async def play_music(client, CallbackQuery, _):
         _["play_2"].format(channel) if channel else _["play_1"]
     )
 
+    # Here we can keep or remove the old approach, but typically we do:
     try:
         details, track_id = await YouTube.track(vidid, True)
     except:
@@ -634,15 +565,7 @@ async def play_music(client, CallbackQuery, _):
         err = e if ex_type == "AssistantErr" else _["general_2"].format(ex_type)
         return await mystic.edit_text(err)
 
-    # Directly convert to photo
-    return await convert_processing_to_photo(
-        mystic,
-        details.get("thumb"),
-        _["play_10"].format(
-            details["title"],
-            details.get("duration_min", "Unknown"),
-        )
-    )
+    return await mystic.delete()
 
 
 @app.on_callback_query(filters.regex("AnonymousAdmin") & ~BANNED_USERS)
@@ -759,12 +682,7 @@ async def play_playlists_command(client, CallbackQuery, _):
         err = e if ex_type == "AssistantErr" else _["general_2"].format(ex_type)
         return await mystic.edit_text(err)
 
-    # Convert to photo if you have result's thumb or just edit text
-    return await convert_processing_to_photo(
-        mystic,
-        None,  # If you have a result thumbnail, pass it here
-        "**Playlist Streaming!**"
-    )
+    return await mystic.delete()
 
 
 @app.on_callback_query(filters.regex("slider") & ~BANNED_USERS)
@@ -791,6 +709,7 @@ async def slider_queries(client, CallbackQuery, _):
     rtype = int(rtype)
 
     if what == "F":
+        # forward slider
         if rtype == 9:
             query_type = 0
         else:
@@ -809,11 +728,11 @@ async def slider_queries(client, CallbackQuery, _):
             ),
         )
         return await CallbackQuery.edit_message_media(
-            media=med,
-            reply_markup=InlineKeyboardMarkup(buttons)
+            media=med, reply_markup=InlineKeyboardMarkup(buttons)
         )
 
     elif what == "B":
+        # backward slider
         if rtype == 0:
             query_type = 9
         else:
@@ -832,6 +751,5 @@ async def slider_queries(client, CallbackQuery, _):
             ),
         )
         return await CallbackQuery.edit_message_media(
-            media=med,
-            reply_markup=InlineKeyboardMarkup(buttons)
+            media=med, reply_markup=InlineKeyboardMarkup(buttons)
         )
