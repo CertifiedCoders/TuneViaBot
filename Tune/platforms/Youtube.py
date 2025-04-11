@@ -13,7 +13,7 @@ from Tune.utils.database import is_on_off
 from Tune.utils.formatters import time_to_seconds
 
 
-COOKIES_FILE = "Tune/cookies/cookies.txt"
+cookies_file = "Tune/cookies/cookies.txt"
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3"
@@ -41,7 +41,7 @@ class YouTubeAPI:
     async def fast_search(self, query: str) -> dict:
         cmd = [
             "yt-dlp",
-            f"--cookiefile={COOKIES_FILE}",
+            "--cookies", cookies_file,
             "--no-warnings",
             "--quiet",
             "-j",
@@ -199,7 +199,7 @@ class YouTubeAPI:
             link = link.split("&")[0]
 
         cmd_str = (
-            f'yt-dlp --cookies "{COOKIES_FILE}" '
+            f'yt-dlp --cookies {cookies_file} '
             f'--http-header "User-Agent:{USER_AGENT}" '
             f"-i --get-id --flat-playlist --playlist-end {limit} --skip-download {link}"
         )
@@ -222,7 +222,7 @@ class YouTubeAPI:
 
         cmd = [
             "yt-dlp",
-            f"--cookies={COOKIES_FILE}",
+            "--cookies", cookies_file,
             "--http-header", f"User-Agent:{USER_AGENT}",
             "-g",
             "-f", "best[height<=?720][width<=?1280]",
@@ -246,7 +246,7 @@ class YouTubeAPI:
 
         ytdl_opts = {
             "quiet": True,
-            "cookiefile": COOKIES_FILE,
+            "--cookies": cookies_file,
             "http_headers": {"User-Agent": USER_AGENT},
         }
         ydl = yt_dlp.YoutubeDL(ytdl_opts)
@@ -294,7 +294,7 @@ class YouTubeAPI:
                 "nocheckcertificate": True,
                 "quiet": True,
                 "no_warnings": True,
-                "cookiefile": COOKIES_FILE,
+                "--cookies": cookies_file,
                 "http_headers": {"User-Agent": USER_AGENT},
             }
             x = yt_dlp.YoutubeDL(ydl_optssx)
@@ -312,7 +312,7 @@ class YouTubeAPI:
                 "nocheckcertificate": True,
                 "quiet": True,
                 "no_warnings": True,
-                "cookiefile": COOKIES_FILE,
+                "--cookies": cookies_file,
                 "http_headers": {"User-Agent": USER_AGENT},
             }
             x = yt_dlp.YoutubeDL(ydl_optssx)
@@ -334,7 +334,7 @@ class YouTubeAPI:
                 "no_warnings": True,
                 "prefer_ffmpeg": True,
                 "merge_output_format": "mp4",
-                "cookiefile": COOKIES_FILE,
+                "--cookies": cookies_file,
                 "http_headers": {"User-Agent": USER_AGENT},
             }
             x = yt_dlp.YoutubeDL(ydl_optssx)
@@ -357,7 +357,7 @@ class YouTubeAPI:
                         "preferredquality": "192",
                     }
                 ],
-                "cookiefile": COOKIES_FILE,
+                "--cookies": cookies_file,
                 "http_headers": {"User-Agent": USER_AGENT},
             }
             x = yt_dlp.YoutubeDL(ydl_optssx)
@@ -378,7 +378,7 @@ class YouTubeAPI:
             else:
                 cmd = [
                     "yt-dlp",
-                    f"--cookies={COOKIES_FILE}",
+                    "--cookies", cookies_file,
                     "--http-header", f"User-Agent:{USER_AGENT}",
                     "-g",
                     "-f", "best[height<=?720][width<=?1280]",
