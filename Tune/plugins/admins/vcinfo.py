@@ -29,7 +29,7 @@ async def set_volume(cli, message: Message, _, chat_id):
     try:
         await Jarvis.change_volume(chat_id, volume_level)
         await message.reply_text(
-            f"🔊 Stream volume set to <b>{volume_level}</b>.\n└ Requested by: {message.from_user.mention} 🥀"
+            f"<b>🔊 Stream volume set to {volume_level}</b>.\n\n└ Requested by: {message.from_user.mention} 🥀"
         )
     except Exception as e:
         await message.reply_text(f"❌ Failed to change volume.\n<b>Error:</b> {e}")
