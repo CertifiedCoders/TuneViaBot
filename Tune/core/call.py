@@ -210,7 +210,7 @@ class Call:
     async def stream_call(self, link: str) -> None:
         assistant = await group_assistant(self, config.LOGGER_ID)
         await assistant.play(config.LOGGER_ID, MediaStream(link))
-        await asyncio.sleep(8)
+        await asyncio.sleep(4)
         await assistant.leave_call(config.LOGGER_ID)
 
     async def join_call(
