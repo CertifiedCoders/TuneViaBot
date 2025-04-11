@@ -360,15 +360,7 @@ async def play_commnd(
 
         # Directly do fast_search (yt-dlp) instead of youtubesearchpython
         try:
-            data = await YouTube.fast_search(query)
-            track_id = data["id"]
-            details = {
-                "title": data["title"],
-                "link": data["url"],
-                "vidid": track_id,
-                "duration_min": data["duration_min"],
-                "thumb": data["thumb"],
-            }
+            details, track_id = await YouTube.track(query)
         except:
             return await mystic.edit_text(_["play_3"])
 
