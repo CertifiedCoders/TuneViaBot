@@ -1,5 +1,6 @@
 import random
 import string
+import asyncio
 
 from pyrogram import filters
 from pyrogram.types import InlineKeyboardMarkup, InputMediaPhoto, Message
@@ -49,6 +50,26 @@ async def play_commnd(
         _["play_2"].format(channel) if channel else _["play_1"]
     )
 
+    asyncio.create_task(
+        process_playback(
+            client, message, mystic, _,
+            chat_id, video, channel, playmode, url, fplay
+        )
+    )
+
+
+async def process_playback(
+    client,
+    message,
+    mystic,
+    _,
+    chat_id,
+    video,
+    channel,
+    playmode,
+    url,
+    fplay,
+):
     plist_id = None
     slider = None
     plist_type = None
@@ -102,7 +123,8 @@ async def play_commnd(
                 ex_type = type(e).__name__
                 err = e if ex_type == "AssistantErr" else _["general_2"].format(ex_type)
                 return await mystic.edit_text(err)
-            return await mystic.delete()
+            # Instead of deleting 'mystic', we finalize it:
+            return await mystic.edit_text("✅ Now playing [Telegram Audio]!")
         return
 
     # --------------------------------------------------
@@ -160,7 +182,7 @@ async def play_commnd(
                 ex_type = type(e).__name__
                 err = e if ex_type == "AssistantErr" else _["general_2"].format(ex_type)
                 return await mystic.edit_text(err)
-            return await mystic.delete()
+            return await mystic.edit_text("✅ Now playing [Telegram Video]!")
         return
 
     # --------------------------------------------------
@@ -307,7 +329,7 @@ async def play_commnd(
                 ex_type = type(e).__name__
                 err = e if ex_type == "AssistantErr" else _["general_2"].format(ex_type)
                 return await mystic.edit_text(err)
-            return await mystic.delete()
+            return await mystic.edit_text("✅ Now playing [SoundCloud Track]!")
 
         else:
             # fallback: maybe index/m3u8 link?
@@ -413,7 +435,7 @@ async def play_commnd(
             err = e if ex_type == "AssistantErr" else _["general_2"].format(ex_type)
             return await mystic.edit_text(err)
 
-        await mystic.delete()
+        await mystic.edit_text("✅ Now playing [Direct Stream]!")
         return await play_logs(message, streamtype=streamtype)
 
     else:
@@ -431,7 +453,7 @@ async def play_commnd(
                 "c" if channel else "g",
                 "f" if fplay else "d",
             )
-            await mystic.delete()
+            await mystic.edit_text("✅ Playlist Detected, see new message!")
             await message.reply_photo(
                 photo=details["thumb"] if plist_type == "yt" else (details if plist_type == "apple" else img),
                 caption=cap,
@@ -451,7 +473,7 @@ async def play_commnd(
                     "c" if channel else "g",
                     "f" if fplay else "d",
                 )
-                await mystic.delete()
+                await mystic.edit_text("✅ Slider Mode - see new message!")
                 await message.reply_photo(
                     photo=details["thumb"],
                     caption=_["play_10"].format(
@@ -463,7 +485,7 @@ async def play_commnd(
                 return await play_logs(message, streamtype="Searched on Youtube")
             else:
                 # Normal single track
-                await mystic.delete()
+                await mystic.edit_text("✅ Single Track Found - see new message!")
                 buttons = track_markup(
                     _,
                     track_id,
@@ -483,7 +505,7 @@ async def play_commnd(
 
 
 # ---------------------------------------------------------------------------
-# Callback Queries
+# Callback Queries (unchanged except referencing the same concurrency approach)
 # ---------------------------------------------------------------------------
 
 @app.on_callback_query(filters.regex("MusicStream") & ~BANNED_USERS)
@@ -516,7 +538,6 @@ async def play_music(client, CallbackQuery, _):
         _["play_2"].format(channel) if channel else _["play_1"]
     )
 
-    # Here we can keep or remove the old approach, but typically we do:
     try:
         details, track_id = await YouTube.track(vidid, True)
     except:
@@ -564,7 +585,7 @@ async def play_music(client, CallbackQuery, _):
         err = e if ex_type == "AssistantErr" else _["general_2"].format(ex_type)
         return await mystic.edit_text(err)
 
-    return await mystic.delete()
+    return await mystic.edit_text("✅ Now playing [Callback Query]!")
 
 
 @app.on_callback_query(filters.regex("AnonymousAdmin") & ~BANNED_USERS)
@@ -681,7 +702,7 @@ async def play_playlists_command(client, CallbackQuery, _):
         err = e if ex_type == "AssistantErr" else _["general_2"].format(ex_type)
         return await mystic.edit_text(err)
 
-    return await mystic.delete()
+    return await mystic.edit_text("✅ Now playing [Playlist Callback]!")
 
 
 @app.on_callback_query(filters.regex("slider") & ~BANNED_USERS)
