@@ -1,6 +1,6 @@
-
 import random
 import string
+import asyncio
 
 from pyrogram import filters
 from pyrogram.types import InlineKeyboardMarkup, InputMediaPhoto, Message
@@ -50,6 +50,26 @@ async def play_commnd(
         _["play_2"].format(channel) if channel else _["play_1"]
     )
 
+    asyncio.create_task(
+        _play_logic(
+            client, message, mystic, _,
+            chat_id, video, channel, playmode, url, fplay
+        )
+    )
+
+
+async def _play_logic(
+    client,
+    message: Message,
+    mystic: Message,
+    _,
+    chat_id,
+    video,
+    channel,
+    playmode,
+    url,
+    fplay,
+):
     plist_id = None
     slider = None
     plist_type = None
@@ -517,7 +537,7 @@ async def play_music(client, CallbackQuery, _):
         _["play_2"].format(channel) if channel else _["play_1"]
     )
 
-    # Here we can keep or remove the old approach, but typically we do:
+    # Original approach remains
     try:
         details, track_id = await YouTube.track(vidid, True)
     except:
@@ -728,7 +748,8 @@ async def slider_queries(client, CallbackQuery, _):
             ),
         )
         return await CallbackQuery.edit_message_media(
-            media=med, reply_markup=InlineKeyboardMarkup(buttons)
+            media=med,
+            reply_markup=InlineKeyboardMarkup(buttons)
         )
 
     elif what == "B":
@@ -751,5 +772,6 @@ async def slider_queries(client, CallbackQuery, _):
             ),
         )
         return await CallbackQuery.edit_message_media(
-            media=med, reply_markup=InlineKeyboardMarkup(buttons)
+            media=med,
+            reply_markup=InlineKeyboardMarkup(buttons)
         )
