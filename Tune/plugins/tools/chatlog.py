@@ -6,7 +6,7 @@ from Tune import app
 
 chatlog_img = "https://telegra.ph/file/7cc7183b82327933b7b04.jpg"
 
-# ➤ Triggered when the bot is added to a new group
+
 @app.on_message(filters.new_chat_members, group=2)
 async def join_watcher(_, message: Message):
     chat = message.chat
@@ -33,7 +33,6 @@ async def join_watcher(_, message: Message):
                 f"🤔 ᴀᴅᴅᴇᴅ ʙʏ: {message.from_user.mention if message.from_user else '𝐔ɴᴋɴᴏᴡɴ'}"
             )
 
-            # Button only if link is valid
             buttons = []
             if link.startswith("http"):
                 buttons.append([InlineKeyboardButton("sᴇᴇ ɢʀᴏᴜᴘ👀", url=link)])
@@ -42,12 +41,11 @@ async def join_watcher(_, message: Message):
                 LOG_GROUP_ID,
                 photo=chatlog_img,
                 caption=msg,
-                parse_mode=ParseMode.HTML,
+                parse_mode=ParseMode.MARKDOWN,
                 reply_markup=InlineKeyboardMarkup(buttons) if buttons else None,
             )
 
 
-# ➤ Triggered when the bot is removed from a group
 @app.on_message(filters.left_chat_member)
 async def on_left_chat_member(_, message: Message):
     bot_user = await app.get_me()
@@ -70,18 +68,18 @@ async def on_left_chat_member(_, message: Message):
     removed_by = message.from_user.mention if message.from_user else "𝐔ɴᴋɴᴏᴡɴ 𝐔sᴇʀ"
 
     left_msg = (
-        "✫ <b><u>#𝐋ᴇғᴛ_𝐆ʀᴏᴜᴘ</u></b> ✫\n\n"
-        f"𝐂ʜᴀᴛ 𝐓ɪᴛʟᴇ : <code>{title}</code>\n"
-        f"𝐂ʜᴀᴛ 𝐈ᴅ : <code>{chat.id}</code>\n"
-        f"𝐔sᴇʀɴᴀᴍᴇ : {username}\n"
-        f"𝐌ᴇᴍʙᴇʀs : {members}\n"
-        f"𝐂ʜᴀᴛ ʟɪɴᴋ : {link}\n"
-        f"𝐑ᴇᴍᴏᴠᴇᴅ ʙʏ : {removed_by}\n"
-        f"𝐁ᴏᴛ : @{bot_user.username}"
+        "✫ #Left_Group ✫\n\n"
+        f"ᴄʜᴀᴛ ɴᴀᴍᴇ : <code>{title}</code>\n"
+        f"ᴄʜᴀᴛ ɪᴅ : <code>{chat.id}</code>\n"
+        f"ᴄʜᴀᴛ ᴜsᴇʀɴᴀᴍᴇ : {username}\n"
+        f"ɢʀᴏᴜᴘ ᴍᴇᴍʙᴇʀs : {members}\n"
+        f"ᴄʜᴀᴛ ʟɪɴᴋ : {link}\n"
+        f"ʀᴇᴍᴏᴠᴇᴅ ʙʏ : {removed_by}\n"
+        f"ʙᴏᴛ : @{bot_user.username}"
     )
 
     await app.send_message(
         LOG_GROUP_ID,
         text=left_msg,
-        parse_mode=ParseMode.HTML
+        parse_mode=ParseMode.MARKDOWN
     )
