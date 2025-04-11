@@ -32,6 +32,13 @@ class YouTubeAPI:
         self.status = "https://www.youtube.com/oembed?url="
         self.listbase = "https://youtube.com/playlist?list="
         self.reg = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+        self.ydl_opts = {
+            'quiet': True,
+            'no_warnings': True,
+            'cookiefile': cookies_file,
+        }
+        self.ydl = yt_dlp.YoutubeDL(self.ydl_opts)
+        self.ydl_lock = asyncio.Lock()
 
     async def _search_info(self, query: str) -> dict:
         if not re.search(self.regex, query):
@@ -41,20 +48,15 @@ class YouTubeAPI:
 
         loop = asyncio.get_running_loop()
 
-        def get_info():
-            opts = {
-                'quiet': True,
-                'no_warnings': True,
-                'cookiefile': cookies_file,
-            }
-            with yt_dlp.YoutubeDL(opts) as ydl:
-                return ydl.extract_info(search_query, download=False)
+        async with self.ydl_lock:
 
-        info = await loop.run_in_executor(None, get_info)
+            def get_info():
+                return self.ydl.extract_info(search_query, download=False)
+            info = await loop.run_in_executor(None, get_info)
+
         if 'entries' in info and info['entries']:
             return info['entries'][0]
         return info
-
 
     async def exists(self, link: str, videoid: Union[bool, str] = None):
         if videoid:
@@ -83,7 +85,7 @@ class YouTubeAPI:
                         return entity.url
         if offset is None:
             return None
-        return text[offset : offset + length]
+        return text[offset: offset + length]
 
     async def details(self, link: str, videoid: Union[bool, str] = None):
         if videoid:
@@ -227,7 +229,7 @@ class YouTubeAPI:
         loop = asyncio.get_running_loop()
 
         def get_info():
-            opts = {'quiet': True, 'no_warnings': True}
+            opts = {'quiet': True, 'no_warnings': True, 'cookiefile': cookies_file}
             with yt_dlp.YoutubeDL(opts) as ydl:
                 return ydl.extract_info(search_query, download=False)
 
