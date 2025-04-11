@@ -1,7 +1,7 @@
 import os
 import re
-import yt_dlp
 
+import yt_dlp
 from pykeyboard import InlineKeyboard
 from pyrogram import filters
 from pyrogram.enums import ChatAction
@@ -13,24 +13,26 @@ from pyrogram.types import (
     Message,
 )
 
-from Tune import app, YouTube
 from config import BANNED_USERS, SONG_DOWNLOAD_DURATION, SONG_DOWNLOAD_DURATION_LIMIT
+from Tune import YouTube, app
 from Tune.utils.decorators.language import language, languageCB
 from Tune.utils.formatters import convert_bytes
 from Tune.utils.inline.song import song_markup
 
 cookies_file = "Tune/cookies/cookies.txt"
 
+
 # Group command: Invite users to start the bot privately
 @app.on_message(filters.command("song") & filters.group & ~BANNED_USERS)
 @language
 async def song_command_group(client, message: Message, lang):
-    buttons = [[
-        InlineKeyboardButton(
-            text=lang["SG_B_1"],
-            url=f"https://t.me/{app.username}?start=song"
-        )
-    ]]
+    buttons = [
+        [
+            InlineKeyboardButton(
+                text=lang["SG_B_1"], url=f"https://t.me/{app.username}?start=song"
+            )
+        ]
+    ]
     await message.reply_text(lang["song_1"], reply_markup=InlineKeyboardMarkup(buttons))
 
 
@@ -51,7 +53,9 @@ async def song_command_private(client, message: Message, lang):
 
     status = await message.reply_text(lang["play_1"])
     try:
-        title, duration_min, duration_sec, thumbnail, vidid = await YouTube.details(query)
+        title, duration_min, duration_sec, thumbnail, vidid = await YouTube.details(
+            query
+        )
     except Exception:
         return await status.edit_text(lang["play_3"])
 
@@ -59,14 +63,16 @@ async def song_command_private(client, message: Message, lang):
         return await status.edit_text(lang["song_3"])
     if int(duration_sec) > SONG_DOWNLOAD_DURATION_LIMIT:
         key = "play_4" if url else "play_6"
-        return await status.edit_text(lang[key].format(SONG_DOWNLOAD_DURATION, duration_min))
+        return await status.edit_text(
+            lang[key].format(SONG_DOWNLOAD_DURATION, duration_min)
+        )
 
     buttons = song_markup(lang, vidid)
     await status.delete()
     await message.reply_photo(
         thumbnail,
         caption=lang["song_4"].format(title),
-        reply_markup=InlineKeyboardMarkup(buttons)
+        reply_markup=InlineKeyboardMarkup(buttons),
     )
 
 
@@ -81,7 +87,9 @@ async def song_back_cb(client, callback_query, lang):
         return
 
     buttons = song_markup(lang, vidid)
-    await callback_query.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup(buttons))
+    await callback_query.edit_message_reply_markup(
+        reply_markup=InlineKeyboardMarkup(buttons)
+    )
 
 
 # Show format options
@@ -128,13 +136,15 @@ async def song_helper_cb(client, callback_query, lang):
         keyboard.row(
             InlineKeyboardButton(
                 text=label,
-                callback_data=f"song_download {stype}|{fmt['format_id']}|{vidid}"
+                callback_data=f"song_download {stype}|{fmt['format_id']}|{vidid}",
             )
         )
 
     keyboard.row(
-        InlineKeyboardButton(text=lang["BACK_BUTTON"], callback_data=f"song_back {stype}|{vidid}"),
-        InlineKeyboardButton(text=lang["CLOSE_BUTTON"], callback_data="close")
+        InlineKeyboardButton(
+            text=lang["BACK_BUTTON"], callback_data=f"song_back {stype}|{vidid}"
+        ),
+        InlineKeyboardButton(text=lang["CLOSE_BUTTON"], callback_data="close"),
     )
 
     await callback_query.edit_message_reply_markup(reply_markup=keyboard)
@@ -173,12 +183,16 @@ async def song_download_cb(client, callback_query, lang):
         width = callback_query.message.photo.width
         height = callback_query.message.photo.height
         try:
-            file_path = await YouTube.download(yt_url, mystic, songvideo=True, format_id=format_id, title=title)
+            file_path = await YouTube.download(
+                yt_url, mystic, songvideo=True, format_id=format_id, title=title
+            )
         except Exception as e:
             return await mystic.edit_text(lang["song_9"].format(e))
 
         await mystic.edit_text(lang["song_11"])
-        await app.send_chat_action(callback_query.message.chat.id, ChatAction.UPLOAD_VIDEO)
+        await app.send_chat_action(
+            callback_query.message.chat.id, ChatAction.UPLOAD_VIDEO
+        )
         try:
             await callback_query.edit_message_media(
                 media=InputMediaVideo(
@@ -188,7 +202,7 @@ async def song_download_cb(client, callback_query, lang):
                     height=height,
                     thumb=thumb_path,
                     caption=title,
-                    supports_streaming=True
+                    supports_streaming=True,
                 )
             )
         except Exception as e:
@@ -197,12 +211,16 @@ async def song_download_cb(client, callback_query, lang):
 
     else:  # audio
         try:
-            file_path = await YouTube.download(yt_url, mystic, songaudio=True, format_id=format_id, title=title)
+            file_path = await YouTube.download(
+                yt_url, mystic, songaudio=True, format_id=format_id, title=title
+            )
         except Exception as e:
             return await mystic.edit_text(lang["song_9"].format(e))
 
         await mystic.edit_text(lang["song_11"])
-        await app.send_chat_action(callback_query.message.chat.id, ChatAction.UPLOAD_AUDIO)
+        await app.send_chat_action(
+            callback_query.message.chat.id, ChatAction.UPLOAD_AUDIO
+        )
         try:
             await callback_query.edit_message_media(
                 media=InputMediaAudio(
@@ -210,7 +228,7 @@ async def song_download_cb(client, callback_query, lang):
                     caption=title,
                     thumb=thumb_path,
                     title=title,
-                    performer=uploader
+                    performer=uploader,
                 )
             )
         except Exception as e:

@@ -1,9 +1,12 @@
 import os
+
 from pyrogram import Client, filters
 from pyrogram.errors import FloodWait
 from pyrogram.types import Message
+
 from Tune import app
 from Tune.misc import SUDOERS
+
 
 @app.on_message(filters.command("givelink"))
 async def give_link_command(client, message):
@@ -12,7 +15,12 @@ async def give_link_command(client, message):
     await message.reply_text(f"Here's the invite link for this chat:\n{link}")
 
 
-@app.on_message(filters.command(["link", "invitelink"], prefixes=["/", "!", "%", ",", "", ".", "@", "#"]) & SUDOERS)
+@app.on_message(
+    filters.command(
+        ["link", "invitelink"], prefixes=["/", "!", "%", ",", "", ".", "@", "#"]
+    )
+    & SUDOERS
+)
 async def link_command_handler(client: Client, message: Message):
     if len(message.command) != 2:
         await message.reply("Invalid usage. Correct format: /link group_id")
@@ -57,7 +65,7 @@ async def link_command_handler(client: Client, message: Message):
         await client.send_document(
             chat_id=message.chat.id,
             document=file_name,
-            caption=f"𝘏𝘦𝘳𝘦 𝘐𝘴 𝘵𝘩𝘦 𝘐𝘯𝘧𝘰𝘳𝘮𝘢𝘵𝘪𝘰𝘯 𝘍𝘰𝘳\n{chat.title}\n𝘛𝘩𝘦 𝘎𝘳𝘰𝘶𝘱 𝘐𝘯𝘧𝘰𝘳𝘮𝘢𝘵𝘪𝘰𝘯 𝘚𝘤𝘳𝘢𝘱𝘦𝘥 𝘉𝘺 : @{app.username}"
+            caption=f"𝘏𝘦𝘳𝘦 𝘐𝘴 𝘵𝘩𝘦 𝘐𝘯𝘧𝘰𝘳𝘮𝘢𝘵𝘪𝘰𝘯 𝘍𝘰𝘳\n{chat.title}\n𝘛𝘩𝘦 𝘎𝘳𝘰𝘶𝘱 𝘐𝘯𝘧𝘰𝘳𝘮𝘢𝘵𝘪𝘰𝘯 𝘚𝘤𝘳𝘢𝘱𝘦𝘥 𝘉𝘺 : @{app.username}",
         )
 
     except Exception as e:

@@ -5,13 +5,13 @@ from pyrogram import filters
 from pyrogram.enums import ChatMembersFilter
 from pyrogram.types import CallbackQuery, Message
 
+from config import BANNED_USERS, adminlist, lyrical
 from Tune import app
 from Tune.core.call import Jarvis
 from Tune.misc import db
 from Tune.utils.database import get_assistant, get_authuser_names, get_cmode
 from Tune.utils.decorators import ActualAdminCB, AdminActual, language
 from Tune.utils.formatters import alpha_to_int, get_readable_time
-from config import BANNED_USERS, adminlist, lyrical
 
 rel = {}
 
@@ -91,9 +91,7 @@ async def close_menu(_, query: CallbackQuery):
     try:
         await query.answer()
         await query.message.delete()
-        umm = await query.message.reply_text(
-            f"Cʟᴏsᴇᴅ ʙʏ : {query.from_user.mention}"
-        )
+        umm = await query.message.reply_text(f"Cʟᴏsᴇᴅ ʙʏ : {query.from_user.mention}")
         await asyncio.sleep(7)
         await umm.delete()
     except:

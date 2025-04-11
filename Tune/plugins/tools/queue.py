@@ -6,13 +6,13 @@ from pyrogram.errors import FloodWait
 from pyrogram.types import CallbackQuery, InputMediaPhoto, Message
 
 import config
+from config import BANNED_USERS
 from Tune import app
 from Tune.misc import db
 from Tune.utils import JarvisBin, get_channeplayCB, seconds_to_min
 from Tune.utils.database import get_cmode, is_active_chat, is_music_playing
 from Tune.utils.decorators.language import language, languageCB
 from Tune.utils.inline import queue_back_markup, queue_markup
-from config import BANNED_USERS
 
 basic = {}
 

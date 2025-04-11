@@ -1,11 +1,13 @@
 import asyncio
+
 from pyrogram import filters
 from pyrogram.enums import ChatMemberStatus
 from pyrogram.types import ChatJoinRequest
+
 from Tune import app
 from Tune.misc import SUDOERS
-from Tune.utils.database import get_assistant
 from Tune.utils.admin_filters import admin_filter
+from Tune.utils.database import get_assistant
 
 
 async def join_userbot(app, chat_id, chat_username=None):
@@ -36,6 +38,7 @@ async def join_userbot(app, chat_id, chat_username=None):
         except Exception as join_request_error:
             return f"Error: {str(join_request_error)}"
 
+
 @app.on_chat_join_request()
 async def approve_join_request(client, chat_join_request: ChatJoinRequest):
     userbot = await get_assistant(chat_join_request.chat.id)
@@ -43,13 +46,14 @@ async def approve_join_request(client, chat_join_request: ChatJoinRequest):
         await client.approve_chat_join_request(chat_join_request.chat.id, userbot.id)
         await client.send_message(
             chat_join_request.chat.id,
-            "**✅ Assistant has been approved and joined the chat.**"
+            "**✅ Assistant has been approved and joined the chat.**",
         )
 
+
 @app.on_message(
-    filters.command(["userbotjoin", "assistantjoin"], prefixes=[".", "/"]) &
-    (filters.group | filters.private) &
-    admin_filter
+    filters.command(["userbotjoin", "assistantjoin"], prefixes=[".", "/"])
+    & (filters.group | filters.private)
+    & admin_filter
 )
 async def join_group(app, message):
     chat_id = message.chat.id
@@ -66,6 +70,7 @@ async def join_group(app, message):
 
     await status_message.edit_text(response)
 
+
 @app.on_message(
     filters.command("userbotleave", prefixes=[".", "/"]) & filters.group & admin_filter
 )
@@ -73,9 +78,12 @@ async def leave_one(app, message):
     try:
         userbot = await get_assistant(message.chat.id)
         await userbot.leave_chat(message.chat.id)
-        await app.send_message(message.chat.id, "**✅ Assistant successfully left this chat.**")
+        await app.send_message(
+            message.chat.id, "**✅ Assistant successfully left this chat.**"
+        )
     except Exception as leave_error:
         await message.reply(f"Error: {str(leave_error)}")
+
 
 @app.on_message(filters.command(["leaveall"], prefixes=["."]) & SUDOERS)
 async def leave_all(app, message):
@@ -100,5 +108,5 @@ async def leave_all(app, message):
     finally:
         await app.send_message(
             message.chat.id,
-            f"**✅ Left from:** {left} chats.\n**❌ Failed in:** {failed} chats."
+            f"**✅ Left from:** {left} chats.\n**❌ Failed in:** {failed} chats.",
         )

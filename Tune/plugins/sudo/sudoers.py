@@ -1,16 +1,24 @@
 from pyrogram import filters
-from pyrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
+from pyrogram.types import (
+    CallbackQuery,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    Message,
+)
+
+from config import BANNED_USERS, OWNER_ID
 from Tune import app
 from Tune.misc import SUDOERS
 from Tune.utils.database import add_sudo, remove_sudo
 from Tune.utils.decorators.language import language
 from Tune.utils.extraction import extract_user
 from Tune.utils.inline import close_markup
-from config import BANNED_USERS, OWNER_ID
 
 
 # (a) Add Sudo User
-@app.on_message(filters.command(["addsudo"], prefixes=["/", "!", "."]) & filters.user(OWNER_ID))
+@app.on_message(
+    filters.command(["addsudo"], prefixes=["/", "!", "."]) & filters.user(OWNER_ID)
+)
 @language
 async def useradd(client, message: Message, _):
     if not message.reply_to_message and len(message.command) != 2:
@@ -29,7 +37,10 @@ async def useradd(client, message: Message, _):
 
 
 # (b) Remove Sudo User
-@app.on_message(filters.command(["delsudo", "rmsudo"], prefixes=["/", "!", "."]) & filters.user(OWNER_ID))
+@app.on_message(
+    filters.command(["delsudo", "rmsudo"], prefixes=["/", "!", "."])
+    & filters.user(OWNER_ID)
+)
 @language
 async def userdel(client, message: Message, _):
     if not message.reply_to_message and len(message.command) != 2:
@@ -48,14 +59,19 @@ async def userdel(client, message: Message, _):
 
 
 # (c) Show Sudolist Entry Message
-@app.on_message(filters.command(["sudolist", "listsudo", "sudoers"], prefixes=["/", "!", "."]) & ~BANNED_USERS)
+@app.on_message(
+    filters.command(["sudolist", "listsudo", "sudoers"], prefixes=["/", "!", "."])
+    & ~BANNED_USERS
+)
 async def sudoers_list(client, message: Message):
-    keyboard = [[InlineKeyboardButton("๏ ᴠɪᴇᴡ sᴜᴅᴏʟɪsᴛ ๏", callback_data="check_sudo_list")]]
+    keyboard = [
+        [InlineKeyboardButton("๏ ᴠɪᴇᴡ sᴜᴅᴏʟɪsᴛ ๏", callback_data="check_sudo_list")]
+    ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await message.reply_video(
         video="https://telegra.ph/file/034b973ac9a7b1769e847.mp4",
         caption="**» ᴄʜᴇᴄᴋ sᴜᴅᴏ ʟɪsᴛ ʙʏ ɢɪᴠᴇɴ ʙᴇʟᴏᴡ ʙᴜᴛᴛᴏɴ.**\n\n**» ɴᴏᴛᴇ:**  ᴏɴʟʏ sᴜᴅᴏ ᴜsᴇʀs ᴄᴀɴ ᴠɪᴇᴡ.",
-        reply_markup=reply_markup
+        reply_markup=reply_markup,
     )
 
 
@@ -63,11 +79,19 @@ async def sudoers_list(client, message: Message):
 @app.on_callback_query(filters.regex("^check_sudo_list$"))
 async def check_sudo_list(client, callback_query: CallbackQuery):
     if callback_query.from_user.id not in SUDOERS:
-        return await callback_query.answer("ᴏɴʟʏ sᴜᴅᴏᴇʀs ᴀɴᴅ ᴏᴡɴᴇʀ ᴄᴀɴ ᴀᴄᴄᴇss ᴛʜɪs", show_alert=True)
+        return await callback_query.answer(
+            "ᴏɴʟʏ sᴜᴅᴏᴇʀs ᴀɴᴅ ᴏᴡɴᴇʀ ᴄᴀɴ ᴀᴄᴄᴇss ᴛʜɪs", show_alert=True
+        )
 
     owner = await app.get_users(OWNER_ID)
     caption = f"**˹ʟɪsᴛ ᴏғ ʙᴏᴛ ᴍᴏᴅᴇʀᴀᴛᴏʀs˼**\n\n**🌹Oᴡɴᴇʀ** ➥ {owner.mention}\n\n"
-    keyboard = [[InlineKeyboardButton("๏ ᴠɪᴇᴡ ᴏᴡɴᴇʀ ๏", url=f"tg://openmessage?user_id={OWNER_ID}")]]
+    keyboard = [
+        [
+            InlineKeyboardButton(
+                "๏ ᴠɪᴇᴡ ᴏᴡɴᴇʀ ๏", url=f"tg://openmessage?user_id={OWNER_ID}"
+            )
+        ]
+    ]
 
     count = 1
     for user_id in SUDOERS:
@@ -76,30 +100,44 @@ async def check_sudo_list(client, callback_query: CallbackQuery):
         try:
             user = await app.get_users(user_id)
             caption += f"**🎁 Sᴜᴅᴏ** {count} **»** {user.mention}\n"
-            keyboard.append([
-                InlineKeyboardButton(f"๏ ᴠɪᴇᴡ sᴜᴅᴏ {count} ๏", url=f"tg://openmessage?user_id={user_id}")
-            ])
+            keyboard.append(
+                [
+                    InlineKeyboardButton(
+                        f"๏ ᴠɪᴇᴡ sᴜᴅᴏ {count} ๏",
+                        url=f"tg://openmessage?user_id={user_id}",
+                    )
+                ]
+            )
             count += 1
         except:
             continue
 
-    keyboard.append([InlineKeyboardButton("๏ ʙᴀᴄᴋ ๏", callback_data="back_to_main_menu")])
-    await callback_query.message.edit_caption(caption=caption, reply_markup=InlineKeyboardMarkup(keyboard))
+    keyboard.append(
+        [InlineKeyboardButton("๏ ʙᴀᴄᴋ ๏", callback_data="back_to_main_menu")]
+    )
+    await callback_query.message.edit_caption(
+        caption=caption, reply_markup=InlineKeyboardMarkup(keyboard)
+    )
 
 
 # (e) Callback to Go Back to Main Sudolist Menu
 @app.on_callback_query(filters.regex("^back_to_main_menu$"))
 async def back_to_main_menu(client, callback_query: CallbackQuery):
-    keyboard = [[InlineKeyboardButton("๏ ᴠɪᴇᴡ sᴜᴅᴏʟɪsᴛ ๏", callback_data="check_sudo_list")]]
+    keyboard = [
+        [InlineKeyboardButton("๏ ᴠɪᴇᴡ sᴜᴅᴏʟɪsᴛ ๏", callback_data="check_sudo_list")]
+    ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await callback_query.message.edit_caption(
         caption="**» ᴄʜᴇᴄᴋ sᴜᴅᴏ ʟɪsᴛ ʙʏ ɢɪᴠᴇɴ ʙᴇʟᴏᴡ ʙᴜᴛᴛᴏɴ.**\n\n**» ɴᴏᴛᴇ:**  ᴏɴʟʏ sᴜᴅᴏ ᴜsᴇʀs ᴄᴀɴ ᴠɪᴇᴡ.",
-        reply_markup=reply_markup
+        reply_markup=reply_markup,
     )
 
 
 # (f) Remove All Sudo Users Except Owner
-@app.on_message(filters.command(["delallsudo"], prefixes=["/", "!", "%", ",", ".", "@", "#"]) & filters.user(OWNER_ID))
+@app.on_message(
+    filters.command(["delallsudo"], prefixes=["/", "!", "%", ",", ".", "@", "#"])
+    & filters.user(OWNER_ID)
+)
 @language
 async def del_all_sudo(client, message: Message, _):
     removed_count = 0

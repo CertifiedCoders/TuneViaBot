@@ -3,25 +3,24 @@ import os
 from datetime import datetime, timedelta
 from typing import Union
 
+from ntgcalls import TelegramServerError
 from pyrogram import Client
 from pyrogram.errors import FloodWait
 from pyrogram.types import InlineKeyboardMarkup
-
 from pytgcalls import PyTgCalls
 from pytgcalls.exceptions import NoActiveGroupCall
 from pytgcalls.types import (
-    Update,
+    AudioQuality,
     ChatUpdate,
     MediaStream,
-    AudioQuality,
-    VideoQuality,
     StreamEnded,
+    Update,
     UpdatedGroupCallParticipant,
+    VideoQuality,
 )
 
-from ntgcalls import TelegramServerError
-
 import config
+from strings import get_string
 from Tune import LOGGER, YouTube, app
 from Tune.misc import db
 from Tune.utils.database import (
@@ -41,7 +40,6 @@ from Tune.utils.formatters import check_duration, seconds_to_min, speed_converte
 from Tune.utils.inline.play import stream_markup
 from Tune.utils.stream.autoclear import auto_clean
 from Tune.utils.thumbnails import get_thumb
-from strings import get_string
 
 autoend = {}
 counter = {}
@@ -58,11 +56,8 @@ async def _clear_(chat_id: int) -> None:
 
 
 def dynamic_media_stream(
-    path: str,
-    video: bool = False,
-    ffmpeg_params: str = None
+    path: str, video: bool = False, ffmpeg_params: str = None
 ) -> MediaStream:
-    
     return MediaStream(
         audio_path=path,
         media_path=path,
@@ -71,28 +66,51 @@ def dynamic_media_stream(
         video_flags=(
             MediaStream.Flags.AUTO_DETECT if video else MediaStream.Flags.IGNORE
         ),
-        ffmpeg_parameters=ffmpeg_params
+        ffmpeg_parameters=ffmpeg_params,
     )
 
 
 class Call:
-
     def __init__(self):
-        self.userbot1 = Client("TuneViaAssis1", config.API_ID, config.API_HASH, session_string=str(config.STRING1))
+        self.userbot1 = Client(
+            "TuneViaAssis1",
+            config.API_ID,
+            config.API_HASH,
+            session_string=str(config.STRING1),
+        )
         self.one = PyTgCalls(self.userbot1)
 
-        self.userbot2 = Client("TuneViaAssis2", config.API_ID, config.API_HASH, session_string=str(config.STRING2))
+        self.userbot2 = Client(
+            "TuneViaAssis2",
+            config.API_ID,
+            config.API_HASH,
+            session_string=str(config.STRING2),
+        )
         self.two = PyTgCalls(self.userbot2)
 
-        self.userbot3 = Client("TuneViaAssis3", config.API_ID, config.API_HASH, session_string=str(config.STRING3))
+        self.userbot3 = Client(
+            "TuneViaAssis3",
+            config.API_ID,
+            config.API_HASH,
+            session_string=str(config.STRING3),
+        )
         self.three = PyTgCalls(self.userbot3)
 
-        self.userbot4 = Client("TuneViaAssis4", config.API_ID, config.API_HASH, session_string=str(config.STRING4))
+        self.userbot4 = Client(
+            "TuneViaAssis4",
+            config.API_ID,
+            config.API_HASH,
+            session_string=str(config.STRING4),
+        )
         self.four = PyTgCalls(self.userbot4)
 
-        self.userbot5 = Client("TuneViaAssis5", config.API_ID, config.API_HASH, session_string=str(config.STRING5))
+        self.userbot5 = Client(
+            "TuneViaAssis5",
+            config.API_ID,
+            config.API_HASH,
+            session_string=str(config.STRING5),
+        )
         self.five = PyTgCalls(self.userbot5)
-
 
     async def pause_stream(self, chat_id: int) -> None:
         assistant = await group_assistant(self, chat_id)
@@ -152,18 +170,20 @@ class Call:
         assistant = await group_assistant(self, chat_id)
         await assistant.change_volume_call(chat_id, volume)
 
-    async def seek_stream(self, chat_id: int, file_path: str, to_seek: str, duration: str, mode: str) -> None:
+    async def seek_stream(
+        self, chat_id: int, file_path: str, to_seek: str, duration: str, mode: str
+    ) -> None:
         assistant = await group_assistant(self, chat_id)
         ffmpeg_params = f"-ss {to_seek} -to {duration}"
-        is_video = (mode == "video")
+        is_video = mode == "video"
         stream = dynamic_media_stream(
-            path=file_path,
-            video=is_video,
-            ffmpeg_params=ffmpeg_params
+            path=file_path, video=is_video, ffmpeg_params=ffmpeg_params
         )
         await assistant.play(chat_id, stream)
 
-    async def speedup_stream(self, chat_id: int, file_path: str, speed: float, playing: list) -> None:
+    async def speedup_stream(
+        self, chat_id: int, file_path: str, speed: float, playing: list
+    ) -> None:
         assistant = await group_assistant(self, chat_id)
         base = os.path.basename(file_path)
         chatdir = os.path.join("playback", str(speed))
@@ -172,9 +192,7 @@ class Call:
 
         if not os.path.exists(out):
             vs = str(2.0 / float(speed))
-            cmd = (
-                f"ffmpeg -i {file_path} -filter:v setpts={vs}*PTS -filter:a atempo={speed} {out}"
-            )
+            cmd = f"ffmpeg -i {file_path} -filter:v setpts={vs}*PTS -filter:a atempo={speed} {out}"
             proc = await asyncio.create_subprocess_shell(
                 cmd,
                 stdin=asyncio.subprocess.PIPE,
@@ -187,25 +205,29 @@ class Call:
         )
         played, con_seconds = speed_converter(playing[0]["played"], speed)
         duration_min = seconds_to_min(dur)
-        is_video = (playing[0]["streamtype"] == "video")
+        is_video = playing[0]["streamtype"] == "video"
 
         ffmpeg_params = f"-ss {played} -to {duration_min}"
-        stream = dynamic_media_stream(path=out, video=is_video, ffmpeg_params=ffmpeg_params)
+        stream = dynamic_media_stream(
+            path=out, video=is_video, ffmpeg_params=ffmpeg_params
+        )
 
         if db[chat_id][0]["file"] == file_path:
             await assistant.play(chat_id, stream)
         else:
             raise AssistantErr("Stream mismatch during speedup.")
 
-        db[chat_id][0].update({
-            "played": con_seconds,
-            "dur": duration_min,
-            "seconds": dur,
-            "speed_path": out,
-            "speed": speed,
-            "old_dur": db[chat_id][0].get("dur"),
-            "old_second": db[chat_id][0].get("seconds"),
-        })
+        db[chat_id][0].update(
+            {
+                "played": con_seconds,
+                "dur": duration_min,
+                "seconds": dur,
+                "speed_path": out,
+                "speed": speed,
+                "old_dur": db[chat_id][0].get("dur"),
+                "old_second": db[chat_id][0].get("seconds"),
+            }
+        )
 
     async def stream_call(self, link: str) -> None:
         assistant = await group_assistant(self, config.LOGGER_ID)
@@ -323,7 +345,9 @@ class Call:
                         video=True if str(streamtype) == "video" else False,
                     )
                 except:
-                    return await mystic.edit_text(_["call_6"], disable_web_page_preview=True)
+                    return await mystic.edit_text(
+                        _["call_6"], disable_web_page_preview=True
+                    )
 
                 stream = dynamic_media_stream(path=file_path, video=video)
                 try:
@@ -376,9 +400,11 @@ class Call:
                     button = stream_markup(_, chat_id)
                     run = await app.send_photo(
                         chat_id=original_chat_id,
-                        photo=config.TELEGRAM_AUDIO_URL
-                        if str(streamtype) == "audio"
-                        else config.TELEGRAM_VIDEO_URL,
+                        photo=(
+                            config.TELEGRAM_AUDIO_URL
+                            if str(streamtype) == "audio"
+                            else config.TELEGRAM_VIDEO_URL
+                        ),
                         caption=_["stream_1"].format(
                             config.SUPPORT_CHAT, title[:23], check[0]["dur"], user
                         ),
@@ -492,7 +518,9 @@ class Call:
                     elif isinstance(update, StreamEnded):
                         if update.stream_type != StreamEnded.Type.AUDIO:
                             return
-                        LOGGER(__name__).info(f"[StreamEnded] Audio stream ended in Chat: {update.chat_id}")
+                        LOGGER(__name__).info(
+                            f"[StreamEnded] Audio stream ended in Chat: {update.chat_id}"
+                        )
                         await self.play(client, update.chat_id)
 
                     elif isinstance(update, UpdatedGroupCallParticipant):
@@ -519,7 +547,9 @@ class Call:
                             f"{', '.join(flags)} | Volume: {p.volume}"
                         )
                 except Exception as e:
-                    LOGGER(__name__).error(f"[UnifiedUpdateHandler Error] {type(update).__name__} | {e}")
+                    LOGGER(__name__).error(
+                        f"[UnifiedUpdateHandler Error] {type(update).__name__} | {e}"
+                    )
 
 
 Jarvis = Call()

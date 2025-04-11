@@ -1,10 +1,10 @@
 from pyrogram import filters
 
+from config import BANNED_USERS
 from Tune import YouTube, app
 from Tune.utils.channelplay import get_channeplayCB
 from Tune.utils.decorators.language import languageCB
 from Tune.utils.stream.stream import stream
-from config import BANNED_USERS
 
 
 @app.on_callback_query(filters.regex("LiveStream") & ~BANNED_USERS)
