@@ -6,7 +6,6 @@ from Tune import app
 
 chatlog_img = "https://telegra.ph/file/7cc7183b82327933b7b04.jpg"
 
-
 @app.on_message(filters.new_chat_members, group=2)
 async def join_watcher(_, message: Message):
     chat = message.chat
@@ -28,8 +27,8 @@ async def join_watcher(_, message: Message):
                 f"📌 ᴄʜᴀᴛ ɴᴀᴍᴇ: {chat.title}\n"
                 f"🍂 ᴄʜᴀᴛ ɪᴅ: `{chat.id}`\n"
                 f"🔐 ᴄʜᴀᴛ ᴜsᴇʀɴᴀᴍᴇ: @{chat.username if chat.username else '𝐍ᴏɴᴇ'}\n"
-                f"🛰 ᴄʜᴀᴛ ʟɪɴᴋ: <a href='{link}'>ᴄʟɪᴄᴋ</a>\n"
-                f"📈 ɢʀᴏᴜᴘ ᴍᴇᴍʙᴇʀs: {count}\n"
+                f"🛰 ᴄʜᴀᴛ ʟɪɴᴋ: [ᴄʟɪᴄᴋ]({link})\n"
+                f"📈 ɢʀᴏᴜᴘ �ᴍᴇᴍʙᴇʀs: `{count}`\n"
                 f"🤔 ᴀᴅᴅᴇᴅ ʙʏ: {message.from_user.mention if message.from_user else '𝐔ɴᴋɴᴏᴡɴ'}"
             )
 
@@ -44,7 +43,6 @@ async def join_watcher(_, message: Message):
                 parse_mode=ParseMode.MARKDOWN,
                 reply_markup=InlineKeyboardMarkup(buttons) if buttons else None,
             )
-
 
 @app.on_message(filters.left_chat_member)
 async def on_left_chat_member(_, message: Message):
@@ -69,10 +67,10 @@ async def on_left_chat_member(_, message: Message):
 
     left_msg = (
         "✫ #Left_Group ✫\n\n"
-        f"ᴄʜᴀᴛ ɴᴀᴍᴇ : <code>{title}</code>\n"
-        f"ᴄʜᴀᴛ ɪᴅ : <code>{chat.id}</code>\n"
+        f"ᴄʜᴀᴛ ɴᴀᴍᴇ : `{title}`\n"
+        f"ᴄʜᴀᴛ ɪᴅ : `{chat.id}`\n"
         f"ᴄʜᴀᴛ ᴜsᴇʀɴᴀᴍᴇ : {username}\n"
-        f"ɢʀᴏᴜᴘ ᴍᴇᴍʙᴇʀs : {members}\n"
+        f"ɢʀᴏᴜᴘ ᴍᴇᴍʙᴇʀs : `{members}`\n"
         f"ᴄʜᴀᴛ ʟɪɴᴋ : {link}\n"
         f"ʀᴇᴍᴏᴠᴇᴅ ʙʏ : {removed_by}\n"
         f"ʙᴏᴛ : @{bot_user.username}"
