@@ -3,6 +3,7 @@ import os
 import shutil
 import socket
 import subprocess
+import sys  # Added import for sys module
 from datetime import datetime
 
 import urllib3
@@ -114,8 +115,7 @@ async def update_(client, message, _):
     else:
         os.system("pip3 install -r requirements.txt")
         await response.edit("✅ Updates applied successfully.\n🔁 Restarting bot...")
-        subprocess.Popen("sleep 1 && bash start", shell=True)
-        os.kill(os.getpid(), 9)
+        os.execv(sys.executable, [sys.executable] + sys.argv)
 
 
 @app.on_message(filters.command(["restart"]) & SUDOERS)
@@ -141,7 +141,6 @@ async def restart_(_, message):
         pass
 
     await response.edit_text(
-        "» ʀᴇsᴛᴀʀᴛ ᴘʀᴏᴄᴇss sᴛᴀʀᴛᴇᴅ, ᴘʟᴇᴀsᴇ ᴡᴀɪᴛ ғᴏʀ ғᴇᴡ sᴇᴄᴏɴᴅs ᴜɴᴛɪʟ ᴛʜᴇ ʙᴏᴛ sᴛᴀʀᴛs..."
+        "» ʀᴇsᴛᴀʀᴛ ᴘʀᴏᴄᴇss  sᴛᴀʀᴛᴇᴅ, ᴘʟᴇᴀsᴇ ᴡᴀɪᴛ ғᴏʀ ғᴇᴡ sᴇᴄᴏɴᴅs ᴜɴᴛɪʟ ᴛʜᴇ ʙᴏᴛ sᴛᴀʀᴛs..."
     )
-    subprocess.Popen("sleep 1 && bash start", shell=True)
-    os.kill(os.getpid(), 9)
+    os.execv(sys.executable, [sys.executable] + sys.argv)
