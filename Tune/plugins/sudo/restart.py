@@ -1,7 +1,10 @@
+
 import asyncio
 import os
 import shutil
 import socket
+import subprocess
+import sys  # Added import for sys module
 from datetime import datetime
 
 import urllib3
@@ -43,21 +46,24 @@ async def update_(client, message, _):
         if HAPP is None:
             return await message.reply_text(_["server_2"])
     response = await message.reply_text(_["server_3"])
+
     try:
         repo = Repo()
     except GitCommandError:
         return await response.edit(_["server_4"])
     except InvalidGitRepositoryError:
         return await response.edit(_["server_5"])
-    to_exc = f"git fetch origin {config.UPSTREAM_BRANCH} &> /dev/null"
-    os.system(to_exc)
+
+    os.system(f"git fetch origin {config.UPSTREAM_BRANCH} &> /dev/null")
     await asyncio.sleep(7)
+
     verification = ""
     REPO_ = repo.remotes.origin.url.split(".git")[0]
     for checks in repo.iter_commits(f"HEAD..origin/{config.UPSTREAM_BRANCH}"):
         verification = str(checks.count())
     if verification == "":
         return await response.edit(_["server_6"])
+
     updates = ""
     ordinal = lambda format: "%d%s" % (
         format,
@@ -65,8 +71,10 @@ async def update_(client, message, _):
     )
     for info in repo.iter_commits(f"HEAD..origin/{config.UPSTREAM_BRANCH}"):
         updates += f"<b>➣ #{info.count()}: <a href={REPO_}/commit/{info}>{info.summary}</a> ʙʏ -> {info.author}</b>\n\t\t\t\t<b>➥ ᴄᴏᴍᴍɪᴛᴇᴅ ᴏɴ :</b> {ordinal(int(datetime.fromtimestamp(info.committed_date).strftime('%d')))} {datetime.fromtimestamp(info.committed_date).strftime('%b')}, {datetime.fromtimestamp(info.committed_date).strftime('%Y')}\n\n"
+
     _update_response_ = "<b>ᴀ ɴᴇᴡ ᴜᴩᴅᴀᴛᴇ ɪs ᴀᴠᴀɪʟᴀʙʟᴇ ғᴏʀ ᴛʜᴇ ʙᴏᴛ !</b>\n\n➣ ᴩᴜsʜɪɴɢ ᴜᴩᴅᴀᴛᴇs ɴᴏᴡ\n\n<b><u>ᴜᴩᴅᴀᴛᴇs:</u></b>\n\n"
     _final_updates_ = _update_response_ + updates
+
     if len(_final_updates_) > 4096:
         url = await JarvisBin(updates)
         nrs = await response.edit(
@@ -74,6 +82,7 @@ async def update_(client, message, _):
         )
     else:
         nrs = await response.edit(_final_updates_, disable_web_page_preview=True)
+
     os.system("git stash &> /dev/null && git pull")
 
     try:
@@ -106,8 +115,8 @@ async def update_(client, message, _):
             )
     else:
         os.system("pip3 install -r requirements.txt")
-        os.system(f"kill -9 {os.getpid()} && bash start")
-        exit()
+        await response.edit("✅ Updates applied successfully.\n🔁 Restarting bot...")
+        os.execv(sys.executable, [sys.executable] + sys.argv)
 
 
 @app.on_message(filters.command(["restart"]) & SUDOERS)
@@ -131,7 +140,8 @@ async def restart_(_, message):
         shutil.rmtree("cache")
     except:
         pass
+
     await response.edit_text(
-        "» ʀᴇsᴛᴀʀᴛ ᴘʀᴏᴄᴇss sᴛᴀʀᴛᴇᴅ, ᴘʟᴇᴀsᴇ ᴡᴀɪᴛ ғᴏʀ ғᴇᴡ sᴇᴄᴏɴᴅs ᴜɴᴛɪʟ ᴛʜᴇ ʙᴏᴛ sᴛᴀʀᴛs..."
+        "» ʀᴇsᴛᴀʀᴛ ᴘʀᴏᴄᴇss  sᴛᴀʀᴛᴇᴅ, ᴘʟᴇᴀsᴇ ᴡᴀɪᴛ ғᴏʀ ғᴇᴡ sᴇᴄᴏɴᴅs ᴜɴᴛɪʟ ᴛʜᴇ ʙᴏᴛ sᴛᴀʀᴛs..."
     )
-    os.system(f"kill -9 {os.getpid()} && bash start")
+    os.execv(sys.executable, [sys.executable] + sys.argv)
