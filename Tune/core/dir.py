@@ -1,6 +1,6 @@
 import os
 
-from ..logging import LOGGER
+from ..logconf import LOGGER
 
 
 def dirr():

@@ -3,7 +3,7 @@ from pyrogram.enums import ChatMemberStatus, ParseMode
 
 import config
 
-from ..logging import LOGGER
+from ..logconf import LOGGER
 
 
 class Jarvis(Client):

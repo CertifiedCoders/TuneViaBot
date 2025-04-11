@@ -7,7 +7,7 @@ from pyrogram import filters
 import config
 from Tune.core.mongo import mongodb
 
-from .logging import LOGGER
+from .logconf import LOGGER
 
 SUDOERS = filters.user()
 

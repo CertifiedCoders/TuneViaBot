@@ -4,7 +4,7 @@ from functools import wraps
 
 from pyrogram.errors.exceptions.forbidden_403 import ChatWriteForbidden
 from Tune import app
-from Tune.logging import LOGGER
+from Tune.logconf import LOGGER
 
 
 def split_limits(text):

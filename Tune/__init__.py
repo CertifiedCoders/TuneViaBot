@@ -4,7 +4,7 @@ from Tune.core.git import git
 from Tune.core.userbot import Userbot
 from Tune.misc import dbb, heroku
 
-from .logging import LOGGER
+from .logconf import LOGGER
 
 dirr()
 git()
