@@ -42,7 +42,11 @@ class YouTubeAPI:
         loop = asyncio.get_running_loop()
 
         def get_info():
-            opts = {'quiet': True, 'no_warnings': True}
+            opts = {
+                'quiet': True,
+                'no_warnings': True,
+                'cookiefile': cookies_file,
+            }
             with yt_dlp.YoutubeDL(opts) as ydl:
                 return ydl.extract_info(search_query, download=False)
 
@@ -50,6 +54,7 @@ class YouTubeAPI:
         if 'entries' in info and info['entries']:
             return info['entries'][0]
         return info
+
 
     async def exists(self, link: str, videoid: Union[bool, str] = None):
         if videoid:
