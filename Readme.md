@@ -178,6 +178,8 @@ sudo bash start
   <img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif">
 </p>
 
+- <b> _sᴩᴇᴄɪᴀʟ ᴛʜᴀɴᴋs ᴛᴏ [Anony](https://github.com/AnonymousX1025) ғᴏʀ [AnonXMusic](https://github.com/AnonymousX1025/AnonXMusic)_ </b>
+
 <p align="center">
   <b>🌟 Crafted with Passion by Certified Coders 🌟</b>
 </p>
