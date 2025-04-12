@@ -26,10 +26,18 @@ from Tune.utils.stream.stream import stream
 
 
 @app.on_message(
-    filters.command([
-        "play", "vplay", "cplay", "cvplay",
-        "playforce", "vplayforce", "cplayforce", "cvplayforce"
-    ])
+    filters.command(
+        [
+            "play",
+            "vplay",
+            "cplay",
+            "cvplay",
+            "playforce",
+            "vplayforce",
+            "cplayforce",
+            "cvplayforce",
+        ]
+    )
     & filters.group
     & ~BANNED_USERS
 )
@@ -433,7 +441,11 @@ async def play_commnd(
             )
             await mystic.delete()
             await message.reply_photo(
-                photo=details["thumb"] if plist_type == "yt" else (details if plist_type == "apple" else img),
+                photo=(
+                    details["thumb"]
+                    if plist_type == "yt"
+                    else (details if plist_type == "apple" else img)
+                ),
                 caption=cap,
                 reply_markup=InlineKeyboardMarkup(buttons),
             )
@@ -485,6 +497,7 @@ async def play_commnd(
 # ---------------------------------------------------------------------------
 # Callback Queries
 # ---------------------------------------------------------------------------
+
 
 @app.on_callback_query(filters.regex("MusicStream") & ~BANNED_USERS)
 @languageCB
