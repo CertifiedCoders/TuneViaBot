@@ -1,18 +1,19 @@
-
-from functools import wraps 
+from functools import wraps
 
 from pyrogram import Client
-from pyrogram.types import Message
 from pyrogram.enums import ChatMemberStatus, ChatType
+from pyrogram.types import Message
 
+from config import BOT_USERNAME, OWNER_ID
 from Tune import app
-
-from config import OWNER_ID, BOT_USERNAME
 from Tune.misc import SUDOERS
 
 COMMANDERS = [ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER]
 
-async def user_has_permission(chat_title : str, chat_id: int, user_id: int, permission: str,bot=True) -> tuple[bool, str]:
+
+async def user_has_permission(
+    chat_title: str, chat_id: int, user_id: int, permission: str, bot=True
+) -> tuple[bool, str]:
     try:
         if user_id in SUDORES:
             have_permission = True
@@ -38,7 +39,7 @@ async def user_has_permission(chat_title : str, chat_id: int, user_id: int, perm
             elif permission == "can_invite_users":
                 have_permission = chat_permissions.can_invite_users
             elif permission == "can_pin_messages":
-                have_permission = chat_permissions.can_pin_messages    
+                have_permission = chat_permissions.can_pin_messages
             else:
                 have_permission = False
 
@@ -58,77 +59,97 @@ async def user_has_permission(chat_title : str, chat_id: int, user_id: int, perm
 
 def bot_admin(func):
     @wraps(func)
-    async def is_bot_admin(app : Client, message : Message,*args,**kwargs):
+    async def is_bot_admin(app: Client, message: Message, *args, **kwargs):
         chat_type = message.chat.type
         if chat_type == ChatType.PRIVATE:
             return await message.reply("Use This Command In Groups")
-        BOT = await app.get_chat_member(message.chat.id,BOT_USERNAME)                 
-        if BOT.status != ChatMemberStatus.ADMINISTRATOR:                                       
+        BOT = await app.get_chat_member(message.chat.id, BOT_USERNAME)
+        if BOT.status != ChatMemberStatus.ADMINISTRATOR:
             await message.reply_text(f"I Am Not Admin In **{message.chat.title}**")
-            return 
-        return await func(app,message,*args,**kwargs)
+            return
+        return await func(app, message, *args, **kwargs)
+
     return is_bot_admin
+
 
 def bot_can_ban(func):
     @wraps(func)
-    async def can_restrict(app : Client, message : Message,*args,**kwargs):
-        BOT = await app.get_chat_member(message.chat.id,BOT_USERNAME)
-                 
-        if not BOT.privileges.can_restrict_members:                        
-            await message.reply_text(f"I Don't Have Rights To Restrict The User In **{message.chat.title}**.")
-            return 
-        return await func(app,message,*args,**kwargs)
+    async def can_restrict(app: Client, message: Message, *args, **kwargs):
+        BOT = await app.get_chat_member(message.chat.id, BOT_USERNAME)
+
+        if not BOT.privileges.can_restrict_members:
+            await message.reply_text(
+                f"I Don't Have Rights To Restrict The User In **{message.chat.title}**."
+            )
+            return
+        return await func(app, message, *args, **kwargs)
+
     return can_restrict
+
 
 def bot_can_change_info(func):
     @wraps(func)
-    async def can_change_info(app : Client, message : Message,*args,**kwargs):
-        BOT = await app.get_chat_member(message.chat.id,BOT_USERNAME)
+    async def can_change_info(app: Client, message: Message, *args, **kwargs):
+        BOT = await app.get_chat_member(message.chat.id, BOT_USERNAME)
 
-        if not BOT.privileges.can_change_info:                         
-            await message.reply_text(f"I Don't Have Rights To Change Info In **{message.chat.title}**.")
-            return 
-        return await func(app,message,*args,**kwargs)
+        if not BOT.privileges.can_change_info:
+            await message.reply_text(
+                f"I Don't Have Rights To Change Info In **{message.chat.title}**."
+            )
+            return
+        return await func(app, message, *args, **kwargs)
+
     return can_change_info
 
 
 def bot_can_promote(func):
     @wraps(func)
-    async def can_promote(app : Client, message : Message,*args,**kwargs):
-        BOT = await app.get_chat_member(message.chat.id,BOT_USERNAME)
+    async def can_promote(app: Client, message: Message, *args, **kwargs):
+        BOT = await app.get_chat_member(message.chat.id, BOT_USERNAME)
 
-        if not BOT.privileges.can_promote_members:                         
-            await message.reply_text(f"I Don't Have Rights To Promote Users In **{message.chat.title}**.")
-            return 
-        return await func(app,message,*args,**kwargs)
+        if not BOT.privileges.can_promote_members:
+            await message.reply_text(
+                f"I Don't Have Rights To Promote Users In **{message.chat.title}**."
+            )
+            return
+        return await func(app, message, *args, **kwargs)
+
     return can_promote
 
 
 def bot_can_pin(func):
     @wraps(func)
-    async def can_pin(app : Client, message : Message,*args,**kwargs):
-        BOT = await app.get_chat_member(message.chat.id,BOT_USERNAME)
+    async def can_pin(app: Client, message: Message, *args, **kwargs):
+        BOT = await app.get_chat_member(message.chat.id, BOT_USERNAME)
 
-        if not BOT.privileges.can_pin_messages:                         
-            await message.reply_text(f"I Don't Have Rights To Pin Messages In **{message.chat.title}**.")
-            return 
-        return await func(app,message,*args,**kwargs)
+        if not BOT.privileges.can_pin_messages:
+            await message.reply_text(
+                f"I Don't Have Rights To Pin Messages In **{message.chat.title}**."
+            )
+            return
+        return await func(app, message, *args, **kwargs)
+
     return can_pin
+
 
 def bot_can_del(func):
     @wraps(func)
-    async def can_delete(app : Client, message : Message,*args,**kwargs):
-        BOT = await app.get_chat_member(message.chat.id,BOT_USERNAME)
+    async def can_delete(app: Client, message: Message, *args, **kwargs):
+        BOT = await app.get_chat_member(message.chat.id, BOT_USERNAME)
 
-        if not BOT.privileges.can_delete_messages:                         
-            await message.reply_text(f"I Don't Have Rights To Delete Messages In **{message.chat.title}**.")
-            return 
-        return await func(app,message,*args,**kwargs)
+        if not BOT.privileges.can_delete_messages:
+            await message.reply_text(
+                f"I Don't Have Rights To Delete Messages In **{message.chat.title}**."
+            )
+            return
+        return await func(app, message, *args, **kwargs)
+
     return can_delete
+
 
 def user_admin(mystic):
     @wraps(mystic)
-    async def wrapper(app : Client, message : Message,*args,**kwargs):
+    async def wrapper(app: Client, message: Message, *args, **kwargs):
         chat_type = message.chat.type
         if chat_type == ChatType.PRIVATE:
             return await message.reply("Use This Command In Groups Only")
@@ -137,70 +158,87 @@ def user_admin(mystic):
                 return await message.reply("You Are Anonymous Admin Please Use User ID")
             else:
                 return await message.reply_text("You Are Not Admin")
-                
+
         else:
-            user_id = message.from_user.id    
+            user_id = message.from_user.id
             chat_id = message.chat.id
-            user = await app.get_chat_member(chat_id,user_id) 
-        
+            user = await app.get_chat_member(chat_id, user_id)
+
             if (user.status not in COMMANDERS) and user_id not in SUDORES:
                 return await message.reply_text("You Are Not Admin")
-                                                                            
-        return await mystic(app,message,*args,**kwargs)
+
+        return await mystic(app, message, *args, **kwargs)
 
     return wrapper
+
 
 def user_can_ban(mystic):
     @wraps(mystic)
-    async def wrapper(app : Client, message : Message,*args,**kwargs):
+    async def wrapper(app: Client, message: Message, *args, **kwargs):
         user_id = message.from_user.id
         chat_id = message.chat.id
-        user = await app.get_chat_member(chat_id,user_id)
-        
-        if (user.privileges and not user.privileges.can_restrict_members) and user_id not in SUDORES: 
+        user = await app.get_chat_member(chat_id, user_id)
 
-            return await message.reply_text("You Dont Have Right To Restrict Users.") 
-                                                    
-        return await mystic(app,message,*args,**kwargs)
+        if (
+            user.privileges and not user.privileges.can_restrict_members
+        ) and user_id not in SUDORES:
+            return await message.reply_text("You Dont Have Right To Restrict Users.")
+
+        return await mystic(app, message, *args, **kwargs)
+
     return wrapper
+
 
 def user_can_del(mystic):
     @wraps(mystic)
-    async def wrapper(app : Client, message : Message,*args,**kwargs):
+    async def wrapper(app: Client, message: Message, *args, **kwargs):
         user_id = message.from_user.id
         chat_id = message.chat.id
-        user = await app.get_chat_member(chat_id,user_id)
-        
-        if (user.status in COMMANDERS and not user.privileges.can_delete_messages) and user_id not in SUDORES:                     
-            return await message.reply_text("You Dont Have Right To Delete Messages") 
-                                                    
-        return await mystic(app,message,*args,**kwargs)
+        user = await app.get_chat_member(chat_id, user_id)
+
+        if (
+            user.status in COMMANDERS and not user.privileges.can_delete_messages
+        ) and user_id not in SUDORES:
+            return await message.reply_text("You Dont Have Right To Delete Messages")
+
+        return await mystic(app, message, *args, **kwargs)
+
     return wrapper
-            
+
 
 def user_can_change_info(mystic):
     @wraps(mystic)
-    async def wrapper(app : Client, message : Message,*args,**kwargs):
+    async def wrapper(app: Client, message: Message, *args, **kwargs):
         user_id = message.from_user.id
         chat_id = message.chat.id
-        user = await app.get_chat_member(chat_id,user_id)
-        
-        if (user.status in COMMANDERS and not user.privileges.can_change_info) and user_id not in SUDORES:                     
-            return await message.reply_text("You Dont Have Right To Change Info Of This Group.") 
-                                                    
-        return await mystic(app,message,*args,**kwargs)
+        user = await app.get_chat_member(chat_id, user_id)
+
+        if (
+            user.status in COMMANDERS and not user.privileges.can_change_info
+        ) and user_id not in SUDORES:
+            return await message.reply_text(
+                "You Dont Have Right To Change Info Of This Group."
+            )
+
+        return await mystic(app, message, *args, **kwargs)
+
     return wrapper
-            
+
+
 def user_can_promote(mystic):
     @wraps(mystic)
-    async def wrapper(app : Client, message : Message,*args,**kwargs):
+    async def wrapper(app: Client, message: Message, *args, **kwargs):
         user_id = message.from_user.id
         chat_id = message.chat.id
-        user = await app.get_chat_member(chat_id,user_id)
-        
-        if (user.status in COMMANDERS and not user.privileges.can_promote_members) and user_id not in SUDORES:                     
-            return await message.reply_text("You Dont Have Right To Promote Users Of This Group.") 
-                                                    
-        return await mystic(app,message,*args,**kwargs)
+        user = await app.get_chat_member(chat_id, user_id)
+
+        if (
+            user.status in COMMANDERS and not user.privileges.can_promote_members
+        ) and user_id not in SUDORES:
+            return await message.reply_text(
+                "You Dont Have Right To Promote Users Of This Group."
+            )
+
+        return await mystic(app, message, *args, **kwargs)
+
     return wrapper
-        

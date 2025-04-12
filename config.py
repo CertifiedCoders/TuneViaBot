@@ -1,5 +1,6 @@
 import re
 from os import getenv
+
 from dotenv import load_dotenv
 from pyrogram import filters
 
@@ -15,12 +16,12 @@ BOT_USERNAME = getenv("BOT_USERNAME", "TuneviaBot")
 BOT_NAME = getenv("BOT_NAME", "˹ᴛᴜɴᴇ ᴠɪᴀ ♫ ʙᴏᴛ˼")
 ASSUSERNAME = getenv("ASSUSERNAME", "tuneviaassis")
 EVALOP = list(map(int, getenv("EVALOP", "6797202080").split()))
-MONGO_DB_URI = getenv("MONGO_DB_URI", '')
+MONGO_DB_URI = getenv("MONGO_DB_URI", "")
 LOGGER_ID = int(getenv("LOGGER_ID"))
 DURATION_LIMIT_MIN = int(getenv("DURATION_LIMIT", 17000))
 
-GPT_API = getenv("GPT_API", '')
-DEEP_API = getenv("DEEP_API", '')
+GPT_API = getenv("GPT_API", "")
+DEEP_API = getenv("DEEP_API", "")
 OWNER_ID = int(getenv("OWNER_ID", 7044783841))
 
 # Heroku deployment settings - Refer to Heroku documentation on how to obtain these
@@ -28,7 +29,7 @@ HEROKU_APP_NAME = getenv("HEROKU_APP_NAME")
 HEROKU_API_KEY = getenv("HEROKU_API_KEY")
 UPSTREAM_REPO = getenv("UPSTREAM_REPO", "https://github.com/CertifiedCoders/TuneViaBot")
 UPSTREAM_BRANCH = getenv("UPSTREAM_BRANCH", "Master")
-GIT_TOKEN = getenv("GIT_TOKEN", '')
+GIT_TOKEN = getenv("GIT_TOKEN", "")
 
 # Support and contact information - Provide your own support channels
 SUPPORT_CHANNEL = getenv("SUPPORT_CHANNEL", "https://t.me/CertifiedCodes")
@@ -43,7 +44,9 @@ SONG_DOWNLOAD_DURATION_LIMIT = int(getenv("SONG_DOWNLOAD_DURATION_LIMIT", "99999
 
 # External service credentials - Obtain these from Spotify
 SPOTIFY_CLIENT_ID = getenv("SPOTIFY_CLIENT_ID", "22b6125bfe224587b722d6815002db2b")
-SPOTIFY_CLIENT_SECRET = getenv("SPOTIFY_CLIENT_SECRET", "c9c63c6fbf2f467c8bc68624851e9773")
+SPOTIFY_CLIENT_SECRET = getenv(
+    "SPOTIFY_CLIENT_SECRET", "c9c63c6fbf2f467c8bc68624851e9773"
+)
 
 # Telegram file size limits - Set these according to your requirements
 TG_AUDIO_FILESIZE_LIMIT = int(getenv("TG_AUDIO_FILESIZE_LIMIT", "5242880000"))
@@ -58,7 +61,22 @@ STRING5 = getenv("STRING_SESSION5", None)
 
 # Bot introduction messages - These can be customized as per your preference
 AYU = [
-    "💞", "🦋", "🔍", "🧪", "⚡️", "🔥", "🎩", "🌈", "🍷", "🥂", "🥃", "🥤", "🕊️", "🪄", "💌", "🧨"
+    "💞",
+    "🦋",
+    "🔍",
+    "🧪",
+    "⚡️",
+    "🔥",
+    "🎩",
+    "🌈",
+    "🍷",
+    "🥂",
+    "🥃",
+    "🥤",
+    "🕊️",
+    "🪄",
+    "💌",
+    "🧨",
 ]
 
 AYUV = [
@@ -77,9 +95,7 @@ confirmer = {}
 START_IMG_URL = getenv(
     "START_IMG_URL", "https://telegra.ph/file/cd02e62dea09e7514c45f.jpg"
 )
-PING_VID_URL = getenv(
-    "PING_VID_URL", "https://files.catbox.moe/mi8nr0.mp4"
-)
+PING_VID_URL = getenv("PING_VID_URL", "https://files.catbox.moe/mi8nr0.mp4")
 PLAYLIST_IMG_URL = "https://files.catbox.moe/t72ntd.jpg"
 STATS_VID_URL = "https://files.catbox.moe/5vdaw5.mp4"
 TELEGRAM_AUDIO_URL = "https://files.catbox.moe/90juvd.jpg"
@@ -91,6 +107,7 @@ SPOTIFY_ARTIST_IMG_URL = "https://files.catbox.moe/qp5aa5.jpg"
 SPOTIFY_ALBUM_IMG_URL = "https://files.catbox.moe/qp5aa5.jpg"
 SPOTIFY_PLAYLIST_IMG_URL = "https://files.catbox.moe/qp5aa5.jpg"
 FAILED = "https://files.catbox.moe/cq87ww.jpg"
+
 
 def time_to_seconds(time):
     stringt = str(time)

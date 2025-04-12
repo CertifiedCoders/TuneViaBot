@@ -1,6 +1,7 @@
 from pyrogram import filters
 from pyrogram.types import Message
 
+from config import BANNED_USERS, adminlist
 from Tune import app
 from Tune.core.call import Jarvis
 from Tune.misc import SUDOERS, db
@@ -8,7 +9,6 @@ from Tune.utils import AdminRightsCheck
 from Tune.utils.database import is_active_chat, is_nonadmin_chat
 from Tune.utils.decorators.language import languageCB
 from Tune.utils.inline import close_markup, speed_markup
-from config import BANNED_USERS, adminlist
 
 checker = []
 

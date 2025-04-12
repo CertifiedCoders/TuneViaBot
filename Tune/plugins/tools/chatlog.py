@@ -1,10 +1,12 @@
 from pyrogram import filters
-from pyrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup
 from pyrogram.enums import ParseMode
+from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
+
 from config import LOGGER_ID as LOG_GROUP_ID
 from Tune import app
 
 chatlog_img = "https://telegra.ph/file/7cc7183b82327933b7b04.jpg"
+
 
 @app.on_message(filters.new_chat_members, group=2)
 async def join_watcher(_, message: Message):
@@ -44,6 +46,7 @@ async def join_watcher(_, message: Message):
                 reply_markup=InlineKeyboardMarkup(buttons) if buttons else None,
             )
 
+
 @app.on_message(filters.left_chat_member)
 async def on_left_chat_member(_, message: Message):
     bot_user = await app.get_me()
@@ -76,8 +79,4 @@ async def on_left_chat_member(_, message: Message):
         f"ʙᴏᴛ : @{bot_user.username}"
     )
 
-    await app.send_message(
-        LOG_GROUP_ID,
-        text=left_msg,
-        parse_mode=ParseMode.MARKDOWN
-    )
+    await app.send_message(LOG_GROUP_ID, text=left_msg, parse_mode=ParseMode.MARKDOWN)

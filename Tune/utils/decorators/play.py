@@ -3,13 +3,15 @@ import asyncio
 from pyrogram.enums import ChatMemberStatus
 from pyrogram.errors import (
     ChatAdminRequired,
-    InviteRequestSent,
     InviteHashExpired,
+    InviteRequestSent,
     UserAlreadyParticipant,
     UserNotParticipant,
 )
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
+from config import PLAYLIST_IMG_URL, SUPPORT_CHAT, adminlist
+from strings import get_string
 from Tune import YouTube, app
 from Tune.misc import SUDOERS
 from Tune.utils.database import (
@@ -22,8 +24,6 @@ from Tune.utils.database import (
     is_maintenance,
 )
 from Tune.utils.inline import botplaylist_markup
-from config import PLAYLIST_IMG_URL, SUPPORT_CHAT, adminlist
-from strings import get_string
 
 # Cache for invite links per chat
 links = {}
@@ -127,7 +127,10 @@ def PlayWrapper(command):
                 except ChatAdminRequired:
                     return await message.reply_text(_["call_1"])
 
-                if member.status in (ChatMemberStatus.BANNED, ChatMemberStatus.RESTRICTED):
+                if member.status in (
+                    ChatMemberStatus.BANNED,
+                    ChatMemberStatus.RESTRICTED,
+                ):
                     return await message.reply_text(
                         _["call_2"].format(
                             app.mention, userbot.id, userbot.name, userbot.username
