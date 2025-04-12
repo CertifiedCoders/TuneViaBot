@@ -14,15 +14,3 @@ runtime_version = "3.x.x"
 [[analyzers]]
 name = "shell"
 enabled = true
-
-[[transformers]]
-name = "black"
-enabled = true
-
-[[transformers]]
-name = "isort"
-enabled = true
-
-[[transformers]]
-name = "ruff"
-enabled = true
