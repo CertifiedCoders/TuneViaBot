@@ -1,7 +1,7 @@
 import asyncio
 import os
 import re
-from typing import Union, Tuple, Optional
+from typing import Optional, Tuple, Union
 
 import yt_dlp
 from pyrogram.enums import MessageEntityType
@@ -16,9 +16,7 @@ cookies_file = "Tune/cookies/cookies.txt"
 
 async def shell_cmd(cmd: str) -> str:
     proc = await asyncio.create_subprocess_shell(
-        cmd,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE
+        cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
     )
     out, errorz = await proc.communicate()
     decoded_out = out.decode("utf-8")
@@ -64,9 +62,11 @@ class YouTubeAPI:
                         return entity.url
         if offset is None:
             return None
-        return text[offset: offset + length]
+        return text[offset : offset + length]
 
-    async def details(self, link: str, videoid: Union[bool, str] = None) -> Tuple[str, str, int, str, str]:
+    async def details(
+        self, link: str, videoid: Union[bool, str] = None
+    ) -> Tuple[str, str, int, str, str]:
         if videoid:
             link = self.base + link
         if "&" in link:
@@ -80,7 +80,9 @@ class YouTubeAPI:
         duration_min = video.get("duration")
         thumbnail = video.get("thumbnails", [{}])[0].get("url", "").split("?")[0]
         vidid = video.get("id", "")
-        duration_sec = 0 if str(duration_min) == "None" else int(time_to_seconds(duration_min))
+        duration_sec = (
+            0 if str(duration_min) == "None" else int(time_to_seconds(duration_min))
+        )
         return title, duration_min, duration_sec, thumbnail, vidid
 
     async def title(self, link: str, videoid: Union[bool, str] = None) -> str:
@@ -117,14 +119,17 @@ class YouTubeAPI:
             return thumb.split("?")[0]
         return ""
 
-    async def video(self, link: str, videoid: Union[bool, str] = None) -> Tuple[int, str]:
+    async def video(
+        self, link: str, videoid: Union[bool, str] = None
+    ) -> Tuple[int, str]:
         if videoid:
             link = self.base + link
         if "&" in link:
             link = link.split("&")[0]
         proc = await asyncio.create_subprocess_exec(
             "yt-dlp",
-            "--cookies", cookies_file,
+            "--cookies",
+            cookies_file,
             "-g",
             "-f",
             "best[height<=?720][width<=?1280]",
@@ -137,7 +142,9 @@ class YouTubeAPI:
             return 1, stdout.decode().split("\n")[0]
         return 0, stderr.decode()
 
-    async def playlist(self, link: str, limit: int, user_id, videoid: Union[bool, str] = None) -> list:
+    async def playlist(
+        self, link: str, limit: int, user_id, videoid: Union[bool, str] = None
+    ) -> list:
         if videoid:
             link = self.listbase + link
         if "&" in link:
@@ -147,7 +154,9 @@ class YouTubeAPI:
         )
         return [item for item in playlist_data.split("\n") if item]
 
-    async def track(self, link: str, videoid: Union[bool, str] = None) -> Tuple[dict, Optional[str]]:
+    async def track(
+        self, link: str, videoid: Union[bool, str] = None
+    ) -> Tuple[dict, Optional[str]]:
         if videoid:
             link = self.base + link
         if "&" in link:
@@ -171,7 +180,9 @@ class YouTubeAPI:
         }
         return track_details, vidid
 
-    async def formats(self, link: str, videoid: Union[bool, str] = None) -> Tuple[list, str]:
+    async def formats(
+        self, link: str, videoid: Union[bool, str] = None
+    ) -> Tuple[list, str]:
         if videoid:
             link = self.base + link
         if "&" in link:
@@ -194,17 +205,21 @@ class YouTubeAPI:
                         _ = fmt["format_note"]
                     except KeyError:
                         continue
-                    formats_available.append({
-                        "format": fmt["format"],
-                        "filesize": fmt["filesize"],
-                        "format_id": fmt["format_id"],
-                        "ext": fmt["ext"],
-                        "format_note": fmt["format_note"],
-                        "yturl": link,
-                    })
+                    formats_available.append(
+                        {
+                            "format": fmt["format"],
+                            "filesize": fmt["filesize"],
+                            "format_id": fmt["format_id"],
+                            "ext": fmt["ext"],
+                            "format_note": fmt["format_note"],
+                            "yturl": link,
+                        }
+                    )
         return formats_available, link
 
-    async def slider(self, link: str, query_type: int, videoid: Union[bool, str] = None) -> Tuple[Optional[str], Optional[str], Optional[str], Optional[str]]:
+    async def slider(
+        self, link: str, query_type: int, videoid: Union[bool, str] = None
+    ) -> Tuple[Optional[str], Optional[str], Optional[str], Optional[str]]:
         if videoid:
             link = self.base + link
         if "&" in link:
@@ -299,11 +314,13 @@ class YouTubeAPI:
                 "quiet": True,
                 "no_warnings": True,
                 "prefer_ffmpeg": True,
-                "postprocessors": [{
-                    "key": "FFmpegExtractAudio",
-                    "preferredcodec": "mp3",
-                    "preferredquality": "192",
-                }],
+                "postprocessors": [
+                    {
+                        "key": "FFmpegExtractAudio",
+                        "preferredcodec": "mp3",
+                        "preferredquality": "192",
+                    }
+                ],
                 "cookiefile": cookies_file,
             }
             with yt_dlp.YoutubeDL(ydl_opts) as ydl_instance:
@@ -323,7 +340,8 @@ class YouTubeAPI:
             else:
                 proc = await asyncio.create_subprocess_exec(
                     "yt-dlp",
-                    "--cookies", cookies_file,
+                    "--cookies",
+                    cookies_file,
                     "-g",
                     "-f",
                     "best[height<=?720][width<=?1280]",

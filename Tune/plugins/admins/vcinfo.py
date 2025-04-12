@@ -1,11 +1,11 @@
 from pyrogram import filters
 from pyrogram.types import Message
 
+from config import BANNED_USERS
 from Tune import app
 from Tune.core.call import Jarvis
-from Tune.utils.decorators import AdminRightsCheck
 from Tune.utils.database import group_assistant
-from config import BANNED_USERS
+from Tune.utils.decorators import AdminRightsCheck
 
 
 @app.on_message(filters.command("volume") & filters.group & ~BANNED_USERS)
@@ -18,7 +18,9 @@ async def set_volume(cli, message: Message, _, chat_id):
     try:
         volume_level = int(args[1])
     except ValueError:
-        return await message.reply_text("❌ Invalid number. Please use <code>/volume 1-200</code>")
+        return await message.reply_text(
+            "❌ Invalid number. Please use <code>/volume 1-200</code>"
+        )
 
     if volume_level == 0:
         return await message.reply_text("🔇 Use <code>/mute</code> to mute the stream.")
@@ -35,7 +37,9 @@ async def set_volume(cli, message: Message, _, chat_id):
         await message.reply_text(f"❌ Failed to change volume.\n<b>Error:</b> {e}")
 
 
-@app.on_message(filters.command(["vcinfo", "vcmembers"]) & filters.group & ~BANNED_USERS)
+@app.on_message(
+    filters.command(["vcinfo", "vcmembers"]) & filters.group & ~BANNED_USERS
+)
 @AdminRightsCheck
 async def vc_info(cli, message: Message, _, chat_id):
     try:

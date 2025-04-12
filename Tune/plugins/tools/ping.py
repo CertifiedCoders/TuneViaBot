@@ -1,13 +1,14 @@
 from datetime import datetime
+
 from pyrogram import filters
 from pyrogram.types import Message
 
+from config import BANNED_USERS, PING_VID_URL
 from Tune import app
 from Tune.core.call import Jarvis
 from Tune.utils import bot_sys_stats
 from Tune.utils.decorators.language import language
 from Tune.utils.inline import supp_markup
-from config import BANNED_USERS, PING_VID_URL
 
 
 @app.on_message(filters.command(["ping"]) & ~BANNED_USERS)

@@ -1,4 +1,5 @@
 import asyncio
+
 import speedtest
 from pyrogram import filters
 from pyrogram.types import Message
@@ -22,12 +23,12 @@ def run_speedtest():
 async def speedtest_function(_, message: Message, lang):
     try:
         m = await message.reply_text(lang["server_11"])  # Starting test...
-        await m.edit_text(lang["server_12"])             # Finding best server...
+        await m.edit_text(lang["server_12"])  # Finding best server...
 
         loop = asyncio.get_event_loop()
         result = await loop.run_in_executor(None, run_speedtest)
 
-        await m.edit_text(lang["server_13"])             #
+        await m.edit_text(lang["server_13"])  #
 
         output = lang["server_15"].format(
             result["client"]["isp"],
@@ -40,7 +41,7 @@ async def speedtest_function(_, message: Message, lang):
             result["ping"],
         )
 
-        await m.edit_text(lang["server_14"])         
+        await m.edit_text(lang["server_14"])
         await message.reply_photo(photo=result["share"], caption=output)
         await m.delete()
 

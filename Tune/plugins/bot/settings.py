@@ -8,6 +8,7 @@ from pyrogram.types import (
     Message,
 )
 
+from config import BANNED_USERS, OWNER_ID
 from Tune import app
 from Tune.utils.database import (
     add_nonadmin_chat,
@@ -34,7 +35,6 @@ from Tune.utils.inline.settings import (
     vote_mode_markup,
 )
 from Tune.utils.inline.start import private_panel
-from config import BANNED_USERS, OWNER_ID
 
 
 @app.on_message(

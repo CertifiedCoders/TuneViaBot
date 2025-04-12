@@ -9,8 +9,8 @@ from time import time
 from pyrogram import filters
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 
-from Tune import app
 from config import OWNER_ID
+from Tune import app
 
 
 async def aexec(code, client, message):
@@ -167,7 +167,9 @@ async def shellrunner(_, message: Message):
                 stdout, stderr = process.communicate()
                 output += f"<b>{x}</b>\n{stdout.decode()}\n{stderr.decode()}"
             except Exception as err:
-                return await edit_or_reply(message, text=f"<b>ERROR :</b>\n<pre>{err}</pre>")
+                return await edit_or_reply(
+                    message, text=f"<b>ERROR :</b>\n<pre>{err}</pre>"
+                )
     else:
         shell = re.split(r""" (?=(?:[^'"]|'[^']*'|"[^"]*")*$)""", text)
         shell = [arg.replace('"', "") for arg in shell]

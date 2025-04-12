@@ -1,6 +1,6 @@
+import asyncio
 import random
 import string
-import asyncio
 
 from pyrogram import filters
 from pyrogram.types import InlineKeyboardMarkup, InputMediaPhoto, Message
@@ -27,10 +27,18 @@ from Tune.utils.stream.stream import stream
 
 
 @app.on_message(
-    filters.command([
-        "play", "vplay", "cplay", "cvplay",
-        "playforce", "vplayforce", "cplayforce", "cvplayforce"
-    ])
+    filters.command(
+        [
+            "play",
+            "vplay",
+            "cplay",
+            "cvplay",
+            "playforce",
+            "vplayforce",
+            "cplayforce",
+            "cvplayforce",
+        ]
+    )
     & filters.group
     & ~BANNED_USERS
 )
@@ -52,8 +60,7 @@ async def play_commnd(
 
     asyncio.create_task(
         _play_logic(
-            client, message, mystic, _,
-            chat_id, video, channel, playmode, url, fplay
+            client, message, mystic, _, chat_id, video, channel, playmode, url, fplay
         )
     )
 
@@ -454,7 +461,11 @@ async def _play_logic(
             )
             await mystic.delete()
             await message.reply_photo(
-                photo=details["thumb"] if plist_type == "yt" else (details if plist_type == "apple" else img),
+                photo=(
+                    details["thumb"]
+                    if plist_type == "yt"
+                    else (details if plist_type == "apple" else img)
+                ),
                 caption=cap,
                 reply_markup=InlineKeyboardMarkup(buttons),
             )
@@ -506,6 +517,7 @@ async def _play_logic(
 # ---------------------------------------------------------------------------
 # Callback Queries
 # ---------------------------------------------------------------------------
+
 
 @app.on_callback_query(filters.regex("MusicStream") & ~BANNED_USERS)
 @languageCB
@@ -748,8 +760,7 @@ async def slider_queries(client, CallbackQuery, _):
             ),
         )
         return await CallbackQuery.edit_message_media(
-            media=med,
-            reply_markup=InlineKeyboardMarkup(buttons)
+            media=med, reply_markup=InlineKeyboardMarkup(buttons)
         )
 
     elif what == "B":
@@ -772,6 +783,5 @@ async def slider_queries(client, CallbackQuery, _):
             ),
         )
         return await CallbackQuery.edit_message_media(
-            media=med,
-            reply_markup=InlineKeyboardMarkup(buttons)
+            media=med, reply_markup=InlineKeyboardMarkup(buttons)
         )

@@ -1,12 +1,12 @@
 from pyrogram import filters
 from pyrogram.types import Message
 
+from config import BANNED_USERS
 from Tune import app
 from Tune.core.call import Jarvis
 from Tune.utils.database import set_loop
 from Tune.utils.decorators import AdminRightsCheck
 from Tune.utils.inline import close_markup
-from config import BANNED_USERS
 
 
 @app.on_message(

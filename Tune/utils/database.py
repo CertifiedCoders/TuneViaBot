@@ -39,6 +39,7 @@ playtype = {}
 skipmode = {}
 mute = {}
 
+
 async def get_assistant_number(chat_id: int) -> str:
     assistant = assistantdict.get(chat_id)
     return assistant
@@ -311,6 +312,7 @@ async def music_on(chat_id: int):
 
 async def music_off(chat_id: int):
     pause[chat_id] = False
+
 
 # Muted
 async def is_muted(chat_id: int) -> bool:

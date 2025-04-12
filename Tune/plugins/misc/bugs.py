@@ -1,13 +1,22 @@
 from datetime import datetime
+
 from pyrogram import filters
-from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message, CallbackQuery
+from pyrogram.types import (
+    CallbackQuery,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    Message,
+)
+
 from config import OWNER_ID
 from Tune import app
+
 
 def extract_bug_content(msg: Message) -> str:
     if msg.text and " " in msg.text:
         return msg.text.split(None, 1)[1]
     return None
+
 
 @app.on_message(filters.command("bug"))
 async def report_bug(_, msg: Message):
@@ -17,12 +26,18 @@ async def report_bug(_, msg: Message):
 
     bug_description = extract_bug_content(msg)
     if not bug_description:
-        await msg.reply_text("<b>No bug description provided. Please specify the bug.</b>")
+        await msg.reply_text(
+            "<b>No bug description provided. Please specify the bug.</b>"
+        )
         return
 
     user_id = msg.from_user.id
     mention = f"[{msg.from_user.first_name}](tg://user?id={user_id})"
-    chat_username = f"@{msg.chat.username}/`{msg.chat.id}`" if msg.chat.username else f"Private Group/`{msg.chat.id}`"
+    chat_username = (
+        f"@{msg.chat.username}/`{msg.chat.id}`"
+        if msg.chat.username
+        else f"Private Group/`{msg.chat.id}`"
+    )
     current_date = datetime.utcnow().strftime("%d-%m-%Y")
 
     bug_report = (
@@ -35,7 +50,9 @@ async def report_bug(_, msg: Message):
     )
 
     if user_id == OWNER_ID:
-        await msg.reply_text("<b>You are the owner of the bot. Please address the bug directly.</b>")
+        await msg.reply_text(
+            "<b>You are the owner of the bot. Please address the bug directly.</b>"
+        )
     else:
         await msg.reply_text(
             f"<b>Bug reported successfully!</b>",
@@ -53,6 +70,7 @@ async def report_bug(_, msg: Message):
                 ]
             ),
         )
+
 
 @app.on_callback_query(filters.regex("close_send_photo"))
 async def close_bug_report(_, query: CallbackQuery):
