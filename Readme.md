@@ -30,7 +30,7 @@
 
 <p align="center">
   <a href="https://t.me/CertifiedCoders">
-    <img src="https://files.catbox.moe/7udxph.jpg" width="600">
+    <img src="https://files.catbox.moe/d0ynvn.jpg" width="600">
   </a>
 </p>
 
