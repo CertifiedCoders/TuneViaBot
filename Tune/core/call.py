@@ -523,33 +523,10 @@ class Call:
                         )
                         await self.play(client, update.chat_id)
 
-                    elif isinstance(update, UpdatedGroupCallParticipant):
-                        p = update.participant
-                        flags = []
-                        if p.action.name == "JOINED":
-                            flags.append("🟢 Joined")
-                        elif p.action.name == "LEFT":
-                            flags.append("🔴 Left")
-                        else:
-                            flags.append("🔄 Updated")
-                        if p.muted:
-                            flags.append("Muted")
-                        if p.muted_by_admin:
-                            flags.append("Muted by Admin")
-                        if p.video:
-                            flags.append("Video On")
-                        if p.screen_sharing:
-                            flags.append("Screen Sharing")
-                        if p.raised_hand:
-                            flags.append("✋ Raised Hand")
-                        LOGGER(__name__).info(
-                            f"[ParticipantUpdate] Chat: {update.chat_id} | User: {p.user_id} | "
-                            f"{', '.join(flags)} | Volume: {p.volume}"
-                        )
                 except Exception as e:
                     LOGGER(__name__).error(
                         f"[UnifiedUpdateHandler Error] {type(update).__name__} | {e}"
-                    )
+                )
 
-
+                   
 Jarvis = Call()
