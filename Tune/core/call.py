@@ -526,7 +526,7 @@ class Call:
                 except Exception as e:
                     LOGGER(__name__).error(
                         f"[UnifiedUpdateHandler Error] {type(update).__name__} | {e}"
-                )
+                    )
 
-                   
+
 Jarvis = Call()
