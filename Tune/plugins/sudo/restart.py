@@ -98,7 +98,9 @@ async def update_(client, message, _):
         served_chats = await get_active_chats()
         for x in served_chats:
             try:
-                await app.send_message(chat_id=int(x), text=_["server_8"].format(app.mention))
+                await app.send_message(
+                    chat_id=int(x), text=_["server_8"].format(app.mention)
+                )
                 await remove_active_chat(x)
                 await remove_active_video_chat(x)
             except:
@@ -120,7 +122,6 @@ async def update_(client, message, _):
                 text=_["server_10"].format(err),
             )
     else:
-        
         os.execv(sys.executable, [sys.executable, "-m", "Tune"])
 
 
