@@ -1,5 +1,5 @@
 from pyrogram import filters
-from pyrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup
+from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from config import LOGGER_ID
 from Tune import app
@@ -34,7 +34,18 @@ async def join_watcher(_, message: Message):
                 photo=chatlog_img,
                 caption=caption,
                 reply_markup=InlineKeyboardMarkup(
-                    [[InlineKeyboardButton("sᴇᴇ ɢʀᴏᴜᴘ 👀", url=invite_link if isinstance(invite_link, str) else "https://t.me/")]]
+                    [
+                        [
+                            InlineKeyboardButton(
+                                "sᴇᴇ ɢʀᴏᴜᴘ 👀",
+                                url=(
+                                    invite_link
+                                    if isinstance(invite_link, str)
+                                    else "https://t.me/"
+                                ),
+                            )
+                        ]
+                    ]
                 ),
             )
 
