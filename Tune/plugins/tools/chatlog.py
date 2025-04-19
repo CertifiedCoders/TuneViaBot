@@ -1,82 +1,59 @@
 from pyrogram import filters
-from pyrogram.enums import ParseMode
-from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
+from pyrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup
 
-from config import LOGGER_ID as LOG_GROUP_ID
+from config import LOGGER_ID
 from Tune import app
 
 chatlog_img = "https://telegra.ph/file/7cc7183b82327933b7b04.jpg"
 
 
-@app.on_message(filters.new_chat_members, group=2)
+@app.on_message(filters.new_chat_members)
 async def join_watcher(_, message: Message):
     chat = message.chat
     try:
-        link = await app.export_chat_invite_link(chat.id)
-    except Exception:
-        link = "❌ ɴᴏ ʟɪɴᴋ ᴀᴠᴀɪʟᴀʙʟᴇ"
+        invite_link = await app.export_chat_invite_link(chat.id)
+    except:
+        invite_link = "Invite link not available."
 
     for member in message.new_chat_members:
-        if member.id == app.id:
-            try:
-                count = await app.get_chat_members_count(chat.id)
-            except Exception:
-                count = "❌ ᴜɴᴀᴠᴀɪʟᴀʙʟᴇ"
-
-            msg = (
-                "📝 ᴍᴜsɪᴄ ʙᴏᴛ ᴀᴅᴅᴇᴅ ɪɴ ᴀ ɴᴇᴡ ɢʀᴏᴜᴘ\n\n"
-                "**❅─────✧❅✦❅✧─────❅**\n\n"
-                f"📌 ᴄʜᴀᴛ ɴᴀᴍᴇ: {chat.title}\n"
-                f"🍂 ᴄʜᴀᴛ ɪᴅ: `{chat.id}`\n"
-                f"🔐 ᴄʜᴀᴛ ᴜsᴇʀɴᴀᴍᴇ: @{chat.username if chat.username else '𝐍ᴏɴᴇ'}\n"
-                f"🛰 ᴄʜᴀᴛ ʟɪɴᴋ: [ᴄʟɪᴄᴋ]({link})\n"
-                f"📈 ɢʀᴏᴜᴘ �ᴍᴇᴍʙᴇʀs: `{count}`\n"
-                f"🤔 ᴀᴅᴅᴇᴅ ʙʏ: {message.from_user.mention if message.from_user else '𝐔ɴᴋɴᴏᴡɴ'}"
+        if member.id == (await app.get_me()).id:
+            member_count = await app.get_chat_members_count(chat.id)
+            caption = (
+                f"📝 **ᴍᴜsɪᴄ ʙᴏᴛ ᴀᴅᴅᴇᴅ ɪɴ ᴀ ɴᴇᴡ ɢʀᴏᴜᴘ**\n\n"
+                f"❅─────✧❅✦❅✧─────❅\n\n"
+                f"📌 **ᴄʜᴀᴛ ɴᴀᴍᴇ:** `{chat.title}`\n"
+                f"🍂 **ᴄʜᴀᴛ ɪᴅ:** `{chat.id}`\n"
+                f"🔐 **ᴄʜᴀᴛ ᴜsᴇʀɴᴀᴍᴇ:** @{chat.username if chat.username else 'Private'}\n"
+                f"🛰 **ᴄʜᴀᴛ ʟɪɴᴋ:** [ᴄʟɪᴄᴋ ʜᴇʀᴇ]({invite_link})\n"
+                f"📈 **ɢʀᴏᴜᴘ ᴍᴇᴍʙᴇʀs:** `{member_count}`\n"
+                f"🤔 **ᴀᴅᴅᴇᴅ ʙʏ:** {message.from_user.mention}"
             )
 
-            buttons = []
-            if link.startswith("http"):
-                buttons.append([InlineKeyboardButton("sᴇᴇ ɢʀᴏᴜᴘ👀", url=link)])
-
             await app.send_photo(
-                LOG_GROUP_ID,
+                chat_id=LOGGER_ID,
                 photo=chatlog_img,
-                caption=msg,
-                parse_mode=ParseMode.MARKDOWN,
-                reply_markup=InlineKeyboardMarkup(buttons) if buttons else None,
+                caption=caption,
+                reply_markup=InlineKeyboardMarkup(
+                    [[InlineKeyboardButton("sᴇᴇ ɢʀᴏᴜᴘ 👀", url=invite_link if isinstance(invite_link, str) else "https://t.me/")]]
+                ),
             )
 
 
 @app.on_message(filters.left_chat_member)
 async def on_left_chat_member(_, message: Message):
-    bot_user = await app.get_me()
-
-    if message.left_chat_member.id != bot_user.id:
+    me = await app.get_me()
+    if message.left_chat_member.id != me.id:
         return
 
+    remover = message.from_user.mention if message.from_user else "**ᴜɴᴋɴᴏᴡɴ ᴜsᴇʀ**"
     chat = message.chat
-    try:
-        title = chat.title or "𝐔ɴᴋɴᴏᴡɴ"
-        username = f"@{chat.username}" if chat.username else "𝐏ʀɪᴠᴀᴛᴇ 𝐂ʜᴀᴛ"
-        members = await app.get_chat_members_count(chat.id)
-        link = await app.export_chat_invite_link(chat.id)
-    except Exception:
-        title = chat.title or "𝐔ɴᴋɴᴏᴡɴ"
-        username = f"@{chat.username}" if chat.username else "𝐏ʀɪᴠᴀᴛᴇ 𝐂ʜᴀᴛ"
-        members = "❌"
-        link = "❌"
 
-    removed_by = message.from_user.mention if message.from_user else "𝐔ɴᴋɴᴏᴡɴ 𝐔sᴇʀ"
-
-    left_msg = (
-        "✫ #Left_Group ✫\n\n"
-        f"ᴄʜᴀᴛ ɴᴀᴍᴇ : `{title}`\n"
-        f"ᴄʜᴀᴛ ɪᴅ : `{chat.id}`\n"
-        f"ᴄʜᴀᴛ ᴜsᴇʀɴᴀᴍᴇ : {username}\n"
-        f"ɢʀᴏᴜᴘ ᴍᴇᴍʙᴇʀs : `{members}`\n"
-        f"ᴄʜᴀᴛ ʟɪɴᴋ : {link}\n"
-        f"ʀᴇᴍᴏᴠᴇᴅ ʙʏ : {removed_by}\n"
-        f"ʙᴏᴛ : @{bot_user.username}"
+    text = (
+        f"✫ **<u>#ʟᴇғᴛ_ɢʀᴏᴜᴘ</u>** ✫\n\n"
+        f"📌 **ᴄʜᴀᴛ ɴᴀᴍᴇ:** `{chat.title}`\n"
+        f"🆔 **ᴄʜᴀᴛ ɪᴅ:** `{chat.id}`\n"
+        f"👤 **ʀᴇᴍᴏᴠᴇᴅ ʙʏ:** {remover}\n"
+        f"🤖 **ʙᴏᴛ:** @{me.username}"
     )
 
-    await app.send_message(LOG_GROUP_ID, text=left_msg, parse_mode=ParseMode.MARKDOWN)
+    await app.send_message(LOGGER_ID, text)
