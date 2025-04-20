@@ -24,7 +24,7 @@ pycryptodome
 pydub
 pyfiglet
 pykeyboard
-Kurigram==2.1.39
+Kurigram==2.2.1
 python-dotenv
 pyshorteners
 pyttsx3
