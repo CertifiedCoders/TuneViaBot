@@ -22,8 +22,8 @@ def run_speedtest():
 @language
 async def speedtest_function(_, message: Message, lang):
     try:
-        m = await message.reply_text(lang["server_11"])  # Starting test...
-        await m.edit_text(lang["server_12"])  # Finding best server...
+        m = await message.reply_text(lang["server_11"])
+        await m.edit_text(lang["server_12"])
 
         loop = asyncio.get_event_loop()
         result = await loop.run_in_executor(None, run_speedtest)

@@ -1,14 +1,13 @@
 import asyncio
 import random
 import time
-
 from pyrogram import filters
 from pyrogram.enums import ChatType
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 from youtubesearchpython.__future__ import VideosSearch
 
 import config
-from config import AYUV, BANNED_USERS
+from config import BANNED_USERS, HELP_IMG_URL, START_VIDS, STICKERS
 from strings import get_string
 from Tune import app
 from Tune.misc import _boot_
@@ -26,26 +25,13 @@ from Tune.utils.database import (
 )
 from Tune.utils.decorators.language import LanguageStart
 from Tune.utils.formatters import get_readable_time
-from Tune.utils.inline import help_pannel, private_panel, start_panel
-
-ANNIE_VID = [
-    "https://telegra.ph/file/a4d90b0cb759b67d68644.mp4",
-    "https://telegra.ph/file/72f349b1386d6d9374a38.mp4",
-    "https://telegra.ph/file/2b75449612172a96d4599.mp4",
-    "https://telegra.ph/file/b3ac2d77205d5ded860de.mp4",
-]
-
-STICKERS = [
-    "CAACAgUAAx0CfL_LsAACCSRl_oru7uW8WAt3-L1pYQWe_1mxawACQw8AAj78MVeb3v2OFvEnNB4E",
-    "CAACAgEAAx0Cd6nKUAACATVl_rtAi9KCVQf8vcUC4FMDUfLP8wACHQEAAlEpDTnhphyRDaTrPR4E",
-    "CAACAgUAAx0Cd6nKUAACATJl_rsEJOsaaPSYGhU7bo7iEwL8AAPMDgACu2PYV8Vb8aT4_HUPHgQ",
-]
+from Tune.utils.inline import private_panel, start_panel
+from Tune.utils.inline.help import help_keyboard
 
 
 async def delete_sticker_after_delay(message, delay):
     await asyncio.sleep(delay)
     await message.delete()
-
 
 @app.on_message(filters.command(["start"]) & filters.private & ~BANNED_USERS)
 @LanguageStart
@@ -53,25 +39,21 @@ async def start_pm(client, message: Message, _):
     await add_served_user(message.from_user.id)
     if len(message.text.split()) > 1:
         name = message.text.split(None, 1)[1]
-        if name[0:4] == "help":
-            keyboard = help_pannel(_)
-            sticker_message = await message.reply_sticker(
-                sticker=random.choice(STICKERS)
-            )
-            asyncio.create_task(delete_sticker_after_delay(sticker_message, 2))
-            await message.reply_video(
-                random.choice(ANNIE_VID),
+        if name.startswith("help"):
+            keyboard = help_keyboard(_)
+            await message.reply_photo(
+                photo=HELP_IMG_URL,
                 caption=_["help_1"].format(config.SUPPORT_CHAT),
                 reply_markup=keyboard,
             )
-        elif name[0:3] == "sud":
+        elif name.startswith("sud"):
             await sudoers_list(client=client, message=message, _=_)
             if await is_on_off(2):
                 await app.send_message(
                     chat_id=config.LOGGER_ID,
                     text=f"{message.from_user.mention} ᴊᴜsᴛ sᴛᴀʀᴛᴇᴅ ᴛʜᴇ ʙᴏᴛ ᴛᴏ ᴄʜᴇᴄᴋ <b>sᴜᴅᴏʟɪsᴛ</b>.\n\n<b>ᴜsᴇʀ ɪᴅ :</b> <code>{message.from_user.id}</code>\n<b>ᴜsᴇʀɴᴀᴍᴇ :</b> @{message.from_user.username}",
                 )
-        elif name[0:3] == "inf":
+        elif name.startswith("inf"):
             m = await message.reply_text("🔎")
             query = str(name).replace("info_", "", 1)
             query = f"https://www.youtube.com/watch?v={query}"
@@ -91,9 +73,9 @@ async def start_pm(client, message: Message, _):
             key = InlineKeyboardMarkup(
                 [
                     [
-                        InlineKeyboardButton(text=_["S_B_8"], url=link),
-                        InlineKeyboardButton(text=_["S_B_9"], url=config.SUPPORT_CHAT),
-                    ],
+                        InlineKeyboardButton(text=_["S_B_6"], url=link),
+                        InlineKeyboardButton(text=_["S_B_4"], url=config.SUPPORT_CHAT),
+                    ]
                 ]
             )
             await m.delete()
@@ -116,16 +98,9 @@ async def start_pm(client, message: Message, _):
         served_users = len(await get_served_users())
         UP, CPU, RAM, DISK = await bot_sys_stats()
         await message.reply_video(
-            random.choice(ANNIE_VID),
-            caption=random.choice(AYUV).format(
-                message.from_user.mention,
-                app.mention,
-                UP,
-                DISK,
-                CPU,
-                RAM,
-                served_users,
-                served_chats,
+            random.choice(START_VIDS),
+            caption=_["start_2"].format(
+                message.from_user.mention, app.mention, UP, DISK, CPU, RAM, served_users, served_chats
             ),
             reply_markup=InlineKeyboardMarkup(out),
         )
@@ -135,19 +110,17 @@ async def start_pm(client, message: Message, _):
                 text=f"{message.from_user.mention} ᴊᴜsᴛ sᴛᴀʀᴛᴇᴅ ᴛʜᴇ ʙᴏᴛ.\n\n<b>ᴜsᴇʀ ɪᴅ :</b> <code>{message.from_user.id}</code>\n<b>ᴜsᴇʀɴᴀᴍᴇ :</b> @{message.from_user.username}",
             )
 
-
 @app.on_message(filters.command(["start"]) & filters.group & ~BANNED_USERS)
 @LanguageStart
 async def start_gp(client, message: Message, _):
     out = start_panel(_)
     uptime = int(time.time() - _boot_)
     await message.reply_video(
-        random.choice(ANNIE_VID),
+        random.choice(START_VIDS),
         caption=_["start_1"].format(app.mention, get_readable_time(uptime)),
         reply_markup=InlineKeyboardMarkup(out),
     )
     return await add_served_chat(message.chat.id)
-
 
 @app.on_message(filters.new_chat_members, group=-1)
 async def welcome(client, message: Message):
@@ -177,7 +150,7 @@ async def welcome(client, message: Message):
 
                 out = start_panel(_)
                 await message.reply_video(
-                    random.choice(ANNIE_VID),
+                    random.choice(START_VIDS),
                     caption=_["start_3"].format(
                         message.from_user.mention,
                         app.mention,

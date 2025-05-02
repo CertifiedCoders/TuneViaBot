@@ -1,10 +1,11 @@
+import random
 from pyrogram import filters
 from pyrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup
 
 from config import LOGGER_ID
 from Tune import app
 
-chatlog_img = "https://telegra.ph/file/7cc7183b82327933b7b04.jpg"
+PHOTOS = "https://files.catbox.moe/j1d9dn.jpg"
 
 
 @app.on_message(filters.new_chat_members)
@@ -31,7 +32,7 @@ async def join_watcher(_, message: Message):
 
             await app.send_photo(
                 chat_id=LOGGER_ID,
-                photo=chatlog_img,
+                photo=PHOTOS,
                 caption=caption,
                 reply_markup=InlineKeyboardMarkup(
                     [[InlineKeyboardButton("sᴇᴇ ɢʀᴏᴜᴘ 👀", url=invite_link if isinstance(invite_link, str) else "https://t.me/")]]

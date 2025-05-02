@@ -9,11 +9,15 @@ logging.basicConfig(
         logging.StreamHandler(),
     ],
 )
-
-logging.getLogger("httpx").setLevel(logging.ERROR)
 logging.getLogger("pymongo").setLevel(logging.ERROR)
+logging.getLogger("httpx").setLevel(logging.ERROR)
 logging.getLogger("pyrogram").setLevel(logging.ERROR)
 logging.getLogger("pytgcalls").setLevel(logging.ERROR)
+
+
+ntgcalls_logger = logging.getLogger("ntgcalls")
+ntgcalls_logger.setLevel(logging.CRITICAL)
+ntgcalls_logger.propagate = False
 
 
 def LOGGER(name: str) -> logging.Logger:

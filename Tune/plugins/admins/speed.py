@@ -3,7 +3,7 @@ from pyrogram.types import Message
 
 from config import BANNED_USERS, adminlist
 from Tune import app
-from Tune.core.call import Jarvis
+from Tune.core.call import JARVIS
 from Tune.misc import SUDOERS, db
 from Tune.utils import AdminRightsCheck
 from Tune.utils.database import is_active_chat, is_nonadmin_chat
@@ -94,7 +94,7 @@ async def manage_callback(client, CallbackQuery, _):
         text=_["admin_32"].format(CallbackQuery.from_user.mention),
     )
     try:
-        await Jarvis.speedup_stream(
+        await JARVIS.speedup_stream(
             chat_id,
             file_path,
             speed,

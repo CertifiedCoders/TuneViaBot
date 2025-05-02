@@ -1,6 +1,6 @@
 import os
 
-from ..logconf import LOGGER
+from Tune.logging import LOGGER
 
 
 def dirr():

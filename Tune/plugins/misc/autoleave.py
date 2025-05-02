@@ -5,7 +5,7 @@ from pyrogram.enums import ChatType
 
 import config
 from Tune import app
-from Tune.core.call import Jarvis, autoend
+from Tune.core.call import JARVIS, autoend
 from Tune.utils.database import get_client, is_active_chat, is_autoend
 
 
@@ -59,7 +59,7 @@ async def auto_end():
                     continue
                 autoend[chat_id] = {}
                 try:
-                    await Jarvis.stop_stream(chat_id)
+                    await JARVIS.stop_stream(chat_id)
                 except:
                     continue
                 try:

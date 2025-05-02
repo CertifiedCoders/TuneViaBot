@@ -1,101 +1,84 @@
 import re
 from os import getenv
-
 from dotenv import load_dotenv
 from pyrogram import filters
 
-# Load environment variables from .env file
+
 load_dotenv()
 
+# ───── Basic Bot Configuration ───── #
 API_ID = int(getenv("API_ID"))
 API_HASH = getenv("API_HASH")
 BOT_TOKEN = getenv("BOT_TOKEN")
 
+OWNER_ID = int(getenv("OWNER_ID", 7044783841))
 OWNER_USERNAME = getenv("OWNER_USERNAME", "CertifiedCoder")
 BOT_USERNAME = getenv("BOT_USERNAME", "TuneviaBot")
-BOT_NAME = getenv("BOT_NAME", "˹ᴛᴜɴᴇ ᴠɪᴀ ♫ ʙᴏᴛ˼")
+BOT_NAME = getenv("BOT_NAME", "˹ᴛᴜɴᴇ ᴠɪᴀ ʙᴏᴛ˼")
 ASSUSERNAME = getenv("ASSUSERNAME", "tuneviaassis")
 EVALOP = list(map(int, getenv("EVALOP", "6797202080").split()))
-MONGO_DB_URI = getenv("MONGO_DB_URI", "")
-LOGGER_ID = int(getenv("LOGGER_ID"))
+
+# ───── Mongo & Logging ───── #
+MONGO_DB_URI = getenv("MONGO_DB_URI")
+LOGGER_ID = int(getenv("LOGGER_ID", -1002014167331))
+
+# ───── Limits and Durations ───── #
 DURATION_LIMIT_MIN = int(getenv("DURATION_LIMIT", 17000))
-
-GPT_API = getenv("GPT_API", "")
-DEEP_API = getenv("DEEP_API", "")
-OWNER_ID = int(getenv("OWNER_ID", 7044783841))
-
-# Heroku deployment settings - Refer to Heroku documentation on how to obtain these
-HEROKU_APP_NAME = getenv("HEROKU_APP_NAME")
-HEROKU_API_KEY = getenv("HEROKU_API_KEY")
-UPSTREAM_REPO = getenv("UPSTREAM_REPO", "https://github.com/CertifiedCoders/TuneViaBot")
-UPSTREAM_BRANCH = getenv("UPSTREAM_BRANCH", "Master")
-GIT_TOKEN = getenv("GIT_TOKEN", "")
-
-# Support and contact information - Provide your own support channels
-SUPPORT_CHANNEL = getenv("SUPPORT_CHANNEL", "https://t.me/CertifiedCodes")
-SUPPORT_CHAT = getenv("SUPPORT_CHAT", "https://t.me/CertifiedCoders")
-
-# Server limits and configurations - These can be set based on your server configurations
-SERVER_PLAYLIST_LIMIT = int(getenv("SERVER_PLAYLIST_LIMIT", "3000"))
-PLAYLIST_FETCH_LIMIT = int(getenv("PLAYLIST_FETCH_LIMIT", "2500"))
-AUTO_LEAVING_ASSISTANT = False
 SONG_DOWNLOAD_DURATION = int(getenv("SONG_DOWNLOAD_DURATION", "9999999"))
 SONG_DOWNLOAD_DURATION_LIMIT = int(getenv("SONG_DOWNLOAD_DURATION_LIMIT", "9999999"))
-
-# External service credentials - Obtain these from Spotify
-SPOTIFY_CLIENT_ID = getenv("SPOTIFY_CLIENT_ID", "22b6125bfe224587b722d6815002db2b")
-SPOTIFY_CLIENT_SECRET = getenv(
-    "SPOTIFY_CLIENT_SECRET", "c9c63c6fbf2f467c8bc68624851e9773"
-)
-
-# Telegram file size limits - Set these according to your requirements
 TG_AUDIO_FILESIZE_LIMIT = int(getenv("TG_AUDIO_FILESIZE_LIMIT", "5242880000"))
 TG_VIDEO_FILESIZE_LIMIT = int(getenv("TG_VIDEO_FILESIZE_LIMIT", "5242880000"))
 
-# Pyrogram session strings - You need to generate these yourself
-STRING1 = getenv("STRING_SESSION", None)
-STRING2 = getenv("STRING_SESSION2", None)
-STRING3 = getenv("STRING_SESSION3", None)
-STRING4 = getenv("STRING_SESSION4", None)
-STRING5 = getenv("STRING_SESSION5", None)
+# ───── Custom API Configs ───── #
+COOKIE_URL = getenv("COOKIE_URL") #necessary
+API_URL = getenv("API_URL") #optional
+API_KEY = getenv("API_KEY") #optional
 
-# Bot introduction messages - These can be customized as per your preference
-AYU = [
-    "💞",
-    "🦋",
-    "🔍",
-    "🧪",
-    "⚡️",
-    "🔥",
-    "🎩",
-    "🌈",
-    "🍷",
-    "🥂",
-    "🥃",
-    "🥤",
-    "🕊️",
-    "🪄",
-    "💌",
-    "🧨",
+# ───── Heroku Configuration ───── #
+HEROKU_APP_NAME = getenv("HEROKU_APP_NAME")
+HEROKU_API_KEY = getenv("HEROKU_API_KEY")
+
+# ───── Git & Updates ───── #
+UPSTREAM_REPO = getenv("UPSTREAM_REPO", "https://github.com/CertifiedCoders/TuneViaBot")
+UPSTREAM_BRANCH = getenv("UPSTREAM_BRANCH", "Master")
+GIT_TOKEN = getenv("GIT_TOKEN")
+
+# ───── Support & Community ───── #
+SUPPORT_CHANNEL = getenv("SUPPORT_CHANNEL", "https://t.me/CertifiedNetwork")
+SUPPORT_CHAT = getenv("SUPPORT_CHAT", "https://t.me/CertifiedDiscussion")
+
+# ───── Assistant Auto Leave ───── #
+AUTO_LEAVING_ASSISTANT = False
+AUTO_LEAVE_ASSISTANT_TIME = int(getenv("ASSISTANT_LEAVE_TIME", "11500"))
+
+# ───── Spotify Credentials ───── #
+SPOTIFY_CLIENT_ID = getenv("SPOTIFY_CLIENT_ID", "22b6125bfe224587b722d6815002db2b")
+SPOTIFY_CLIENT_SECRET = getenv("SPOTIFY_CLIENT_SECRET", "c9c63c6fbf2f467c8bc68624851e9773")
+
+# ───── Session Strings ───── #
+STRING1 = getenv("STRING_SESSION")
+STRING2 = getenv("STRING_SESSION2")
+STRING3 = getenv("STRING_SESSION3")
+STRING4 = getenv("STRING_SESSION4")
+STRING5 = getenv("STRING_SESSION5")
+
+# ───── Server Settings ───── #
+SERVER_PLAYLIST_LIMIT = int(getenv("SERVER_PLAYLIST_LIMIT", "3000"))
+PLAYLIST_FETCH_LIMIT = int(getenv("PLAYLIST_FETCH_LIMIT", "2500"))
+
+# ───── Bot Media Assets ───── #
+START_VIDS = [
+    "https://telegra.ph/file/9b7e1b820c72a14d90be7.mp4",
+    "https://telegra.ph/file/72f349b1386d6d9374a38.mp4",
+    "https://telegra.ph/file/a4d90b0cb759b67d68644.mp4"
 ]
 
-AYUV = [
-    "ʜᴇʟʟᴏ {0}, 🥀\n\n ɪᴛ'ꜱ ᴍᴇ {1} !\n\n┏━━━━━━━━━━━━━━━━━⧫\n┠ ◆ ꜱᴜᴘᴘᴏʀᴛɪɴɢ ᴘʟᴀᴛꜰᴏʀᴍꜱ : ʏᴏᴜᴛᴜʙᴇ, ꜱᴘᴏᴛɪꜰʏ,\n┠ ◆ ʀᴇꜱꜱᴏ, ᴀᴘᴘʟᴇᴍᴜꜱɪᴄ , ꜱᴏᴜɴᴅᴄʟᴏᴜᴅ ᴇᴛᴄ.\n┗━━━━━━━━━━━━━━━━━⧫\n┏━━━━━━━━━━━━━━━━━⧫\n┠ ➥ Uᴘᴛɪᴍᴇ : {2}\n┠ ➥ SᴇʀᴠᴇʀSᴛᴏʀᴀɢᴇ : {3}\n┠ ➥ CPU Lᴏᴀᴅ : {4}\n┠ ➥ RAM Cᴏɴsᴜᴘᴛɪᴏɴ : {5}\n┠ ➥ ᴜꜱᴇʀꜱ : {6}\n┠ ➥ ᴄʜᴀᴛꜱ : {7}\n┗━━━━━━━━━━━━━━━━━⧫\n\n🫧 ᴅᴇᴠᴇʟᴏᴩᴇʀ 🪽 ➪ [ᴄᴇʀᴛɪғɪᴇᴅ ᴄᴏᴅᴇʀ ✔︎](https://t.me/CertifiedCoder)",
-    "ʜɪɪ, {0} ~\n\n◆ ɪ'ᴍ ᴀ {1} ᴛᴇʟᴇɢʀᴀᴍ ꜱᴛʀᴇᴀᴍɪɴɢ ʙᴏᴛ ᴡɪᴛʜ ꜱᴏᴍᴇ ᴜꜱᴇꜰᴜʟ\n◆ ᴜʟᴛʀᴀ ғᴀsᴛ ᴠᴄ ᴘʟᴀʏᴇʀ ꜰᴇᴀᴛᴜʀᴇꜱ.\n\n✨ ꜰᴇᴀᴛᴜʀᴇꜱ ⚡️\n◆ ʙᴏᴛ ғᴏʀ ᴛᴇʟᴇɢʀᴀᴍ ɢʀᴏᴜᴘs.\n◆ Sᴜᴘᴇʀғᴀsᴛ ʟᴀɢ Fʀᴇᴇ ᴘʟᴀʏᴇʀ.\n◆ ʏᴏᴜ ᴄᴀɴ ᴘʟᴀʏ ᴍᴜꜱɪᴄ + ᴠɪᴅᴇᴏ.\n◆ ʟɪᴠᴇ ꜱᴛʀᴇᴀᴍɪɴɢ.\n◆ ɴᴏ ᴘʀᴏᴍᴏ.\n◆ ʙᴇꜱᴛ ꜱᴏᴜɴᴅ Qᴜᴀʟɪᴛʏ.\n◆ 24×7 ʏᴏᴜ ᴄᴀɴ ᴘʟᴀʏ ᴍᴜꜱɪᴄ.\n◆ ᴀᴅᴅ ᴛʜɪꜱ ʙᴏᴛ ɪɴ ʏᴏᴜʀ ɢʀᴏᴜᴘ ᴀɴᴅ ᴍᴀᴋᴇ ɪᴛ ᴀᴅᴍɪɴ ᴀɴᴅ ᴇɴᴊᴏʏ ᴍᴜꜱɪᴄ 🎵.\n\n┏━━━━━━━━━━━━━━━━━⧫\n┠ ◆ ꜱᴜᴘᴘᴏʀᴛɪɴɢ ᴘʟᴀᴛꜰᴏʀᴍꜱ : ʏᴏᴜᴛᴜʙᴇ, ꜱᴘᴏᴛɪꜰʏ,\n┠ ◆ ʀᴇꜱꜱᴏ, ᴀᴘᴘʟᴇᴍᴜꜱɪᴄ , ꜱᴏᴜɴᴅᴄʟᴏᴜᴅ ᴇᴛᴄ.\n┗━━━━━━━━━━━━━━━━━⧫\n┏━━━━━━━━━━━━━━━━━⧫\n┠ ➥ Uᴘᴛɪᴍᴇ : {2}\n┠ ➥ SᴇʀᴠᴇʀSᴛᴏʀᴀɢᴇ : {3}\n┠ ➥ CPU Lᴏᴀᴅ : {4}\n┠ ➥ RAM Cᴏɴsᴜᴘᴛɪᴏɴ : {5}\n┠ ➥ ᴜꜱᴇʀꜱ : {6}\n┠ ➥ ᴄʜᴀᴛꜱ : {7}\n┗━━━━━━━━━━━━━━━━━⧫\n\n🫧 ᴅᴇᴠᴇʟᴏᴩᴇʀ 🪽 ➪ [ᴄᴇʀᴛɪғɪᴇᴅ ᴄᴏᴅᴇʀ ✔︎](https://t.me/CertifiedCoder)",
+STICKERS = [
+    "CAACAgUAAx0Cd6nKUAACASBl_rnalOle6g7qS-ry-aZ1ZpVEnwACgg8AAizLEFfI5wfykoCR4h4E",
+    "CAACAgUAAx0Cd6nKUAACATJl_rsEJOsaaPSYGhU7bo7iEwL8AAPMDgACu2PYV8Vb8aT4_HUPHgQ"
 ]
-
-BANNED_USERS = filters.user()
-adminlist = {}
-lyrical = {}
-votemode = {}
-autoclean = []
-confirmer = {}
-
-
-START_IMG_URL = getenv(
-    "START_IMG_URL", "https://telegra.ph/file/cd02e62dea09e7514c45f.jpg"
-)
-PING_VID_URL = getenv("PING_VID_URL", "https://files.catbox.moe/mi8nr0.mp4")
+HELP_IMG_URL = "https://files.catbox.moe/h3jqa8.jpg"
+PING_VID_URL = "https://files.catbox.moe/mi8nr0.mp4"
 PLAYLIST_IMG_URL = "https://files.catbox.moe/t72ntd.jpg"
 STATS_VID_URL = "https://files.catbox.moe/5vdaw5.mp4"
 TELEGRAM_AUDIO_URL = "https://files.catbox.moe/90juvd.jpg"
@@ -109,22 +92,24 @@ SPOTIFY_PLAYLIST_IMG_URL = "https://files.catbox.moe/qp5aa5.jpg"
 FAILED = "https://files.catbox.moe/cq87ww.jpg"
 
 
-def time_to_seconds(time):
-    stringt = str(time)
-    return sum(int(x) * 60**i for i, x in enumerate(reversed(stringt.split(":"))))
+# ───── Utility & Functional ───── #
+def time_to_seconds(time: str) -> int:
+    return sum(int(x) * 60**i for i, x in enumerate(reversed(time.split(":"))))
+
+DURATION_LIMIT = time_to_seconds(f"{DURATION_LIMIT_MIN}:00")
 
 
-DURATION_LIMIT = int(time_to_seconds(f"{DURATION_LIMIT_MIN}:00"))
+# ───── Bot Introduction Messages ───── #
+AYU = ["💞", "🦋", "🔍", "🧪", "⚡️", "🔥", "🎩", "🌈", "🍷", "🥂", "🥃", "🕊️", "🪄", "💌", "🧨"]
 
 
-if SUPPORT_CHANNEL:
-    if not re.match("(?:http|https)://", SUPPORT_CHANNEL):
-        raise SystemExit(
-            "[ERROR] - Your SUPPORT_CHANNEL url is wrong. Please ensure that it starts with https://"
-        )
+# ───── Runtime Structures ───── #
+BANNED_USERS = filters.user()
+adminlist, lyrical, votemode, autoclean, confirmer = {}, {}, {}, [], {}
 
-if SUPPORT_CHAT:
-    if not re.match("(?:http|https)://", SUPPORT_CHAT):
-        raise SystemExit(
-            "[ERROR] - Your SUPPORT_CHAT url is wrong. Please ensure that it starts with https://"
-        )
+# ───── URL Validation ───── #
+if SUPPORT_CHANNEL and not re.match(r"^https?://", SUPPORT_CHANNEL):
+    raise SystemExit("[ERROR] - Invalid SUPPORT_CHANNEL URL. Must start with https://")
+
+if SUPPORT_CHAT and not re.match(r"^https?://", SUPPORT_CHAT):
+    raise SystemExit("[ERROR] - Invalid SUPPORT_CHAT URL. Must start with https://")

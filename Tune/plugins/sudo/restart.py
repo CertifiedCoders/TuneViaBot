@@ -19,7 +19,7 @@ from Tune.utils.database import (
     remove_active_video_chat,
 )
 from Tune.utils.decorators.language import language
-from Tune.utils.pastebin import JarvisBin
+from Tune.utils.pastebin import ANNIEBIN
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -83,7 +83,7 @@ async def update_(client, message, _):
     _final_updates_ = _update_response_ + updates
 
     if len(_final_updates_) > 4096:
-        url = await JarvisBin(updates)
+        url = await ANNIEBIN(updates)
         nrs = await response.edit(
             f"<b>ᴀ ɴᴇᴡ ᴜᴩᴅᴀᴛᴇ ɪs ᴀᴠᴀɪʟᴀʙʟᴇ ғᴏʀ ᴛʜᴇ ʙᴏᴛ !</b>\n\n"
             f"\u2793 ᴩᴜsʜɪɴɢ ᴜᴩᴅᴀᴛᴇs ɴᴏᴡ\n\n"

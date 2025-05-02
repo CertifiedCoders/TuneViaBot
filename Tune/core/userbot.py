@@ -2,7 +2,7 @@ from pyrogram import Client
 
 import config
 
-from ..logconf import LOGGER
+from Tune.logging import LOGGER
 
 assistants = []
 assistantids = []
@@ -16,39 +16,38 @@ GROUPS_TO_JOIN = [
 ]
 
 
-# Initialize userbots
 class Userbot:
     def __init__(self):
         self.one = Client(
-            "TuneViaAssis1",
+            "TuneAssis1",
             config.API_ID,
             config.API_HASH,
             session_string=str(config.STRING1),
             no_updates=True,
         )
         self.two = Client(
-            "TuneViaAssis2",
+            "TuneAssis2",
             config.API_ID,
             config.API_HASH,
             session_string=str(config.STRING2),
             no_updates=True,
         )
         self.three = Client(
-            "TuneViaAssis3",
+            "TuneAssis3",
             config.API_ID,
             config.API_HASH,
             session_string=str(config.STRING3),
             no_updates=True,
         )
         self.four = Client(
-            "TuneViaAssis4",
+            "TuneAssis4",
             config.API_ID,
             config.API_HASH,
             session_string=str(config.STRING4),
             no_updates=True,
         )
         self.five = Client(
-            "TuneViaAssis5",
+            "TuneAssis5",
             config.API_ID,
             config.API_HASH,
             session_string=str(config.STRING5),
@@ -87,7 +86,7 @@ class Userbot:
                 exit()
 
             me = await client.get_me()
-            client.id, client.name, client.username = me.id, me.mention, me.username
+            client.id, client.name, client.username = me.id, me.first_name, me.username
             assistantids.append(me.id)
 
             LOGGER(__name__).info(f"Assistant {index} Started as {client.name}")

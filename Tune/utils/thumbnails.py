@@ -1,172 +1,124 @@
 import os
 import re
-
 import aiofiles
 import aiohttp
-from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont, ImageOps
-from unidecode import unidecode
-from youtubesearchpython.__future__ import VideosSearch
+from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
+from Tune.utils.errors import capture_internal_err
+from Tune.platforms.Youtube import YouTubeAPI
+from config import FAILED
 
-from config import YOUTUBE_IMG_URL
-from Tune import app
+# Create necessary directories
+os.makedirs("cache", exist_ok=True)
 
+# --------------------------------------------------------------- Constants
+CACHE_DIR = "cache"
 
-def changeImageSize(maxWidth, maxHeight, image):
-    widthRatio = maxWidth / image.size[0]
-    heightRatio = maxHeight / image.size[1]
-    newWidth = int(widthRatio * image.size[0])
-    newHeight = int(heightRatio * image.size[1])
-    newImage = image.resize((newWidth, newHeight))
-    return newImage
+PANEL_W, PANEL_H = 763, 545
+PANEL_X = (1280 - PANEL_W) // 2
+PANEL_Y = 88
+TRANSPARENCY = 170
+INNER_OFFSET = 36
 
+THUMB_W, THUMB_H = 542, 273
+THUMB_X = PANEL_X + (PANEL_W - THUMB_W) // 2
+THUMB_Y = PANEL_Y + INNER_OFFSET
 
-def truncate(text):
-    list = text.split(" ")
-    text1 = ""
-    text2 = ""
-    for i in list:
-        if len(text1) + len(i) < 30:
-            text1 += " " + i
-        elif len(text2) + len(i) < 30:
-            text2 += " " + i
+TITLE_X = 377
+META_X = 377
+TITLE_Y = THUMB_Y + THUMB_H + 10
+META_Y = TITLE_Y + 45
 
-    text1 = text1.strip()
-    text2 = text2.strip()
-    return [text1, text2]
+BAR_X, BAR_Y = 388, META_Y + 45
+BAR_RED_LEN = 280
+BAR_TOTAL_LEN = 480
 
+ICONS_W, ICONS_H = 415, 45
+ICONS_X = PANEL_X + (PANEL_W - ICONS_W) // 2
+ICONS_Y = BAR_Y + 48
 
-def crop_center_circle(img, output_size, border, crop_scale=1.5):
-    half_the_width = img.size[0] / 2
-    half_the_height = img.size[1] / 2
-    larger_size = int(output_size * crop_scale)
-    img = img.crop(
-        (
-            half_the_width - larger_size / 2,
-            half_the_height - larger_size / 2,
-            half_the_width + larger_size / 2,
-            half_the_height + larger_size / 2,
-        )
-    )
+MAX_TITLE_WIDTH = 580
 
-    img = img.resize((output_size - 2 * border, output_size - 2 * border))
-
-    final_img = Image.new("RGBA", (output_size, output_size), "white")
-
-    mask_main = Image.new("L", (output_size - 2 * border, output_size - 2 * border), 0)
-    draw_main = ImageDraw.Draw(mask_main)
-    draw_main.ellipse(
-        (0, 0, output_size - 2 * border, output_size - 2 * border), fill=255
-    )
-
-    final_img.paste(img, (border, border), mask_main)
-
-    mask_border = Image.new("L", (output_size, output_size), 0)
-    draw_border = ImageDraw.Draw(mask_border)
-    draw_border.ellipse((0, 0, output_size, output_size), fill=255)
-
-    result = Image.composite(
-        final_img, Image.new("RGBA", final_img.size, (0, 0, 0, 0)), mask_border
-    )
-
-    return result
+def trim_to_width(text: str, font: ImageFont.FreeTypeFont, max_w: int) -> str:
+    ellipsis = "…"
+    if font.getlength(text) <= max_w:
+        return text
+    for i in range(len(text) - 1, 0, -1):
+        if font.getlength(text[:i] + ellipsis) <= max_w:
+            return text[:i] + ellipsis
+    return ellipsis
 
 
+@capture_internal_err
 async def get_thumb(videoid):
-    if os.path.isfile(f"cache/{videoid}_v4.png"):
-        return f"cache/{videoid}_v4.png"
+    cache_path = f"{CACHE_DIR}/{videoid}_v4.png"
+    if os.path.isfile(cache_path):
+        return cache_path
 
-    url = f"https://www.youtube.com/watch?v={videoid}"
-    results = VideosSearch(url, limit=1)
-    for result in (await results.next())["result"]:
-        try:
-            title = result["title"]
-            title = re.sub("\W+", " ", title)
-            title = title.title()
-        except:
-            title = "Unsupported Title"
-        try:
-            duration = result["duration"]
-        except:
-            duration = "Unknown Mins"
-        thumbnail = result["thumbnails"][0]["url"].split("?")[0]
-        try:
-            views = result["viewCount"]["short"]
-        except:
-            views = "Unknown Views"
-        try:
-            channel = result["channel"]["name"]
-        except:
-            channel = "Unknown Channel"
+    youtube = YouTubeAPI()
+    try:
+        title, duration, _, thumbnail, _ = await youtube.details("", videoid=videoid)
+    except Exception as e:
+        raise ValueError(f"Could not fetch video details: {e}")
 
+    title = re.sub(r"\W+", " ", title or "Unsupported Title").title()
+    duration = duration or "Unknown Mins"
+    thumbnail = thumbnail or FAILED
+
+    thumb_path = f"{CACHE_DIR}/thumb{videoid}.png"
     async with aiohttp.ClientSession() as session:
         async with session.get(thumbnail) as resp:
             if resp.status == 200:
-                f = await aiofiles.open(f"cache/thumb{videoid}.png", mode="wb")
-                await f.write(await resp.read())
-                await f.close()
+                async with aiofiles.open(thumb_path, mode="wb") as f:
+                    await f.write(await resp.read())
 
-    youtube = Image.open(f"cache/thumb{videoid}.png")
-    image1 = changeImageSize(1280, 720, youtube)
-    image2 = image1.convert("RGBA")
-    background = image2.filter(filter=ImageFilter.BoxBlur(20))
-    enhancer = ImageEnhance.Brightness(background)
-    background = enhancer.enhance(0.6)
-    draw = ImageDraw.Draw(background)
-    arial = ImageFont.truetype("Tune/assets/kishu/font2.ttf", 30)
-    font = ImageFont.truetype("Tune/assets/kishu/font.ttf", 30)
-    title_font = ImageFont.truetype("Tune/assets/kishu/font3.ttf", 45)
+    base = Image.open(thumb_path).resize((1280, 720)).convert("RGBA")
+    bg = ImageEnhance.Brightness(base.filter(ImageFilter.BoxBlur(10))).enhance(0.6)
 
-    circle_thumbnail = crop_center_circle(youtube, 400, 20)
-    circle_thumbnail = circle_thumbnail.resize((400, 400))
-    circle_position = (120, 160)
-    background.paste(circle_thumbnail, circle_position, circle_thumbnail)
+    panel_area = bg.crop((PANEL_X, PANEL_Y, PANEL_X + PANEL_W, PANEL_Y + PANEL_H))
+    white_overlay = Image.new("RGBA", (PANEL_W, PANEL_H), (255, 255, 255, TRANSPARENCY))
+    frosted = Image.alpha_composite(panel_area, white_overlay)
+    mask = Image.new("L", (PANEL_W, PANEL_H), 0)
+    ImageDraw.Draw(mask).rounded_rectangle((0, 0, PANEL_W, PANEL_H), 50, fill=255)
+    bg.paste(frosted, (PANEL_X, PANEL_Y), mask)
 
-    text_x_position = 565
-
-    title1 = truncate(title)
-    draw.text((text_x_position, 180), title1[0], fill=(255, 255, 255), font=title_font)
-    draw.text((text_x_position, 230), title1[1], fill=(255, 255, 255), font=title_font)
-    draw.text(
-        (text_x_position, 320),
-        f"{channel}  |  {views[:23]}",
-        (255, 255, 255),
-        font=arial,
-    )
-
-    line_length = 580
-
-    red_length = int(line_length * 0.6)
-    white_length = line_length - red_length
-
-    start_point_red = (text_x_position, 380)
-    end_point_red = (text_x_position + red_length, 380)
-    draw.line([start_point_red, end_point_red], fill="red", width=9)
-
-    start_point_white = (text_x_position + red_length, 380)
-    end_point_white = (text_x_position + line_length, 380)
-    draw.line([start_point_white, end_point_white], fill="white", width=8)
-
-    circle_radius = 10
-    circle_position = (end_point_red[0], end_point_red[1])
-    draw.ellipse(
-        [
-            circle_position[0] - circle_radius,
-            circle_position[1] - circle_radius,
-            circle_position[0] + circle_radius,
-            circle_position[1] + circle_radius,
-        ],
-        fill="red",
-    )
-    draw.text((text_x_position, 400), "00:00", (255, 255, 255), font=arial)
-    draw.text((1080, 400), duration, (255, 255, 255), font=arial)
-
-    play_icons = Image.open("Tune/assets/kishu/play_icons.png")
-    play_icons = play_icons.resize((580, 62))
-    background.paste(play_icons, (text_x_position, 450), play_icons)
+    draw = ImageDraw.Draw(bg)
 
     try:
-        os.remove(f"cache/thumb{videoid}.png")
+        title_font = ImageFont.truetype("Tune/assets/thumb/font2.ttf", 32)
+        regular_font = ImageFont.truetype("Tune/assets/thumb/font.ttf", 18)
+    except OSError:
+        title_font = regular_font = ImageFont.load_default()
+
+    thumb = base.resize((THUMB_W, THUMB_H))
+    tmask = Image.new("L", thumb.size, 0)
+    ImageDraw.Draw(tmask).rounded_rectangle((0, 0, THUMB_W, THUMB_H), 20, fill=255)
+    bg.paste(thumb, (THUMB_X, THUMB_Y), tmask)
+
+    draw.text((TITLE_X, TITLE_Y), trim_to_width(title, title_font, MAX_TITLE_WIDTH), fill="black", font=title_font)
+    draw.text((META_X, META_Y), "YouTube | Views Unknown", fill="black", font=regular_font)
+
+    draw.line([(BAR_X, BAR_Y), (BAR_X + BAR_RED_LEN, BAR_Y)], fill="red", width=6)
+    draw.line([(BAR_X + BAR_RED_LEN, BAR_Y), (BAR_X + BAR_TOTAL_LEN, BAR_Y)], fill="gray", width=5)
+    draw.ellipse([(BAR_X + BAR_RED_LEN - 7, BAR_Y - 7), (BAR_X + BAR_RED_LEN + 7, BAR_Y + 7)], fill="red")
+
+    draw.text((BAR_X, BAR_Y + 15), "00:00", fill="black", font=regular_font)
+    is_live = (duration or "").strip().lower() in {"live", "live now", ""}
+    if is_live:
+        draw.text((BAR_X + BAR_TOTAL_LEN - 90, BAR_Y + 15), "Live", fill="red", font=regular_font)
+    else:
+        draw.text((BAR_X + BAR_TOTAL_LEN - 60, BAR_Y + 15), duration or "0:00", fill="black", font=regular_font)
+
+    icons_path = "Tune/assets/thumb/play_icons.png"
+    if os.path.isfile(icons_path):
+        ic = Image.open(icons_path).resize((ICONS_W, ICONS_H)).convert("RGBA")
+        r, g, b, a = ic.split()
+        black_ic = Image.merge("RGBA", (r.point(lambda *_: 0), g.point(lambda *_: 0), b.point(lambda *_: 0), a))
+        bg.paste(black_ic, (ICONS_X, ICONS_Y), black_ic)
+
+    try:
+        os.remove(thumb_path)
     except:
         pass
-    background.save(f"cache/{videoid}_v4.png")
-    return f"cache/{videoid}_v4.png"
+
+    bg.save(cache_path)
+    return cache_path

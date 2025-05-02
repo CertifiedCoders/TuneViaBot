@@ -25,7 +25,6 @@ from Tune.utils.database import (
 )
 from Tune.utils.inline import botplaylist_markup
 
-# Cache for invite links per chat
 links = {}
 
 
@@ -176,10 +175,8 @@ def PlayWrapper(command):
                     await asyncio.sleep(1)
                     await userbot.join_chat(invitelink)
                 except InviteHashExpired:
-                    # Remove expired invite link from the cache.
                     if chat_id in links:
                         del links[chat_id]
-                    # Generate a new invite link.
                     try:
                         invitelink = await app.export_chat_invite_link(chat_id)
                     except ChatAdminRequired:
@@ -192,7 +189,6 @@ def PlayWrapper(command):
                         invitelink = invitelink.replace(
                             "https://t.me/+", "https://t.me/joinchat/"
                         )
-                    # Update the cache.
                     links[chat_id] = invitelink
                     await userbot.join_chat(invitelink)
                 except InviteRequestSent:

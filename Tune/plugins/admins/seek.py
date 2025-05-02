@@ -1,12 +1,12 @@
 from pyrogram import filters
 from pyrogram.types import Message
 
-from config import BANNED_USERS
 from Tune import YouTube, app
-from Tune.core.call import Jarvis
+from Tune.core.call import JARVIS
 from Tune.misc import db
 from Tune.utils import AdminRightsCheck, seconds_to_min
 from Tune.utils.inline import close_markup
+from config import BANNED_USERS
 
 
 @app.on_message(
@@ -56,7 +56,7 @@ async def seek_comm(cli, message: Message, _, chat_id):
     if "index_" in file_path:
         file_path = playing[0]["vidid"]
     try:
-        await Jarvis.seek_stream(
+        await JARVIS.seek_stream(
             chat_id,
             file_path,
             seconds_to_min(to_seek),

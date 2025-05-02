@@ -1,12 +1,12 @@
 from pyrogram import filters
 from pyrogram.types import Message
 
-from config import BANNED_USERS
 from Tune import app
 from Tune.misc import SUDOERS
 from Tune.utils.database import add_gban_user, remove_gban_user
 from Tune.utils.decorators.language import language
 from Tune.utils.extraction import extract_user
+from config import BANNED_USERS
 
 
 @app.on_message(filters.command(["block"]) & SUDOERS)

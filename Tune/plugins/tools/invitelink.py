@@ -1,46 +1,39 @@
 import os
-
 from pyrogram import Client, filters
-from pyrogram.errors import FloodWait
 from pyrogram.types import Message
-
+from pyrogram.errors import FloodWait
 from Tune import app
 from Tune.misc import SUDOERS
 
 
 @app.on_message(filters.command("givelink"))
-async def give_link_command(client, message):
-    chat = message.chat.id
-    link = await app.export_chat_invite_link(chat)
-    await message.reply_text(f"Here's the invite link for this chat:\n{link}")
+async def give_link_command(client: Client, message: Message):
+    try:
+        link = await app.export_chat_invite_link(message.chat.id)
+        await message.reply_text(
+            f"🔗 **ɪɴᴠɪᴛᴇ ʟɪɴᴋ ғᴏʀ** `{message.chat.title}`:\n{link}"
+        )
+    except Exception as e:
+        await message.reply_text(f"❌ ᴇʀʀᴏʀ ɢᴇɴᴇʀᴀᴛɪɴɢ ʟɪɴᴋ:\n`{e}`")
 
 
-@app.on_message(
-    filters.command(
-        ["link", "invitelink"], prefixes=["/", "!", "%", ",", "", ".", "@", "#"]
-    )
-    & SUDOERS
-)
+@app.on_message(filters.command(["link", "invitelink"], prefixes=["/", "!", ".", "#", "?"]) & SUDOERS)
 async def link_command_handler(client: Client, message: Message):
     if len(message.command) != 2:
-        await message.reply("Invalid usage. Correct format: /link group_id")
-        return
+        return await message.reply("**ᴜsᴀɢᴇ:** `/link <group_id>`")
 
     group_id = message.command[1]
     file_name = f"group_info_{group_id}.txt"
 
     try:
         chat = await client.get_chat(int(group_id))
-
-        if chat is None:
-            await message.reply("Unable to get information for the specified group ID.")
-            return
+        if not chat:
+            return await message.reply("⚠️ **ᴄᴏᴜʟᴅ ɴᴏᴛ ғᴇᴛᴄʜ ɢʀᴏᴜᴘ ɪɴғᴏ.**")
 
         try:
             invite_link = await client.export_chat_invite_link(chat.id)
         except FloodWait as e:
-            await message.reply(f"FloodWait: {e.x} seconds. Retrying in {e.x} seconds.")
-            return
+            return await message.reply(f"⏳ ʀᴀᴛᴇ ʟɪᴍɪᴛ: ᴡᴀɪᴛ `{e.value}` seconds.")
 
         group_data = {
             "id": chat.id,
@@ -65,11 +58,14 @@ async def link_command_handler(client: Client, message: Message):
         await client.send_document(
             chat_id=message.chat.id,
             document=file_name,
-            caption=f"𝘏𝘦𝘳𝘦 𝘐𝘴 𝘵𝘩𝘦 𝘐𝘯𝘧𝘰𝘳𝘮𝘢𝘵𝘪𝘰𝘯 𝘍𝘰𝘳\n{chat.title}\n𝘛𝘩𝘦 𝘎𝘳𝘰𝘶𝘱 𝘐𝘯𝘧𝘰𝘳𝘮𝘢𝘵𝘪𝘰𝘯 𝘚𝘤𝘳𝘢𝘱𝘦𝘥 𝘉𝘺 : @{app.username}",
+            caption=(
+                f"📂 **ɢʀᴏᴜᴘ ɪɴғᴏ ꜰᴏʀ** `{chat.title}`\n"
+                f"📌 **sᴄʀᴀᴘᴇᴅ ʙʏ:** @{app.username}"
+            ),
         )
 
     except Exception as e:
-        await message.reply(f"Error: {str(e)}")
+        await message.reply_text(f"❌ ᴇʀʀᴏʀ:\n`{str(e)}`")
 
     finally:
         if os.path.exists(file_name):

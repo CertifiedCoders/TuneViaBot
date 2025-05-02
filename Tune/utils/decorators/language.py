@@ -1,7 +1,8 @@
-from strings import get_string
 from Tune import app
+from config import SUPPORT_CHAT
 from Tune.misc import SUDOERS
 from Tune.utils.database import get_lang, is_maintenance
+from strings import get_string
 
 
 def language(mystic):

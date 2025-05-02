@@ -1,8 +1,7 @@
+import aiohttp
 import socket
 from asyncio import get_running_loop
 from functools import partial
-
-import aiohttp
 
 
 def _netcat(host, port, content):
@@ -24,8 +23,6 @@ async def paste(content):
     return link
 
 
-####2nd paste code
-
 BASE = "https://batbin.me/"
 
 
@@ -39,7 +36,7 @@ async def post(url: str, *args, **kwargs):
         return data
 
 
-async def JarvisBin(text):
+async def ANNIEBIN(text):
     resp = await post(f"{BASE}api/v2/paste", data=text)
     if not resp["success"]:
         return

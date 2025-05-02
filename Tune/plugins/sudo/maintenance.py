@@ -1,7 +1,6 @@
 from pyrogram import filters
 from pyrogram.types import Message
 
-from strings import get_string
 from Tune import app
 from Tune.misc import SUDOERS
 from Tune.utils.database import (
@@ -10,6 +9,7 @@ from Tune.utils.database import (
     maintenance_off,
     maintenance_on,
 )
+from strings import get_string
 
 
 @app.on_message(filters.command(["maintenance"]) & SUDOERS)

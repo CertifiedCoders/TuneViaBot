@@ -1,73 +1,87 @@
 {
-    "name": "˹ᴛᴜɴᴇ ᴠɪᴀ ʙᴏᴛ˼",
-    "description": "A Telegram Music Player Bot, written in Python with Pyrogram and Py-Tgcalls.",
-    "logo": "https://files.catbox.moe/7udxph.jpg",
-    "keywords": [
-    "python3",
-    "telegram",
-    "bot",
-    "Kishu",
-    "MusicBot",
-    "telegram-bot",
-    "pyrogram"
-    ],
-    "env": {
-      "API_ID": {
-        "description": "Get this value from https://my.telegram.org",
-        "value": "",
-        "required": true
-      },
-      "API_HASH": {
-        "description": "Get this value from https://my.telegram.org",
-        "value": "",
-        "required": true
-      },
-      "BOT_TOKEN": {
-        "description": "A Bot's token from Botfather",
-        "value": "",
-        "required": true
-      },
-      "MONGO_DB_URI": {
-        "description": "Get a mongodb url from https://cloud.mongodb.com.",
-        "value": "",
-        "required": true
-      },
-      "OWNER_ID": {
-        "description": "The user id of user whom you would like to add as OWNER.",
-        "value": "",
-        "required": true
-      },
-      "STRING_SESSION": {
-        "description": "A Pyrogram v2 String Session from @Strings_Gen_Robot on Telegram.",
-        "value": "",
-        "required": true
-      },
-      "HEROKU_API_KEY": {
-        "description": "Your Heroku account's API key",
-        "value": "",
-        "required": false
-      },
-      "HEROKU_APP_NAME": {
-        "description": "Your heroku app name",
-        "value": "",
-        "required": false
-      },
-      "LOGGER_ID": {
-        "description": "Your Log Group ID, add your bot and promote as an admin with full rights!. Channel ki id mat daal dena bsdk.",
-        "value": "",
-        "required": true
-      }
+  "name": "˹ᴛᴜɴᴇ ᴠɪᴀ ʙᴏᴛ˼",
+  "description": "A Telegram Music Player Bot, written in Python with Pyrogram and Py-Tgcalls.",
+  "logo": "https://files.catbox.moe/7udxph.jpg",
+  "keywords": [
+  "python3",
+  "telegram",
+  "bot",
+  "MusicBot",
+  "telegram-bot",
+  "pyrogram"
+  ],
+  "env": {
+    "API_ID": {
+      "description": "Telegram API ID, available at https://my.telegram.org. Required to connect the bot to Telegram servers.",
+      "required": true,
+      "value": ""
     },
-    "buildpacks": [
-          {
-              "url": "heroku/python"
-          },
-          {
-              "url": "heroku/nodejs"
-          },
-          {
-              "url": "https://github.com/jonathanong/heroku-buildpack-ffmpeg-latest.git"
-          }
-      ],
-      "stack": "container"
-  }
+    "API_HASH": {
+      "description": "Telegram API Hash, available at https://my.telegram.org. Required alongside API ID.",
+      "required": true,
+      "value": ""
+    },
+    "BOT_TOKEN": {
+      "description": "Bot Token from BotFather after creating your Telegram bot.",
+      "required": true,
+      "value": ""
+    },
+    "MONGO_DB_URI": {
+      "description": "MongoDB database connection URI, used for storing user and bot-related data. Get it from https://cloud.mongodb.com.",
+      "required": true,
+      "value": ""
+    },
+    "OWNER_ID": {
+      "description": "Your Telegram numeric user ID (use @userinfobot to find it). Multiple IDs can be separated by a space.",
+      "required": true,
+      "value": ""
+    },
+    "STRING_SESSION": {
+      "description": "Pyrogram v2 session string. Generate it securely from https://telegram.tools/session-string-generator#pyrogram.",
+      "value": "",
+      "required": true
+    },
+    "LOGGER_ID": {
+      "description": "Chat ID of your log group where the bot sends important logs. Make sure the bot is admin in that group.",
+      "required": true,
+      "value": ""
+    },
+    "COOKIE_URL": {
+      "description": "Direct raw link (from Batbin or Pastebin) to your YouTube cookies.txt file for better download support.",
+      "required": true,
+      "value": ""
+    },
+    "API_URL": {
+      "description": "(Optional) URL of a custom API server used for music downloads or other services.",
+      "required": false,
+      "value": ""
+    },
+    "API_KEY": {
+      "description": "(Optional) API Key associated with your custom music download server (used with API_URL).",
+      "required": false,
+      "value": ""
+    },
+    "HEROKU_API_KEY": {
+      "description": "Your Heroku account API key, required if you want the bot to support auto-updates or dynamic deployments.",
+      "required": false,
+      "value": ""
+    },
+    "HEROKU_APP_NAME": {
+      "description": "The name of your Heroku app. Required if using HEROKU_API_KEY for deployments.",
+      "required": false,
+      "value": ""
+    }
+  },
+  "buildpacks": [
+    {
+      "url": "heroku/python"
+    },
+    {
+      "url": "heroku/nodejs"
+    },
+    {
+      "url": "https://github.com/jonathanong/heroku-buildpack-ffmpeg-latest.git"
+    }
+  ],
+  "stack": "container"
+}

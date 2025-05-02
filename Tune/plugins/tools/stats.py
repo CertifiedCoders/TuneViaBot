@@ -9,7 +9,6 @@ from pyrogram.types import InputMediaVideo, Message
 from pytgcalls.__version__ import __version__ as pytgver
 
 import config
-from config import BANNED_USERS
 from Tune import app
 from Tune.core.userbot import assistants
 from Tune.misc import SUDOERS, mongodb
@@ -17,9 +16,10 @@ from Tune.plugins import ALL_MODULES
 from Tune.utils.database import get_served_chats, get_served_users, get_sudoers
 from Tune.utils.decorators.language import language, languageCB
 from Tune.utils.inline.stats import back_stats_buttons, stats_buttons
+from config import BANNED_USERS
 
 
-@app.on_message(filters.command(["stats", "gstats"]) & filters.group & ~BANNED_USERS)
+@app.on_message(filters.command(["stats", "gstats"]) & ~BANNED_USERS)
 @language
 async def stats_global(client, message: Message, _):
     upl = stats_buttons(_, True if message.from_user.id in SUDOERS else False)

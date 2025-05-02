@@ -1,15 +1,17 @@
 from pyrogram import filters
 from pyrogram.types import InlineKeyboardMarkup, Message
 
-from config import BANNED_USERS
 from Tune import app
 from Tune.utils.database import get_playmode, get_playtype, is_nonadmin_chat
 from Tune.utils.decorators import language
 from Tune.utils.inline.settings import playmode_users_markup
+from config import BANNED_USERS
+from Tune.utils.errors import capture_err
 
 
-@app.on_message(filters.command(["playmode", "mode"]) & filters.group & ~BANNED_USERS)
+@app.on_message(filters.command(["playmode" , "mode" ] ,prefixes=["/", "!", "%", ",", ".", "@", "#"]) & filters.group & ~BANNED_USERS)
 @language
+@capture_err
 async def playmode_(client, message: Message, _):
     playmode = await get_playmode(message.chat.id)
     if playmode == "Direct":

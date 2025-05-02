@@ -1,5 +1,5 @@
-from pyrogram import Client, filters
-from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
+from pyrogram import filters, Client
+from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from unidecode import unidecode
 
 from Tune import app
@@ -12,27 +12,27 @@ from Tune.utils.database import (
 )
 
 
-@app.on_message(filters.command(["activevc", "activevoice", "vc"]) & SUDOERS)
-async def activevc(_, message: Message):
-    mystic = await message.reply_text("» ɢᴇᴛᴛɪɴɢ ᴀᴄᴛɪᴠᴇ ᴠᴏɪᴄᴇ ᴄʜᴀᴛs ʟɪsᴛ...")
-    served_chats = await get_active_chats()
+async def fetch_active_chats(chat_type: str):
     text = ""
-    j = 0
-    for x in served_chats:
+    served_chats = await (get_active_chats() if chat_type == "voice" else get_active_video_chats())
+    remover = remove_active_chat if chat_type == "voice" else remove_active_video_chat
+
+    for i, chat_id in enumerate(served_chats, start=1):
         try:
-            title = (await app.get_chat(x)).title
-        except:
-            await remove_active_chat(x)
-            continue
-        try:
-            if (await app.get_chat(x)).username:
-                user = (await app.get_chat(x)).username
-                text += f"<b>{j + 1}.</b> <a href=https://t.me/{user}>{unidecode(title).upper()}</a>\n"
-            else:
-                text += f"<b>{j + 1}.</b> {unidecode(title).upper()}\n"
-            j += 1
-        except:
-            continue
+            chat = await app.get_chat(chat_id)
+            title = unidecode(chat.title).upper()
+            link = f"<a href=https://t.me/{chat.username}>{title}</a>" if chat.username else title
+            suffix = f" [<code>{chat_id}</code>]" if chat_type == "video" else ""
+            text += f"<b>{i}.</b> {link}{suffix}\n"
+        except Exception:
+            await remover(chat_id)
+    return text
+
+
+@app.on_message(filters.command("vc") & SUDOERS)
+async def active_voice_chats(_, message: Message):
+    mystic = await message.reply_text("» ɢᴇᴛᴛɪɴɢ ᴀᴄᴛɪᴠᴇ ᴠᴏɪᴄᴇ ᴄʜᴀᴛs ʟɪsᴛ...")
+    text = await fetch_active_chats("voice")
     if not text:
         await mystic.edit_text(f"» ɴᴏ ᴀᴄᴛɪᴠᴇ ᴠᴏɪᴄᴇ ᴄʜᴀᴛs ᴏɴ {app.mention}.")
     else:
@@ -42,29 +42,10 @@ async def activevc(_, message: Message):
         )
 
 
-@app.on_message(filters.command(["activev", "activevideo", "vvc"]) & SUDOERS)
-async def activevi_(_, message: Message):
+@app.on_message(filters.command("vvc") & SUDOERS)
+async def active_video_chats(_, message: Message):
     mystic = await message.reply_text("» ɢᴇᴛᴛɪɴɢ ᴀᴄᴛɪᴠᴇ ᴠɪᴅᴇᴏ ᴄʜᴀᴛs ʟɪsᴛ...")
-    served_chats = await get_active_video_chats()
-    text = ""
-    j = 0
-    for x in served_chats:
-        try:
-            title = (await app.get_chat(x)).title
-        except:
-            await remove_active_video_chat(x)
-            continue
-        try:
-            if (await app.get_chat(x)).username:
-                user = (await app.get_chat(x)).username
-                text += f"<b>{j + 1}.</b> <a href=https://t.me/{user}>{unidecode(title).upper()}</a> [<code>{x}</code>]\n"
-            else:
-                text += (
-                    f"<b>{j + 1}.</b> {unidecode(title).upper()} [<code>{x}</code>]\n"
-                )
-            j += 1
-        except:
-            continue
+    text = await fetch_active_chats("video")
     if not text:
         await mystic.edit_text(f"» ɴᴏ ᴀᴄᴛɪᴠᴇ ᴠɪᴅᴇᴏ ᴄʜᴀᴛs ᴏɴ {app.mention}.")
     else:
@@ -74,13 +55,26 @@ async def activevi_(_, message: Message):
         )
 
 
-@app.on_message(filters.command(["ac", "av"]) & SUDOERS)
-async def start(client: Client, message: Message):
-    ac_audio = str(len(await get_active_chats()))
-    ac_video = str(len(await get_active_video_chats()))
+@app.on_message(filters.command("ac") & SUDOERS)
+async def active_count(_, message: Message):
+    try:
+        voice_count = len(await get_active_chats())
+    except Exception:
+        voice_count = 0
+
+    try:
+        video_count = len(await get_active_video_chats())
+    except Exception:
+        video_count = 0
+
+    total_count = voice_count + video_count
+
     await message.reply_text(
-        f"✫ <b><u>ᴀᴄᴛɪᴠᴇ ᴄʜᴀᴛs ɪɴғᴏ</u></b> :\n\nᴠᴏɪᴄᴇ : {ac_audio}\nᴠɪᴅᴇᴏ  : {ac_video}",
+        f"✫ <b><u>ᴀᴄᴛɪᴠᴇ ᴄʜᴀᴛs ɪɴғᴏ</u></b> :\n\n"
+        f"ᴠᴏɪᴄᴇ : {voice_count}\n"
+        f"ᴠɪᴅᴇᴏ : {video_count}\n"
+        f"ᴛᴏᴛᴀʟ : {total_count}",
         reply_markup=InlineKeyboardMarkup(
-            [[InlineKeyboardButton("✯ ᴄʟᴏsᴇ ✯", callback_data=f"close")]]
-        ),
+            [[InlineKeyboardButton("ᴄʟᴏsᴇ", callback_data="close")]]
+        )
     )

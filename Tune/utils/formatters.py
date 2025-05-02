@@ -1,7 +1,6 @@
 import json
 import subprocess
 
-
 def get_readable_time(seconds: int) -> str:
     count = 0
     ping_time = ""
@@ -182,4 +181,4 @@ formats = [
     "f4p",
     "f4a",
     "f4b",
-]
+  ]

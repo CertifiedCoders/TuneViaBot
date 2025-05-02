@@ -1,14 +1,15 @@
 from pyrogram import filters
-
-from config import BANNED_USERS
+import random
 from Tune import YouTube, app
 from Tune.utils.channelplay import get_channeplayCB
 from Tune.utils.decorators.language import languageCB
 from Tune.utils.stream.stream import stream
-
+from Tune.utils.errors import capture_callback_err
+from config import BANNED_USERS, AYU
 
 @app.on_callback_query(filters.regex("LiveStream") & ~BANNED_USERS)
 @languageCB
+@capture_callback_err
 async def play_live_stream(client, CallbackQuery, _):
     callback_data = CallbackQuery.data.strip()
     callback_request = callback_data.split(None, 1)[1]
@@ -30,7 +31,7 @@ async def play_live_stream(client, CallbackQuery, _):
     except:
         pass
     mystic = await CallbackQuery.message.reply_text(
-        _["play_2"].format(channel) if channel else _["play_1"]
+        _["play_2"].format(channel) if channel else random.choice(AYU)
     )
     try:
         details, track_id = await YouTube.track(vidid, True)

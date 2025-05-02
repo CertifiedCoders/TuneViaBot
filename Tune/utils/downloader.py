@@ -1,35 +1,59 @@
-from os import path
+import asyncio
+import aiohttp
+import os
+from config import API_URL, API_KEY
 
-import yt_dlp
-from yt_dlp.utils import DownloadError
+def extract_video_id(link: str) -> str:
+    if "v=" in link:
+        return link.split("v=")[-1].split("&")[0]
+    return link.split("/")[-1].split("?")[0]
 
-ytdl = yt_dlp.YoutubeDL(
-    {
-        "outtmpl": "downloads/%(id)s.%(ext)s",
-        "format": "bestaudio[ext=m4a]",
-        "geo_bypass": True,
-        "nocheckcertificate": True,
-    }
-)
+async def api_download_song(link: str) -> str:
+    video_id = extract_video_id(link)
+    download_folder = "downloads"
+    for ext in ["mp3", "m4a", "webm"]:
+        file_path = f"{download_folder}/{video_id}.{ext}"
+        if os.path.exists(file_path):
+            return file_path
 
+    song_url = f"{API_URL}/song/{video_id}?api={API_KEY}"
+    async with aiohttp.ClientSession() as session:
+        while True:
+            try:
+                async with session.get(song_url) as response:
+                    if response.status != 200:
+                        raise Exception(f"API request failed with {response.status}")
+                    data = await response.json()
+                    status = data.get("status", "").lower()
+                    if status == "downloading":
+                        await asyncio.sleep(2)
+                        continue
+                    elif status == "error":
+                        raise Exception(data.get("error") or "API returned error.")
+                    elif status == "done":
+                        download_url = data.get("link")
+                        break
+                    else:
+                        raise Exception(f"Unexpected API status: {status}")
+            except Exception as e:
+                print(f"[API Download Error] {e}")
+                return None
 
-def download(url: str, my_hook) -> str:
-    ydl_optssx = {
-        "format": "bestaudio[ext=m4a]",
-        "outtmpl": "downloads/%(id)s.%(ext)s",
-        "geo_bypass": True,
-        "nocheckcertificate": True,
-        "quiet": True,
-        "no_warnings": True,
-    }
-    info = ytdl.extract_info(url, False)
-    try:
-        x = yt_dlp.YoutubeDL(ydl_optssx)
-        x.add_progress_hook(my_hook)
-        dloader = x.download([url])
-    except Exception as y_e:
-        return print(y_e)
-    else:
-        dloader
-    xyz = path.join("downloads", f"{info['id']}.{info['ext']}")
-    return xyz
+        try:
+            file_format = data.get("format", "mp3")
+            file_extension = file_format.lower()
+            file_name = f"{video_id}.{file_extension}"
+            file_path = os.path.join(download_folder, file_name)
+
+            os.makedirs(download_folder, exist_ok=True)
+            async with session.get(download_url) as file_response:
+                with open(file_path, 'wb') as f:
+                    while True:
+                        chunk = await file_response.content.read(8192)
+                        if not chunk:
+                            break
+                        f.write(chunk)
+            return file_path
+        except Exception as e:
+            print(f"[API Download Write Error] {e}")
+            return None

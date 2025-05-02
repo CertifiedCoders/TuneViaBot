@@ -2,14 +2,18 @@ from pyrogram import filters
 from pyrogram.enums import ChatMembersFilter, ChatMemberStatus, ChatType
 from pyrogram.types import Message
 
-from config import BANNED_USERS
 from Tune import app
 from Tune.utils.database import set_cmode
 from Tune.utils.decorators.admins import AdminActual
+from Tune.utils.errors import capture_err
+
+from config import BANNED_USERS
 
 
 @app.on_message(filters.command(["channelplay"]) & filters.group & ~BANNED_USERS)
 @AdminActual
+@capture_err
+
 async def playmode_(client, message: Message, _):
     if len(message.command) < 2:
         return await message.reply_text(_["cplay_1"].format(message.chat.title))
