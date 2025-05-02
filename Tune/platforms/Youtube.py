@@ -15,6 +15,7 @@ from Tune.utils.errors import capture_internal_err
 from Tune.utils.formatters import time_to_seconds
 
 cookies_file = "Tune/assets/cookies.txt"
+
 _cache = {}
 
 
@@ -102,7 +103,6 @@ class YouTubeAPI:
         if not info:
             raise ValueError("Video not found")
 
-        title = info.get("title", "").strip() or "Unknown Title"
         duration_text = info.get("duration")
         duration_sec = int(time_to_seconds(duration_text)) if duration_text else 0
         thumb = (info.get("thumbnail") or info.get("thumbnails", [{}])[0].get("url", "")).split("?")[0]
@@ -113,7 +113,7 @@ class YouTubeAPI:
             views = "Unknown Views"
 
         return (
-            title,
+            info.get("title", ""),
             duration_text,
             duration_sec,
             thumb,
@@ -121,10 +121,11 @@ class YouTubeAPI:
             views,
         )
 
+
     @capture_internal_err
     async def title(self, link: str, videoid: Union[str, bool, None] = None) -> str:
         info = await self._fetch_video_info(self._prepare_link(link, videoid))
-        return (info.get("title") or "").strip() if info else "Unknown Title"
+        return info.get("title", "") if info else ""
 
     @capture_internal_err
     async def duration(self, link: str, videoid: Union[str, bool, None] = None) -> Optional[str]:
@@ -180,7 +181,7 @@ class YouTubeAPI:
 
         thumb = (info.get("thumbnail") or info.get("thumbnails", [{}])[0].get("url", "")).split("?")[0]
         details = {
-            "title": info.get("title", "").strip() or "Unknown Title",
+            "title": info.get("title", ""),
             "link": info.get("webpage_url", self._prepare_link(link, videoid)),
             "vidid": info.get("id", ""),
             "duration_min": info.get("duration") if isinstance(info.get("duration"), str) else None,
@@ -217,7 +218,7 @@ class YouTubeAPI:
             raise IndexError("Query type index out of range")
         res = results[query_type]
         return (
-            res.get("title", "").strip() or "Unknown Title",
+            res.get("title", ""),
             res.get("duration"),
             res.get("thumbnails", [{}])[0].get("url", "").split("?")[0],
             res.get("id", ""),
@@ -257,6 +258,7 @@ class YouTubeAPI:
                 ydl.download([link])
                 return path
 
+
         def video_dl() -> str:
             opts = {
                 "format": "best[height<=?720][width<=?1280]",
@@ -274,6 +276,7 @@ class YouTubeAPI:
                     return path
                 ydl.download([link])
                 return path
+
 
         def song_video_dl() -> None:
             opts = {
@@ -304,6 +307,8 @@ class YouTubeAPI:
             }
             with yt_dlp.YoutubeDL(opts) as ydl:
                 ydl.download([link])
+
+        # ---------------- decision tree ---------------- #
 
         if songvideo:
             await loop.run_in_executor(None, song_video_dl)
