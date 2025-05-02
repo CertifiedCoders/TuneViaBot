@@ -99,20 +99,6 @@ class YouTubeAPI:
 
     @capture_internal_err
     async def details(self, link: str, videoid: Union[str, bool, None] = None) -> Tuple[str, Optional[str], int, str, str, str]:
-        def easy_readable_views(count: Union[int, str]) -> str:
-            try:
-                count = int(count)
-            except Exception:
-                return "Unknown Views"
-
-            if count >= 1_000_000_000:
-                return f"{count / 1_000_000_000:.1f}B Views"
-            elif count >= 1_000_000:
-                return f"{count / 1_000_000:.1f}M Views"
-            elif count >= 1_000:
-                return f"{count / 1_000:.1f}K Views"
-            return f"{count} Views"
-
         info = await self._fetch_video_info(self._prepare_link(link, videoid))
         if not info:
             raise ValueError("Video not found")
@@ -121,10 +107,10 @@ class YouTubeAPI:
         duration_sec = int(time_to_seconds(duration_text)) if duration_text else 0
         thumb = (info.get("thumbnail") or info.get("thumbnails", [{}])[0].get("url", "")).split("?")[0]
 
-        raw_views = info.get("viewCount")
-        if isinstance(raw_views, dict):
-            raw_views = raw_views.get("simpleText") or raw_views.get("text")
-        views = easy_readable_views(raw_views)
+        try:
+            views = info["viewCount"]["short"]
+        except Exception:
+            views = "Unknown Views"
 
         return (
             info.get("title", ""),
