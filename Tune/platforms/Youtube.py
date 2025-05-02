@@ -98,19 +98,21 @@ class YouTubeAPI:
             return False
 
     @capture_internal_err
-    async def details(self, link: str, videoid: Union[str, bool, None] = None) -> Tuple[str, Optional[str], int, str, str]:
+    async def details(self, link: str, videoid: Union[str, bool, None] = None) -> Tuple[str, Optional[str], int, str, str, str]:
         info = await self._fetch_video_info(self._prepare_link(link, videoid))
         if not info:
             raise ValueError("Video not found")
         duration_text = info.get("duration")
         duration_sec = int(time_to_seconds(duration_text)) if duration_text else 0
         thumb = (info.get("thumbnail") or info.get("thumbnails", [{}])[0].get("url", "")).split("?")[0]
+        views = info.get("viewCount", {}).get("text", "Unknown Views") or "Unknown Views"
         return (
             info.get("title", ""),
             duration_text,
             duration_sec,
             thumb,
             info.get("id", ""),
+            views,
         )
 
     @capture_internal_err
@@ -349,4 +351,3 @@ class YouTubeAPI:
         print("[FALLBACK] API failed, using yt-dlp...")
         path = await loop.run_in_executor(None, audio_dl)
         return path, True
-
