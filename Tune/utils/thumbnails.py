@@ -7,7 +7,6 @@ from Tune.utils.errors import capture_internal_err
 from Tune.platforms.Youtube import YouTubeAPI
 from config import FAILED
 
-# Create necessary directories
 os.makedirs("cache", exist_ok=True)
 
 # --------------------------------------------------------------- Constants
@@ -47,7 +46,6 @@ def trim_to_width(text: str, font: ImageFont.FreeTypeFont, max_w: int) -> str:
             return text[:i] + ellipsis
     return ellipsis
 
-
 @capture_internal_err
 async def get_thumb(videoid):
     cache_path = f"{CACHE_DIR}/{videoid}_v4.png"
@@ -56,13 +54,14 @@ async def get_thumb(videoid):
 
     youtube = YouTubeAPI()
     try:
-        title, duration, _, thumbnail, _ = await youtube.details("", videoid=videoid)
+        title, duration, _, thumbnail, _, views = await youtube.details("", videoid=videoid)
     except Exception as e:
         raise ValueError(f"Could not fetch video details: {e}")
 
     title = re.sub(r"\W+", " ", title or "Unsupported Title").title()
     duration = duration or "Unknown Mins"
     thumbnail = thumbnail or FAILED
+    views = views or "Unknown Views"
 
     thumb_path = f"{CACHE_DIR}/thumb{videoid}.png"
     async with aiohttp.ClientSession() as session:
@@ -95,7 +94,7 @@ async def get_thumb(videoid):
     bg.paste(thumb, (THUMB_X, THUMB_Y), tmask)
 
     draw.text((TITLE_X, TITLE_Y), trim_to_width(title, title_font, MAX_TITLE_WIDTH), fill="black", font=title_font)
-    draw.text((META_X, META_Y), "YouTube | Views Unknown", fill="black", font=regular_font)
+    draw.text((META_X, META_Y), f"YouTube | {views}", fill="black", font=regular_font)
 
     draw.line([(BAR_X, BAR_Y), (BAR_X + BAR_RED_LEN, BAR_Y)], fill="red", width=6)
     draw.line([(BAR_X + BAR_RED_LEN, BAR_Y), (BAR_X + BAR_TOTAL_LEN, BAR_Y)], fill="gray", width=5)
