@@ -46,6 +46,7 @@ def trim_to_width(text: str, font: ImageFont.FreeTypeFont, max_w: int) -> str:
             return text[:i] + ellipsis
     return ellipsis
 
+
 @capture_internal_err
 async def get_thumb(videoid):
     cache_path = f"{CACHE_DIR}/{videoid}_v4.png"
@@ -55,12 +56,12 @@ async def get_thumb(videoid):
     youtube = YouTubeAPI()
     try:
         title, duration, _, thumbnail, _, views = await youtube.details("", videoid=videoid)
-        is_live = await youtube.is_live(videoid)
     except Exception as e:
         raise ValueError(f"Could not fetch video details: {e}")
 
     title = re.sub(r"\W+", " ", title or "Unsupported Title").title()
-    duration = "Live" if is_live else (duration or "Unknown Mins")
+    is_live = (duration is None) or (str(duration).strip().lower() in {"", "live", "live now"})
+    duration = "Live" if is_live else duration or "Unknown Mins"
     thumbnail = thumbnail or FAILED
     views = views or "Unknown Views"
 
@@ -105,7 +106,7 @@ async def get_thumb(videoid):
     if is_live:
         draw.text((BAR_X + BAR_TOTAL_LEN - 90, BAR_Y + 15), "Live", fill="red", font=regular_font)
     else:
-        draw.text((BAR_X + BAR_TOTAL_LEN - 60, BAR_Y + 15), duration or "0:00", fill="black", font=regular_font)
+        draw.text((BAR_X + BAR_TOTAL_LEN - 60, BAR_Y + 15), duration, fill="black", font=regular_font)
 
     icons_path = "Tune/assets/thumb/play_icons.png"
     if os.path.isfile(icons_path):
