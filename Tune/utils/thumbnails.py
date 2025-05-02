@@ -55,11 +55,12 @@ async def get_thumb(videoid):
     youtube = YouTubeAPI()
     try:
         title, duration, _, thumbnail, _, views = await youtube.details("", videoid=videoid)
+        is_live = await youtube.is_live(videoid)
     except Exception as e:
         raise ValueError(f"Could not fetch video details: {e}")
 
     title = re.sub(r"\W+", " ", title or "Unsupported Title").title()
-    duration = duration or "Unknown Mins"
+    duration = "Live" if is_live else (duration or "Unknown Mins")
     thumbnail = thumbnail or FAILED
     views = views or "Unknown Views"
 
@@ -101,7 +102,6 @@ async def get_thumb(videoid):
     draw.ellipse([(BAR_X + BAR_RED_LEN - 7, BAR_Y - 7), (BAR_X + BAR_RED_LEN + 7, BAR_Y + 7)], fill="red")
 
     draw.text((BAR_X, BAR_Y + 15), "00:00", fill="black", font=regular_font)
-    is_live = (duration or "").strip().lower() in {"live", "live now", ""}
     if is_live:
         draw.text((BAR_X + BAR_TOTAL_LEN - 90, BAR_Y + 15), "Live", fill="red", font=regular_font)
     else:
