@@ -8,7 +8,7 @@ from pyrogram.types import CallbackQuery, InputMediaPhoto, Message
 import config
 from Tune import app
 from Tune.misc import db
-from Tune.utils import ANNIEBIN, get_channeplayCB, seconds_to_min
+from Tune.utils import TuneBin, get_channeplayCB, seconds_to_min
 from Tune.utils.database import get_cmode, is_active_chat, is_music_playing
 from Tune.utils.decorators.language import language, languageCB
 from Tune.utils.inline import queue_back_markup, queue_markup
@@ -176,7 +176,7 @@ async def queued_tracks(client, CallbackQuery: CallbackQuery, _):
             return await CallbackQuery.edit_message_text(msg, reply_markup=buttons)
         if "✨" in msg:
             msg = msg.replace("✨", "")
-        link = await ANNIEBIN(msg)
+        link = await TuneBin(msg)
         med = InputMediaPhoto(media=link, caption=_["queue_3"].format(link))
         await CallbackQuery.edit_message_media(media=med, reply_markup=buttons)
     else:

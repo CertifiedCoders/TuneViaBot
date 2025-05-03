@@ -11,7 +11,7 @@ from Tune.misc import db
 from Tune.utils.database import add_active_video_chat, is_active_chat
 from Tune.utils.exceptions import AssistantErr
 from Tune.utils.inline import aq_markup, close_markup, stream_markup
-from Tune.utils.pastebin import ANNIEBIN
+from Tune.utils.pastebin import TuneBin
 from Tune.utils.stream.queue import put_queue, put_queue_index
 from Tune.utils.thumbnails import get_thumb
 from Tune.utils.errors import capture_internal_err
@@ -117,7 +117,7 @@ async def stream(
         if count == 0:
             return
         else:
-            link = await ANNIEBIN(msg)
+            link = await TuneBin(msg)
             lines = msg.count("\n")
             if lines >= 17:
                 car = os.linesep.join(msg.split(os.linesep)[:17])

@@ -76,15 +76,15 @@ def stream_markup(_, chat_id):
 
 
 def playlist_markup(_, videoid, user_id, ptype, channel, fplay):
-    return [
+    buttons = [
         [
             InlineKeyboardButton(
                 text=_["P_B_1"],
-                callback_data=f"AnniePlaylists {videoid}|{user_id}|{ptype}|a|{channel}|{fplay}"
+                callback_data=f"TuneViaPlaylists {videoid}|{user_id}|{ptype}|a|{channel}|{fplay}"
             ),
             InlineKeyboardButton(
                 text=_["P_B_2"],
-                callback_data=f"AnniePlaylists {videoid}|{user_id}|{ptype}|v|{channel}|{fplay}"
+                callback_data=f"TuneViaPlaylists {videoid}|{user_id}|{ptype}|v|{channel}|{fplay}"
             ),
         ],
         [
@@ -95,6 +95,7 @@ def playlist_markup(_, videoid, user_id, ptype, channel, fplay):
         ],
     ]
 
+    return buttons
 
 def livestream_markup(_, videoid, user_id, mode, channel, fplay):
     return [

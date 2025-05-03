@@ -1,4 +1,6 @@
 import aiohttp
+
+
 import socket
 from asyncio import get_running_loop
 from functools import partial
@@ -22,6 +24,7 @@ async def paste(content):
     link = await loop.run_in_executor(None, partial(_netcat, "ezup.dev", 9999, content))
     return link
 
+####2nd paste code 
 
 BASE = "https://batbin.me/"
 
@@ -36,7 +39,7 @@ async def post(url: str, *args, **kwargs):
         return data
 
 
-async def ANNIEBIN(text):
+async def TuneBin(text):
     resp = await post(f"{BASE}api/v2/paste", data=text)
     if not resp["success"]:
         return
