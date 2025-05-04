@@ -1,5 +1,6 @@
 import asyncio
 import aiohttp
+import aiofiles
 import os
 import re
 from typing import Optional, Union, Dict
@@ -8,6 +9,8 @@ from config import API_URL, API_KEY
 
 USE_API = bool(API_URL and API_KEY)
 _logged_api_skip = False
+CHUNK_SIZE = 8192
+RETRY_DELAY = 2
 cookies_file = "Tune/assets/cookies.txt"
 download_folder = "downloads"
 os.makedirs(download_folder, exist_ok=True)
@@ -20,13 +23,14 @@ def extract_video_id(link: str) -> str:
 
 
 def safe_filename(name: str) -> str:
-    return re.sub(r"[\\/*?\"<>|]", "_", name).strip()
+    return re.sub(r"[\\/*?\"<>|]", "_", name).strip()[:100]
 
 
 def file_exists(video_id: str) -> Optional[str]:
     for ext in ["mp3", "m4a", "webm"]:
         path = f"{download_folder}/{video_id}.{ext}"
         if os.path.exists(path):
+            print(f"[CACHED] Using existing file: {path}")
             return path
     return None
 
@@ -41,41 +45,46 @@ async def api_download_song(link: str) -> Optional[str]:
         return None
 
     video_id = extract_video_id(link)
-    path = file_exists(video_id)
-    if path:
-        return path
-
     song_url = f"{API_URL}/song/{video_id}?api={API_KEY}"
+
     try:
         async with aiohttp.ClientSession() as session:
             while True:
                 async with session.get(song_url) as response:
                     if response.status != 200:
+                        print(f"[API ERROR] Status {response.status}")
                         return None
+
                     data = await response.json()
                     status = data.get("status", "").lower()
+
                     if status == "downloading":
-                        await asyncio.sleep(2)
+                        await asyncio.sleep(RETRY_DELAY)
                         continue
                     elif status == "error":
+                        print(f"[API ERROR] Status=error for {video_id}")
                         return None
                     elif status == "done":
                         download_url = data.get("link")
                         break
                     else:
+                        print(f"[API ERROR] Unknown status: {status}")
                         return None
 
             fmt = data.get("format", "mp3").lower()
             path = f"{download_folder}/{video_id}.{fmt}"
+
             async with session.get(download_url) as file_response:
-                with open(path, 'wb') as f:
+                async with aiofiles.open(path, "wb") as f:
                     while True:
-                        chunk = await file_response.content.read(8192)
+                        chunk = await file_response.content.read(CHUNK_SIZE)
                         if not chunk:
                             break
-                        f.write(chunk)
+                        await f.write(chunk)
+
             return path
-    except Exception:
+    except Exception as e:
+        print(f"[API Download Error] {e}")
         return None
 
 
@@ -90,7 +99,8 @@ def _download_ytdlp(link: str, opts: Dict) -> Optional[str]:
                 return path
             ydl.download([link])
             return path
-    except Exception:
+    except Exception as e:
+        print(f"[yt-dlp Error] {e}")
         return None
 
 
@@ -125,7 +135,7 @@ async def yt_dlp_download(link: str, type: str, format_id: str = None, title: st
         safe_title = safe_filename(title)
         opts = {
             "format": f"{format_id}+140",
-            "outtmpl": f"{download_folder}/{safe_title}",
+            "outtmpl": f"{download_folder}/{safe_title}.mp4",
             "quiet": True,
             "no_warnings": True,
             "prefer_ffmpeg": True,
@@ -172,8 +182,20 @@ async def download_audio_concurrent(link: str) -> Optional[str]:
     done, _ = await asyncio.wait([yt_task, api_task], return_when=asyncio.FIRST_COMPLETED)
 
     for task in done:
-        result = task.result()
-        if result:
-            return result
+        try:
+            result = task.result()
+            if result:
+                return result
+        except Exception as e:
+            print(f"[Download Task Error] {e}")
 
-    return await yt_task if not yt_task.done() else await api_task
+    for task in [yt_task, api_task]:
+        if not task.done():
+            try:
+                result = await task
+                if result:
+                    return result
+            except Exception as e:
+                print(f"[Fallback Task Error] {e}")
+
+    return None

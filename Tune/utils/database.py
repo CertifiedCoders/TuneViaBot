@@ -501,7 +501,7 @@ async def add_served_chat(chat_id: int):
         return
     return await chatsdb.insert_one({"chat_id": chat_id})
 
-# New function to remove served chat
+
 async def remove_served_chat(chat_id: int):
     if await is_served_chat(chat_id):
         await chatsdb.delete_one({"chat_id": chat_id})

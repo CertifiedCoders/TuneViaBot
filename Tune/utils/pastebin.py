@@ -24,7 +24,6 @@ async def paste(content):
     link = await loop.run_in_executor(None, partial(_netcat, "ezup.dev", 9999, content))
     return link
 
-####2nd paste code 
 
 BASE = "https://batbin.me/"
 

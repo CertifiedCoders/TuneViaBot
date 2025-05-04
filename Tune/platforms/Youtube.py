@@ -1,6 +1,5 @@
 import asyncio
 import json
-import os
 import re
 from typing import Dict, List, Optional, Tuple, Union
 
@@ -10,12 +9,7 @@ from pyrogram.types import Message
 from youtubesearchpython.__future__ import VideosSearch
 
 from Tune.utils.database import is_on_off
-from Tune.utils.downloader import (
-    api_download_song,
-    yt_dlp_download,
-    download_audio_concurrent,
-    extract_video_id
-)
+from Tune.utils.downloader import yt_dlp_download, download_audio_concurrent
 from Tune.utils.errors import capture_internal_err
 from Tune.utils.formatters import time_to_seconds
 
@@ -38,8 +32,10 @@ async def cached_youtube_search(query: str) -> List[Dict]:
         return _cache[query]
     search = VideosSearch(query, limit=1)
     results = await search.next()
-    _cache[query] = results.get("result", [])
-    return _cache[query]
+    result_data = results.get("result", [])
+    if result_data:
+        _cache[query] = result_data
+    return result_data
 
 
 class YouTubeAPI:
@@ -187,20 +183,23 @@ class YouTubeAPI:
         link = self._prepare_link(link, videoid)
         opts = {"quiet": True, "cookiefile": cookies_file}
         formats: List[Dict] = []
-        with yt_dlp.YoutubeDL(opts) as ydl:
-            info = ydl.extract_info(link, download=False)
-            for fmt in info.get("formats", []):
-                if "dash" in fmt.get("format", "").lower():
-                    continue
-                if all(k in fmt for k in ("format", "filesize", "format_id", "ext", "format_note")):
-                    formats.append({
-                        "format": fmt["format"],
-                        "filesize": fmt["filesize"],
-                        "format_id": fmt["format_id"],
-                        "ext": fmt["ext"],
-                        "format_note": fmt["format_note"],
-                        "yturl": link,
-                    })
+        try:
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                info = ydl.extract_info(link, download=False)
+                for fmt in info.get("formats", []):
+                    if "dash" in fmt.get("format", "").lower():
+                        continue
+                    if all(k in fmt for k in ("format", "filesize", "format_id", "ext", "format_note")):
+                        formats.append({
+                            "format": fmt["format"],
+                            "filesize": fmt["filesize"],
+                            "format_id": fmt["format_id"],
+                            "ext": fmt["ext"],
+                            "format_note": fmt["format_note"],
+                            "yturl": link,
+                        })
+        except Exception as e:
+            print(f"[formats()] yt-dlp error: {e}")
         return formats, link
 
     @capture_internal_err
@@ -208,7 +207,7 @@ class YouTubeAPI:
         search = VideosSearch(self._prepare_link(link, videoid), limit=10)
         results = (await search.next()).get("result", [])
         if not results or query_type >= len(results):
-            raise IndexError("Query type index out of range")
+            raise IndexError(f"Query type index {query_type} out of range (found {len(results)} results)")
         res = results[query_type]
         return (
             res.get("title", ""),
@@ -249,22 +248,22 @@ class YouTubeAPI:
             if await is_on_off(1):
                 path = await yt_dlp_download(link, type="video")
                 return (path, True) if path else (None, None)
-
-            proc = await asyncio.create_subprocess_exec(
-                "yt-dlp",
-                "--cookies",
-                cookies_file,
-                "-g",
-                "-f",
-                "best[height<=?720][width<=?1280]",
-                link,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            stdout, _ = await proc.communicate()
-            if stdout:
-                return stdout.decode().split("\n")[0], None
-            return None, None
+            else:
+                proc = await asyncio.create_subprocess_exec(
+                    "yt-dlp",
+                    "--cookies",
+                    cookies_file,
+                    "-g",
+                    "-f",
+                    "best[height<=?720][width<=?1280]",
+                    link,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+                stdout, _ = await proc.communicate()
+                if stdout:
+                    return stdout.decode().split("\n")[0], None
+                return None, None
 
         path = await download_audio_concurrent(link)
         return (path, True) if path else (None, None)
