@@ -1,160 +1,54 @@
-import sys
-import traceback
-import os
-from functools import wraps
-from datetime import datetime
+import requests
+from config import COOKIE_URL
+from Tune.utils.errors import capture_internal_err
+from Tune.logging import LOGGER
 
-import aiohttp
-import aiofiles
-import html
-from pyrogram.errors.exceptions.forbidden_403 import ChatWriteForbidden
-
-from Tune import app
-from config import LOGGER_ID
+COOKIE_PATH = "Tune/assets/cookies.txt"
 
 
-_last_sent_trace = None
-
-
-def current_timestamp() -> str:
-    return datetime.now().strftime('%Y%m%d_%H%M%S')
-
-
-async def send_large_error(text: str, caption: str, filename_prefix: str):
+def resolve_raw_cookie_url(url: str) -> str:
     """
-    Sends long error tracebacks to the log channel.
-    Tries uploading to Batbin; falls back to sending as a .txt file.
+    Return the raw content URL from Batbin or Pastebin.
+    Supports:
+    - https://batbin.me/abc123
+    - https://pastebin.com/abc123
     """
-    if not LOGGER_ID:
-        print("[ERROR] LOGGER_ID is not configured properly.")
-        return
+    url = url.strip()
+    low_url = url.lower()
+    if "pastebin.com/" in low_url and "/raw/" not in low_url:
+        paste_id = url.split("/")[-1]
+        return f"https://pastebin.com/raw/{paste_id}"
+    if "batbin.me/" in low_url and "/raw/" not in low_url:
+        paste_id = url.split("/")[-1]
+        return f"https://batbin.me/raw/{paste_id}"
+    return url
+
+
+@capture_internal_err
+async def fetch_and_store_cookies():
+    """
+    Fetch cookies from Batbin or Pastebin, clean-write to cookies.txt.
+    """
+    if not COOKIE_URL:
+        raise EnvironmentError("⚠️ ᴄᴏᴏᴋɪᴇ_ᴜʀʟ ɴᴏᴛ sᴇᴛ ɪɴ ᴇɴᴠ.")
+
+    raw_url = resolve_raw_cookie_url(COOKIE_URL)
 
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.post("https://batbin.me/api/v2/paste", json={"content": text}) as resp:
-                if resp.status == 201:
-                    res = await resp.json()
-                    link = f"https://batbin.me/{res['paste_id']}"
-                    return await app.send_message(LOGGER_ID, f"{caption}\n\n🔗 Batbin: {link}")
-                else:
-                    print(f"[Batbin Failed] Status Code: {resp.status}")
-    except Exception as batbin_err:
-        print(f"[Batbin Exception] {batbin_err}")
+        response = requests.get(raw_url)
+        response.raise_for_status()
+    except Exception as e:
+        raise ConnectionError(f"⚠️ ᴄᴀɴ'ᴛ ꜰᴇᴛᴄʜ ᴄᴏᴏᴋɪᴇs:\n{e}")
 
-    filename = f"{filename_prefix}.txt"
+    cookies = response.text.strip()
+    if not cookies.startswith("# Netscape"):
+        raise ValueError("⚠️ ɪɴᴠᴀʟɪᴅ ᴄᴏᴏᴋɪᴇ ꜰᴏʀᴍᴀᴛ. ɴᴇᴇᴅs ɴᴇᴛsᴄᴀᴘᴇ ꜰᴏʀᴍᴀᴛ.")
+
+    if len(cookies) < 100:
+        raise ValueError("⚠️ ᴄᴏᴏᴋɪᴇ ᴄᴏɴᴛᴇɴᴛ ᴛᴏᴏ sʜᴏʀᴛ. ᴘᴏssɪʙʟʏ ɪɴᴠᴀʟɪᴅ.")
+
     try:
-        async with aiofiles.open(filename, "w") as f:
-            await f.write(text)
-
-        await app.send_document(LOGGER_ID, filename, caption="❌ Error Log (Fallback)")
-    except Exception as file_err:
-        print(f"[File Upload Failed] {file_err}")
-    finally:
-        try:
-            os.remove(filename)
-        except Exception as e:
-            print(f"[Cleanup Failed] Could not delete temp file {filename}: {e}")
-
-
-def capture_err(func):
-    """Decorator for command handler errors"""
-    @wraps(func)
-    async def wrapper(client, message, *args, **kwargs):
-        global _last_sent_trace
-        try:
-            return await func(client, message, *args, **kwargs)
-        except ChatWriteForbidden:
-            await app.leave_chat(message.chat.id)
-        except Exception as err:
-            exc_type, _, exc_tb = sys.exc_info()
-            full_trace = "".join(traceback.format_exception(exc_type, err, exc_tb))
-
-            caption = (
-                f"🚨 <b>Error Captured</b>\n"
-                f"👤 <b>User:</b> {message.from_user.mention if message.from_user else 'N/A'}\n"
-                f"💬 <b>Command:</b> <code>{html.escape(message.text or message.caption or '')}</code>\n"
-                f"🆔 <b>Chat ID:</b> <code>{message.chat.id}</code>\n"
-                f"📍 <b>Error Type:</b> <code>{exc_type.__name__}</code>"
-            )
-
-            final_message = f"{caption}\n\n<b>Traceback:</b>\n<pre>{html.escape(full_trace)}</pre>"
-
-            if final_message == _last_sent_trace:
-                return
-
-            if len(final_message) > 4096:
-                filename = f"error_log_{message.chat.id}_{current_timestamp()}"
-                await send_large_error(full_trace, caption, filename)
-            else:
-                await app.send_message(LOGGER_ID, final_message)
-
-            _last_sent_trace = final_message
-            raise err
-    return wrapper
-
-
-def capture_callback_err(func):
-    """Decorator for inline callback errors"""
-    @wraps(func)
-    async def wrapper(client, CallbackQuery, *args, **kwargs):
-        global _last_sent_trace
-        try:
-            return await func(client, CallbackQuery, *args, **kwargs)
-        except Exception as err:
-            exc_type, _, exc_tb = sys.exc_info()
-            full_trace = "".join(traceback.format_exception(exc_type, err, exc_tb))
-
-            caption = (
-                f"🚨 <b>Callback Error Captured</b>\n"
-                f"👤 <b>User:</b> {CallbackQuery.from_user.mention if CallbackQuery.from_user else 'N/A'}\n"
-                f"🆔 <b>Chat ID:</b> <code>{CallbackQuery.message.chat.id}</code>\n"
-                f"📍 <b>Error Type:</b> <code>{exc_type.__name__}</code>"
-            )
-
-            final_message = f"{caption}\n\n<b>Traceback:</b>\n<pre>{html.escape(full_trace)}</pre>"
-
-            if final_message == _last_sent_trace:
-                return
-
-            if len(final_message) > 4096:
-                filename = f"cb_error_log_{CallbackQuery.message.chat.id}_{current_timestamp()}"
-                await send_large_error(full_trace, caption, filename)
-            else:
-                await app.send_message(LOGGER_ID, final_message)
-
-            _last_sent_trace = final_message
-            raise err
-    return wrapper
-
-
-def capture_internal_err(func):
-    """Decorator for internal error tracking"""
-    @wraps(func)
-    async def wrapper(*args, **kwargs):
-        global _last_sent_trace
-        try:
-            return await func(*args, **kwargs)
-        except Exception as err:
-            exc_type, _, exc_tb = sys.exc_info()
-            full_trace = "".join(traceback.format_exception(exc_type, err, exc_tb))
-
-            caption = (
-                f"🚨 <b>Internal Error Captured</b>\n"
-                f"📍 <b>Function:</b> <code>{func.__name__}</code>\n"
-                f"📍 <b>Error Type:</b> <code>{exc_type.__name__}</code>"
-            )
-
-            final_message = f"{caption}\n\n<b>Traceback:</b>\n<pre>{html.escape(full_trace)}</pre>"
-
-            if final_message == _last_sent_trace:
-                return
-
-            if len(final_message) > 4096:
-                filename = f"internal_error_{current_timestamp()}"
-                await send_large_error(full_trace, caption, filename)
-            else:
-                await app.send_message(LOGGER_ID, final_message)
-
-            _last_sent_trace = final_message
-            raise err
-    return wrapper
+        with open(COOKIE_PATH, "w", encoding="utf-8") as f:
+            f.write(cookies)
+    except Exception as e:
+        raise IOError(f"⚠️ ғᴀɪʟᴇᴅ ᴛᴏ sᴀᴠᴇ ᴄᴏᴏᴋɪᴇs: {e}")
