@@ -5,10 +5,10 @@ RUN apt-get update \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-COPY . /app/
-WORKDIR /app/
+WORKDIR /app
+COPY . .
 
 RUN pip3 install --no-cache-dir --upgrade pip \
-    && pip3 install --no-cache-dir --upgrade --requirement requirements.txt
+    && pip3 install --no-cache-dir --upgrade -r requirements.txt
 
 CMD bash start

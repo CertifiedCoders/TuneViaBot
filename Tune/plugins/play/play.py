@@ -1,7 +1,9 @@
 import random
 import string
+import asyncio
 
 from pyrogram import filters
+from pyrogram.errors import FloodWait, RandomIdDuplicate
 from pyrogram.types import InlineKeyboardMarkup, InputMediaPhoto, Message
 from pytgcalls.exceptions import NoActiveGroupCall
 
@@ -27,27 +29,28 @@ from Tune.utils.stream.stream import stream
 
 
 @app.on_message(
-    filters.command(
-        [
-            "play",
-            "vplay",
-            "cplay",
-            "cvplay",
-            "playforce",
-            "vplayforce",
-            "cplayforce",
-            "cvplayforce",
-        ]
-    )
-    & filters.group
-    & ~BANNED_USERS
+    filters.command([
+        "play", "vplay", "cplay", "cvplay",
+        "playforce", "vplayforce", "cplayforce", "cvplayforce"
+    ]) & filters.group & ~BANNED_USERS
 )
 @PlayWrapper
 @capture_err
 async def play_command(client, message: Message, _, chat_id, video, channel, playmode, url, fplay):
-    mystic = await message.reply_text(
-        _["play_2"].format(channel) if channel else random.choice(AYU)
-    )
+    try:
+        mystic = await message.reply_text(
+            _["play_2"].format(channel) if channel else random.choice(AYU)
+        )
+    except FloodWait as e:
+        await asyncio.sleep(e.value)
+        mystic = await message.reply_text(
+            _["play_2"].format(channel) if channel else random.choice(AYU)
+        )
+    except RandomIdDuplicate:
+        mystic = await app.send_message(
+            message.chat.id,
+            _["play_2"].format(channel) if channel else random.choice(AYU)
+        )
 
     plist_id, plist_type, spotify, slider = None, None, None, None
     user_id = message.from_user.id
@@ -471,9 +474,20 @@ async def play_music(client, CallbackQuery, _):
         await CallbackQuery.message.delete()
         await CallbackQuery.answer()
 
-        mystic = await CallbackQuery.message.reply_text(
-            _["play_2"].format(channel) if channel else random.choice(AYU)
-        )
+        try:
+            mystic = await CallbackQuery.message.reply_text(
+                _["play_2"].format(channel) if channel else random.choice(AYU)
+            )
+        except FloodWait as e:
+            await asyncio.sleep(e.value)
+            mystic = await CallbackQuery.message.reply_text(
+                _["play_2"].format(channel) if channel else random.choice(AYU)
+            )
+        except RandomIdDuplicate:
+            mystic = await app.send_message(
+                CallbackQuery.message.chat.id,
+                _["play_2"].format(channel) if channel else random.choice(AYU)
+            )
 
         details, track_id = await YouTube.track(vidid, videoid=vidid)
 
@@ -518,6 +532,7 @@ async def play_music(client, CallbackQuery, _):
         err = e if type(e).__name__ == "AssistantErr" else _["general_2"].format(type(e).__name__)
         return await CallbackQuery.message.reply_text(err)
 
+
 @app.on_callback_query(filters.regex("AnonymousAdmin") & ~BANNED_USERS)
 @capture_callback_err
 async def anonymous_check(client, CallbackQuery):
@@ -532,7 +547,8 @@ async def anonymous_check(client, CallbackQuery):
     except:
         pass
 
-@app.on_callback_query(filters.regex("TuneViaPlaylists") & ~BANNED_USERS)
+
+@app.on_callback_query(filters.regex("AnniePlaylists") & ~BANNED_USERS)
 @languageCB
 @capture_callback_err
 async def play_playlists_command(client, CallbackQuery, _):
@@ -548,9 +564,20 @@ async def play_playlists_command(client, CallbackQuery, _):
         await CallbackQuery.message.delete()
         await CallbackQuery.answer()
 
-        mystic = await CallbackQuery.message.reply_text(
-            _["play_2"].format(channel) if channel else random.choice(AYU)
-        )
+        try:
+            mystic = await CallbackQuery.message.reply_text(
+                _["play_2"].format(channel) if channel else random.choice(AYU)
+            )
+        except FloodWait as e:
+            await asyncio.sleep(e.value)
+            mystic = await CallbackQuery.message.reply_text(
+                _["play_2"].format(channel) if channel else random.choice(AYU)
+            )
+        except RandomIdDuplicate:
+            mystic = await app.send_message(
+                CallbackQuery.message.chat.id,
+                _["play_2"].format(channel) if channel else random.choice(AYU)
+            )
 
         videoid = lyrical.get(videoid)
         video = mode == "v"
@@ -590,6 +617,7 @@ async def play_playlists_command(client, CallbackQuery, _):
     except Exception as e:
         err = e if type(e).__name__ == "AssistantErr" else _["general_2"].format(type(e).__name__)
         return await CallbackQuery.message.reply_text(err)
+
 
 @app.on_callback_query(filters.regex("slider") & ~BANNED_USERS)
 @languageCB
