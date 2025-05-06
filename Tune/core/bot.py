@@ -14,7 +14,6 @@ class JARVIS(Client):
             api_hash=config.API_HASH,
             bot_token=config.BOT_TOKEN,
             in_memory=True,
-            sleep_threshold=90,
             max_concurrent_transmissions=7,
             workers=50,
         )
