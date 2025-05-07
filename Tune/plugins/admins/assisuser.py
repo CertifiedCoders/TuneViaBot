@@ -67,7 +67,6 @@ async def approve_join_request(client, chat_join_request: ChatJoinRequest):
 @app.on_message(
     filters.command(["userbotjoin", "assistantjoin"], prefixes=[".", "/"])
     & (filters.group | filters.private)
-    & admin_filter
     & sudo_filter
 )
 async def join_group(app, message):
@@ -92,7 +91,6 @@ async def join_group(app, message):
 @app.on_message(
     filters.command("userbotleave", prefixes=[".", "/"])
     & filters.group
-    & admin_filter
     & sudo_filter
 )
 async def leave_one(app, message):

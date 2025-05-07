@@ -9,7 +9,7 @@ from config import BANNED_USERS
 from Tune.utils.errors import capture_err
 
 
-@app.on_message(filters.command(["playmode" , "mode" ] ,prefixes=["/", "!", "%", ",", ".", "@", "#"]) & filters.group & ~BANNED_USERS)
+@app.on_message(filters.command(["playmode" , "mode" ] ,prefixes=["/"]) & filters.group & ~BANNED_USERS)
 @language
 @capture_err
 async def playmode_(client, message: Message, _):

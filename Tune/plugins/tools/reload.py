@@ -17,9 +17,8 @@ from config import BANNED_USERS, adminlist, lyrical
 
 rel = {}
 
-# ── /reload, /refresh, /admincache ──
 @app.on_message(
-    filters.command(["admincache", "reload", "refresh"], prefixes=["/", "!", "%", ",", ".", "@", "#", ""])
+    filters.command(["admincache", "reload", "refresh"], prefixes=["/"])
     & filters.group
     & ~BANNED_USERS
 )

@@ -13,6 +13,14 @@ from Tune.utils.database import get_banned_users, get_gbanned
 from Tune.utils.cookie_handler import fetch_and_store_cookies 
 from config import BANNED_USERS
 
+from Tune.antispam import (
+    init_antispam,
+    antispam_filter,
+    global_antispam_handler,
+)
+
+from pyrogram.handlers import MessageHandler
+
 
 async def init():
     if (
@@ -25,13 +33,11 @@ async def init():
         LOGGER(__name__).error("ᴀssɪsᴛᴀɴᴛ sᴇssɪᴏɴ ɴᴏᴛ ғɪʟʟᴇᴅ, ᴘʟᴇᴀsᴇ ғɪʟʟ ᴀ ᴘʏʀᴏɢʀᴀᴍ sᴇssɪᴏɴ...")
         exit()
 
-    # ✅ Try to fetch cookies at startup
     try:
         await fetch_and_store_cookies()
         LOGGER("Tune").info("ʏᴏᴜᴛᴜʙᴇ ᴄᴏᴏᴋɪᴇs ʟᴏᴀᴅᴇᴅ sᴜᴄᴄᴇssғᴜʟʟʏ ✅")
     except Exception as e:
         LOGGER("Tune").warning(f"⚠️ᴄᴏᴏᴋɪᴇ ᴇʀʀᴏʀ: {e}")
-
 
     await sudo()
 
@@ -42,15 +48,19 @@ async def init():
         users = await get_banned_users()
         for user_id in users:
             BANNED_USERS.add(user_id)
-    except:
-        pass
+    except Exception as e:
+        LOGGER("Tune").warning(f"ғᴀɪʟᴇᴅ ᴛᴏ ʟᴏᴀᴅ ʙᴀɴɴᴇᴅ ᴜsᴇʀs: {e}")
 
     await app.start()
+
+    app.add_handler(MessageHandler(global_antispam_handler, antispam_filter()))
+    init_antispam(config.OWNER_ID)
+    LOGGER("Tune").info("🛡️ ᴀɴᴛɪ-sᴘᴀᴍ ᴘʀᴏᴛᴇᴄᴛɪᴏɴ ʜᴀs ʙᴇᴇɴ ᴇɴᴀʙʟᴇᴅ ✅")
+
     for all_module in ALL_MODULES:
         importlib.import_module("Tune.plugins" + all_module)
 
     LOGGER("Tune.plugins").info("ᴛᴜɴᴇ's ᴍᴏᴅᴜʟᴇs ʟᴏᴀᴅᴇᴅ...")
-
     await userbot.start()
     await JARVIS.start()
 
