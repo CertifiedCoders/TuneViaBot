@@ -12,7 +12,7 @@ motor
 pillow==11.2.1
 psutil
 pykeyboard
-kurigram==2.2.1
+kurigram==2.2.2
 python-dotenv
 ntgcalls==1.3.4
 py-tgcalls==2.1.1
