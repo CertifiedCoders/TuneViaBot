@@ -7,7 +7,7 @@ ffmpeg-python
 future==1.0.0
 gitpython
 heroku3
-httpx==0.27.2
+httpx==0.28.1
 motor 
 pillow==11.2.1
 psutil
