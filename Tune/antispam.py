@@ -26,7 +26,7 @@ BLOCK_TIME = 5      # Time window in seconds
 
 user_records: Dict[str, List[float]] = defaultdict(list)
 OWNER_ID: List[int] = []
-ANTISPAM_ENABLED = True
+ANTISPAM_ENABLED = False
 
 # ─── Setup & Controls ────────────────────────────────────────────────────────
 
