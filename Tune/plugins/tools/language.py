@@ -1,8 +1,12 @@
 import asyncio
-from pykeyboard import InlineKeyboard
 from pyrogram import filters
 from pyrogram.errors import FloodWait
-from pyrogram.types import InlineKeyboardButton, Message
+from pyrogram.types import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    Message,
+    CallbackQuery,
+)
 
 from Tune import app
 from Tune.utils.database import get_lang, set_lang
@@ -12,24 +16,30 @@ from strings import get_string, languages_present
 
 
 def languages_keyboard(_):
-    keyboard = InlineKeyboard(row_width=2)
-    keyboard.add(
-        *[
+    rows = []
+    row = []
+
+    for idx, code in enumerate(languages_present):
+        row.append(
             InlineKeyboardButton(
-                text=languages_present[i],
-                callback_data=f"languages:{i}",
+                text=languages_present[code],
+                callback_data=f"languages:{code}",
             )
-            for i in languages_present
+        )
+        if (idx + 1) % 2 == 0:
+            rows.append(row)
+            row = []
+    if row:
+        rows.append(row)
+
+    rows.append(
+        [
+            InlineKeyboardButton(text=_["BACK_BUTTON"], callback_data="settingsback_helper"),
+            InlineKeyboardButton(text=_["CLOSE_BUTTON"], callback_data="close"),
         ]
     )
-    keyboard.row(
-        InlineKeyboardButton(
-            text=_["BACK_BUTTON"],
-            callback_data="settingsback_helper",
-        ),
-        InlineKeyboardButton(text=_["CLOSE_BUTTON"], callback_data="close"),
-    )
-    return keyboard
+
+    return InlineKeyboardMarkup(rows)
 
 
 @app.on_message(filters.command(["lang", "setlang", "language"]) & ~BANNED_USERS)
@@ -37,21 +47,15 @@ def languages_keyboard(_):
 async def langs_command(client, message: Message, _):
     keyboard = languages_keyboard(_)
     try:
-        await message.reply_text(
-            _["lang_1"],
-            reply_markup=keyboard,
-        )
+        await message.reply_text(_["lang_1"], reply_markup=keyboard)
     except FloodWait as e:
         await asyncio.sleep(e.value)
-        await message.reply_text(
-            _["lang_1"],
-            reply_markup=keyboard,
-        )
+        await message.reply_text(_["lang_1"], reply_markup=keyboard)
 
 
 @app.on_callback_query(filters.regex("LG") & ~BANNED_USERS)
 @languageCB
-async def languagecb(client, CallbackQuery, _):
+async def languagecb(client, CallbackQuery: CallbackQuery, _):
     try:
         await CallbackQuery.answer()
     except:
@@ -66,7 +70,7 @@ async def languagecb(client, CallbackQuery, _):
 
 @app.on_callback_query(filters.regex(r"languages:(.*?)") & ~BANNED_USERS)
 @ActualAdminCB
-async def language_markup(client, CallbackQuery, _):
+async def language_markup(client, CallbackQuery: CallbackQuery, _):
     lang_code = CallbackQuery.data.split(":")[1]
     old_lang = await get_lang(CallbackQuery.message.chat.id)
     if str(old_lang) == str(lang_code):

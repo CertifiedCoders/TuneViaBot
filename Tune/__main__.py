@@ -55,7 +55,7 @@ async def init():
 
     app.add_handler(MessageHandler(global_antispam_handler, antispam_filter()))
     init_antispam(config.OWNER_ID)
-    LOGGER("Tune").info("🛡️ ᴀɴᴛɪ-sᴘᴀᴍ ᴘʀᴏᴛᴇᴄᴛɪᴏɴ ʜᴀs ʙᴇᴇɴ ᴇɴᴀʙʟᴇᴅ ✅")
+    LOGGER("Tune").info("🛡️ ᴀɴᴛɪ-sᴘᴀᴍ ᴘʀᴏᴛᴇᴄᴛɪᴏɴ ʜᴀs ʟᴏᴀᴅᴇᴅ ✅")
 
     for all_module in ALL_MODULES:
         importlib.import_module("Tune.plugins" + all_module)

@@ -1,6 +1,5 @@
 import os
 import re
-from pykeyboard import InlineKeyboard
 from pyrogram import filters
 from pyrogram.enums import ChatAction
 from pyrogram.types import (
@@ -10,6 +9,10 @@ from pyrogram.types import (
     InputMediaVideo,
     Message,
 )
+
+class InlineKeyboardBuilder(list):
+    def row(self, *buttons):
+        self.append(list(buttons))
 
 from Tune import app, YouTube
 from config import (
@@ -97,9 +100,9 @@ async def song_helper_cb(client, cq, lang):
     except Exception:
         return await cq.edit_message_text(lang["song_7"])
 
-    kb = InlineKeyboard()
-    seen = set()
+    kb = InlineKeyboardBuilder()
 
+    seen = set()
     if stype == "audio":
         for f in formats:
             if "audio" not in f["format"] or not f["filesize"]:
@@ -131,7 +134,7 @@ async def song_helper_cb(client, cq, lang):
         InlineKeyboardButton(lang["BACK_BUTTON"], callback_data=f"song_back {stype}|{vidid}"),
         InlineKeyboardButton(lang["CLOSE_BUTTON"], callback_data="close"),
     )
-    await cq.edit_message_reply_markup(reply_markup=kb)
+    await cq.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup(kb))
 
 @app.on_callback_query(filters.regex(r"song_download") & ~BANNED_USERS)
 @capture_callback_err
