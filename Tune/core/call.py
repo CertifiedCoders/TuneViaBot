@@ -58,20 +58,32 @@ async def _clear_(chat_id: int) -> None:
 
 class Call:
     def __init__(self):
-        self.userbot1 = Client("TuneXAssis1", config.API_ID, config.API_HASH, session_string=config.STRING1) if config.STRING1 else None
+        self.userbot1 = Client(
+            "TuneXAssis1", config.API_ID, config.API_HASH, session_string=config.STRING1
+        ) if config.STRING1 else None
         self.one = PyTgCalls(self.userbot1) if self.userbot1 else None
 
-        self.userbot2 = Client("TuneXAssis2", config.API_ID, config.API_HASH, session_string=config.STRING2) if config.STRING2 else None
+        self.userbot2 = Client(
+            "TuneXAssis2", config.API_ID, config.API_HASH, session_string=config.STRING2
+        ) if config.STRING2 else None
         self.two = PyTgCalls(self.userbot2) if self.userbot2 else None
 
-        self.userbot3 = Client("TuneXAssis3", config.API_ID, config.API_HASH, session_string=config.STRING3) if config.STRING3 else None
+        self.userbot3 = Client(
+            "TuneXAssis3", config.API_ID, config.API_HASH, session_string=config.STRING3
+        ) if config.STRING3 else None
         self.three = PyTgCalls(self.userbot3) if self.userbot3 else None
 
-        self.userbot4 = Client("TuneXAssis4", config.API_ID, config.API_HASH, session_string=config.STRING4) if config.STRING4 else None
+        self.userbot4 = Client(
+            "TuneXAssis4", config.API_ID, config.API_HASH, session_string=config.STRING4
+        ) if config.STRING4 else None
         self.four = PyTgCalls(self.userbot4) if self.userbot4 else None
 
-        self.userbot5 = Client("TuneXAssis5", config.API_ID, config.API_HASH, session_string=config.STRING5) if config.STRING5 else None
+        self.userbot5 = Client(
+            "TuneXAssis5", config.API_ID, config.API_HASH, session_string=config.STRING5
+        ) if config.STRING5 else None
         self.five = PyTgCalls(self.userbot5) if self.userbot5 else None
+
+        self.active_calls: set[int] = set()
 
 
     @capture_internal_err
@@ -98,12 +110,17 @@ class Call:
     async def stop_stream(self, chat_id: int) -> None:
         assistant = await group_assistant(self, chat_id)
         await _clear_(chat_id)
+        if chat_id not in self.active_calls:
+            return
         try:
             await assistant.leave_call(chat_id)
         except NoActiveGroupCall:
             pass
-        except Exception as e:
-            LOGGER(__name__).info(f"Assistant not in call for {chat_id}: {e}")
+        except Exception:
+            pass
+        finally:
+            self.active_calls.discard(chat_id)
+
 
     @capture_internal_err
     async def force_stop_stream(self, chat_id: int) -> None:
@@ -116,12 +133,18 @@ class Call:
             pass
         await remove_active_video_chat(chat_id)
         await remove_active_chat(chat_id)
+        await _clear_(chat_id)
+        if chat_id not in self.active_calls:
+            return
         try:
             await assistant.leave_call(chat_id)
         except NoActiveGroupCall:
             pass
         except Exception:
             pass
+        finally:
+            self.active_calls.discard(chat_id)
+
 
     @capture_internal_err
     async def skip_stream(self, chat_id: int, link: str, video: Union[bool, str] = None, image: Union[bool, str] = None) -> None:
@@ -221,8 +244,10 @@ class Call:
         except TelegramServerError:
             raise AssistantErr(_["call_10"])
         except Exception as e:
-            raise AssistantErr(f"ᴜɴᴀʙʟᴇ ᴛᴏ ᴊᴏɪɴ ᴛʜᴇ ɢʀᴏᴜᴘ ᴄᴀʟʟ.\nRᴇᴀsᴏɴ: {e}")
-
+            raise AssistantErr(
+                f"ᴜɴᴀʙʟᴇ ᴛᴏ ᴊᴏɪɴ ᴛʜᴇ ɢʀᴏᴜᴘ ᴄᴀʟʟ.\nRᴇᴀsᴏɴ: {e}"
+            )
+        self.active_calls.add(chat_id)
         await add_active_chat(chat_id)
         await music_on(chat_id)
         if video:
@@ -233,6 +258,7 @@ class Call:
             users = len(await assistant.get_participants(chat_id))
             if users == 1:
                 autoend[chat_id] = datetime.now() + timedelta(minutes=1)
+
 
     @capture_internal_err
     async def play(self, client, chat_id: int) -> None:
@@ -247,8 +273,17 @@ class Call:
                 await set_loop(chat_id, loop)
             await auto_clean(popped)
             if not check:
-                await _clear_(chat_id)
-                return await client.leave_call(chat_id)
+                    await _clear_(chat_id)
+                    if chat_id in self.active_calls:
+                        try:
+                            await client.leave_call(chat_id)
+                        except NoActiveGroupCall:
+                            pass
+                        except Exception:
+                            pass
+                        finally:
+                            self.active_calls.discard(chat_id)
+                    return
         except:
             try:
                 await _clear_(chat_id)

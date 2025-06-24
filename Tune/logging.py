@@ -2,8 +2,6 @@ import logging
 from logging.handlers import RotatingFileHandler
 
 LOG_FILE = "log.txt"
-MAX_MB = 5
-BACKUPS = 3
 LEVEL = logging.INFO
 INCLUDE_SOURCE = False
 
@@ -18,8 +16,6 @@ stream.setFormatter(formatter)
 
 file = RotatingFileHandler(
     LOG_FILE,
-    maxBytes=MAX_MB * 1024 * 1024,
-    backupCount=BACKUPS,
     encoding="utf-8",
 )
 file.setFormatter(formatter)
