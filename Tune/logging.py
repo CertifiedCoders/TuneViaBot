@@ -36,7 +36,9 @@ for lib in ("pymongo", "httpx", "pyrogram", "pytgcalls"):
     l.setLevel(logging.ERROR)
     l.propagate = False
 
-logging.getLogger("ntgcalls").setLevel(logging.CRITICAL)
+ntg_logger = logging.getLogger("ntgcalls")
+ntg_logger.setLevel(logging.CRITICAL)
+ntg_logger.propagate = False
 
 def LOGGER(name: str) -> logging.Logger:
     return logging.getLogger(name)
