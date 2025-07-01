@@ -21,5 +21,5 @@ speedtest-cli
 spotipy
 tgcrypto
 unidecode
-yt-dlp==2025.6.25
+yt-dlp==2025.6.30
 git+https://github.com/CertifiedCoders/youtube-search-python.git@v1.6.6.post1
