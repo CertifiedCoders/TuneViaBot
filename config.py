@@ -11,8 +11,8 @@ API_ID = int(getenv("API_ID"))
 API_HASH = getenv("API_HASH")
 BOT_TOKEN = getenv("BOT_TOKEN")
 
-OWNER_ID = int(getenv("OWNER_ID", 7044783841))
-OWNER_USERNAME = getenv("OWNER_USERNAME", "CertifiedCoder")
+OWNER_ID = int(getenv("OWNER_ID", 7960908215))
+OWNER_USERNAME = getenv("OWNER_USERNAME", "ZeRo_ThE_BosS")
 BOT_USERNAME = getenv("BOT_USERNAME", "TuneviaBot")
 BOT_NAME = getenv("BOT_NAME", "˹ᴛᴜɴᴇ ᴠɪᴀ ʙᴏᴛ˼")
 ASSUSERNAME = getenv("ASSUSERNAME", "tuneviaassis")
@@ -45,8 +45,8 @@ UPSTREAM_BRANCH = getenv("UPSTREAM_BRANCH", "Master")
 GIT_TOKEN = getenv("GIT_TOKEN")
 
 # ───── Support & Community ───── #
-SUPPORT_CHANNEL = getenv("SUPPORT_CHANNEL", "https://t.me/CertifiedNetwork")
-SUPPORT_CHAT = getenv("SUPPORT_CHAT", "https://t.me/CertifiedDiscussion")
+SUPPORT_CHANNEL = getenv("SUPPORT_CHANNEL", "https://t.me/BotsxNews")
+SUPPORT_CHAT = getenv("SUPPORT_CHAT", "https://t.me/wife_swapping006")
 
 # ───── Assistant Auto Leave ───── #
 AUTO_LEAVING_ASSISTANT = False
