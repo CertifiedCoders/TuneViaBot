@@ -50,7 +50,6 @@ async def safe_send_photo(chat_id, photo, caption, reply_markup=None, max_retrie
             )
         except Exception as e:
             if attempt == max_retries - 1:
-                print(f"Failed to send photo after {max_retries} attempts: {e}")
                 raise
             await asyncio.sleep(1)
 
@@ -104,8 +103,8 @@ async def join_watcher(_, message: Message):
                 reply_markup=reply_markup
             )
     except Exception as e:
-        print(f"Error in join_watcher: {e}")
-
+        pass
+    
 @app.on_message(filters.left_chat_member)
 async def on_left_chat_member(_, message: Message):
     try:
@@ -138,4 +137,4 @@ async def on_left_chat_member(_, message: Message):
                 if attempt == max_retries - 1:
                     print(f"Failed to send left chat message after {max_retries} attempts: {e}")
     except Exception as e:
-        print(f"Error in on_left_chat_member: {e}")
+        pass
