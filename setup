@@ -1,129 +1,44 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -Eeuo pipefail
 
-# -----------------------------#
-#  Colorful Print Function    #
-# -----------------------------#
-pprint() {
-    # Define color codes
-    local cred='\033[0;31m'
-    local cgreen='\033[0;32m'
-    local cyellow='\033[0;33m'
-    local cblue='\033[0;34m'
-    local cmagenta='\033[0;35m'
-    local ccyan='\033[0;36m'
-    local creset='\033[0m'
+# ======== TuneViaBot Setup (stable) ========
+# - Debian/Ubuntu apt only
+# - Required/optional prompts, clear after config
+# - Environment Summary table neatly aligned
+# ============================================
 
-    local color="${!2:-$cmagenta}"
-    printf "${color}$1${creset}"
+IS_TTY=0; [ -t 1 ] && IS_TTY=1
+has() { command -v "$1" >/dev/null 2>&1; }
+
+c(){
+  if [ "$IS_TTY" -eq 1 ] && has tput; then
+    case "$1" in
+      bold) tput bold;; dim) tput dim;; ul) tput smul;;
+      red) tput setaf 1;; green) tput setaf 2;; yellow) tput setaf 3;;
+      blue) tput setaf 4;; magenta) tput setaf 5;; cyan) tput setaf 6;;
+      reset) tput sgr0;; *) tput sgr0;;
+    esac
+  else
+    case "$1" in
+      bold) printf '\033[1m';; dim) printf '\033[2m';; ul) printf '\033[4m';;
+      red) printf '\033[31m';; green) printf '\033[32m';; yellow) printf '\033[33m';;
+      blue) printf '\033[34m';; magenta) printf '\033[35m';; cyan) printf '\033[36m';;
+      reset) printf '\033[0m';; *) printf '\033[0m';;
+    esac
+  fi
 }
 
-# -----------------------------#
-#  Yes/No Prompt Function     #
-# -----------------------------#
-yesnoprompt() {
-    local old_stty_cfg
-    old_stty_cfg=$(stty -g)
-    stty raw -echo
-    local answer
-    answer=$(head -c 1)
-    stty "$old_stty_cfg"
-    echo "$answer" | grep -iq "^y"
+term_width(){ (stty size 2>/dev/null | awk '{print $2}') || echo 100; }
+hr(){
+  local w
+  w="$(term_width)"
+  printf "%s\n" "$(c dim)$(printf '─%.0s' $(seq 1 "$w"))$(c reset)"
 }
 
-# -----------------------------#
-#  System Update Function     #
-# -----------------------------#
-update() {
-    pprint "\n\nUpdating package list... " "ccyan"
-    sudo apt update 2>&1 | grep "can be upgraded" &>/dev/null
-
-    if [ $? -eq 0 ]; then
-        pprint "UPDATE AVAILABLE\n" "cyellow"
-        pprint "Do you want to automatically upgrade (y/n)? " "ccyan"
-        if yesnoprompt; then
-            pprint "\n\nUpgrading packages... " "ccyan"
-            sudo apt upgrade -y &>/dev/null &&
-                pprint "DONE!\n\n" "cgreen" || {
-                    pprint "FAIL.\n\n" "cred"
-                    exit 1
-                }
-        else
-            echo
-        fi
-    else
-        pprint "ALREADY UP TO DATE\n\n" "cgreen"
-    fi
-}
-
-# -----------------------------#
-#  Package Installation       #
-# -----------------------------#
-packages() {
-    if ! command -v pip &>/dev/null; then
-        pprint "Couldn't find pip, installing now... " "ccyan"
-        sudo apt install python3-pip -y &>pypilog.txt &&
-            pprint "SUCCESS.\n\n" "cgreen" || {
-                pprint "FAIL.\n\n" "cred"
-                exit 1
-            }
-    fi
-
-    if ! command -v ffmpeg &>/dev/null; then
-        pprint "Couldn't find ffmpeg, installing now... " "ccyan"
-        sudo apt install ffmpeg -y &>/dev/null &&
-            pprint "SUCCESS.\n\n" "cgreen" || {
-                pprint "FAIL.\n\n" "cred"
-                pprint "You need to install ffmpeg manually to deploy Tune X Music.\n" "cred"
-                exit 1
-            }
-    fi
-
-    # Check ffmpeg version
-    local fv
-    fv=$(grep -Po 'version (3.*?) ' <<< "$(ffmpeg -version)")
-    if [ -n "$fv" ]; then
-        pprint "Note: ffmpeg $fv may not support live streams. Version 4+ is recommended.\n" "cyellow"
-    fi
-}
-
-# -----------------------------#
-#  Node.js Installation       #
-# -----------------------------#
-node() {
-    command -v npm &>/dev/null && return
-
-    pprint "Installing Node.js and npm...  " "ccyan"
-    curl -fsSL https://deb.nodesource.com/setup_19.x | sudo -E bash - &>nodelog.txt &&
-        sudo apt install -y nodejs &>>nodelog.txt &&
-        sudo npm i -g npm &>>nodelog.txt &&
-        pprint "SUCCESS!\n" "cgreen" || {
-            pprint "FAIL.\n" "cred"
-            exit 1
-        }
-}
-
-# -----------------------------#
-#  Python Dependencies        #
-# -----------------------------#
-installation() {
-    pprint "\n\nUpgrading pip and installing dependencies...\n" "ccyan"
-    pip3 install -U pip &>>pypilog.txt &&
-        pip3 install -U -r requirements.txt &>>pypilog.txt &&
-        pprint "DONE.\n" "cgreen" || {
-            pprint "FAIL.\n" "cred"
-            exit 1
-        }
-}
-
-# -----------------------------#
-#  Banner Display             #
-# -----------------------------#
-display_banner() {
-    local cmagenta='\033[0;35m'
-    local creset='\033[0m'
-
-    printf "${cmagenta}"
-    cat << "EOF"
+banner(){
+  clear
+  printf "%s" "$(c magenta)"
+  cat << "EOF"
 
 ████████╗██╗   ██╗███╗   ██╗███████╗
 ╚══██╔══╝██║   ██║████╗  ██║██╔════╝
@@ -133,72 +48,143 @@ display_banner() {
    ╚═╝    ╚═════╝ ╚═╝  ╚═══╝╚══════╝                                                                  
 
 EOF
-    printf "${creset}"
+  printf "%s%s%s\n" "$(c bold)" "$(c cyan)A clean, guided setup experience" "$(c reset)"
+  hr
 }
 
-# -----------------------------#
-#  Main Execution             #
-# -----------------------------#
-main() {
-    clear
-    display_banner
+info(){ printf "  %sℹ%s %s\n" "$(c blue)" "$(c reset)" "$1"; }
+warn(){ printf "  %s!%s %s\n"  "$(c yellow)" "$(c reset)" "$1"; }
+good(){ printf "  %s✔%s %s\n" "$(c green)" "$(c reset)" "$1"; }
+bad(){  printf "  %s✖%s %s\n" "$(c red)"   "$(c reset)" "$1"; }
 
-    pprint "\nWelcome to Tune Setup Installer\n\n" "cgreen"
-    pprint "If any errors occur, check log files:\n" "ccyan"
-    pprint "- Node.js: nodelog.txt\n" "ccyan"
-    pprint "- Python:  pypilog.txt\n\n" "ccyan"
-    sleep 1
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+trap 'stty sane 2>/dev/null || true' EXIT
 
-    pprint "This script requires sudo privileges to install packages.\n" "ccyan"
-    sudo true || exit 1
+LOG_DIR="$SCRIPT_DIR/logs"; mkdir -p "$LOG_DIR"
+APTLOG="$LOG_DIR/apt.log"; NODELOG="$LOG_DIR/node.log"; PYLOG="$LOG_DIR/pip.log"
 
-    update
-    packages
-    node
-    installation
+need_sudo(){ info "Elevated permissions may be required."; sudo -v || { bad "sudo unavailable"; exit 1; }; }
 
-    pprint "\nTune Installation Completed!\n" "cgreen"
-    sleep 1
-    clear
+update_system(){ info "Updating package lists"; sudo DEBIAN_FRONTEND=noninteractive apt-get update -yq >>"$APTLOG" 2>&1 || true; local upg; upg="$(apt list --upgradable 2>/dev/null | tail -n +2 | wc -l | tr -d ' ')"; if [ "${upg:-0}" -gt 0 ]; then read -r -p "  $(c cyan)Upgrade ${upg} packages? [y/N]$(c reset) " a || true; [[ "$a" =~ ^[Yy]$ ]] && sudo DEBIAN_FRONTEND=noninteractive apt-get upgrade -yq >>"$APTLOG" 2>&1 || true; else good "System is up to date"; fi; }
 
-    display_banner
-    pprint "\nEnter Your Configuration Values\n\n" "cgreen"
+install_prereqs(){ info "Installing python3, pip, venv, curl, ffmpeg"; sudo apt-get install -yq python3 python3-pip python3-venv curl ffmpeg >>"$APTLOG" 2>&1 || true; if command -v ffmpeg >/dev/null 2>&1; then local maj; maj="$(ffmpeg -version 2>/dev/null | head -n1 | sed -E 's/.*version ([0-9]+).*/\1/')"; if [ -n "${maj:-}" ] && [ "$maj" -lt 4 ]; then warn "ffmpeg < 4 may not support live streams"; else good "ffmpeg version OK"; fi; fi }
 
-    # Read environment variables
-    read -p "$(pprint 'API ID: ' 'cyellow')" api_id
-    read -p "$(pprint 'API HASH: ' 'cyellow')" api_hash
-    read -p "$(pprint 'BOT TOKEN: ' 'cyellow')" bot_token
-    read -p "$(pprint 'OWNER ID: ' 'cyellow')" ownid
-    read -p "$(pprint 'MONGO DB URI: ' 'cyellow')" mongo_db
-    read -p "$(pprint 'LOG GROUP ID: ' 'cyellow')" logger
-    read -p "$(pprint 'STRING SESSION: ' 'cyellow')" string_session
-    read -p "$(pprint 'COOKIE URL: ' 'cyellow')" cookie_url
-    read -p "$(pprint 'API_URL : ' 'cyellow')" api_url
-    read -p "$(pprint 'API_KEY : ' 'cyellow')" api_key
+install_node(){ if command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then info "Node.js present ($(node -v))"; return; fi; info "Installing Node.js LTS"; bash -lc 'curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -' >>"$NODELOG" 2>&1; sudo apt-get install -yq nodejs >>"$NODELOG" 2>&1; sudo npm i -g npm >>"$NODELOG" 2>&1 || true; }
 
+install_python(){ if [ ! -f requirements.txt ]; then warn "requirements.txt not found — skipping Python deps"; return; fi; python3 -m venv .venv >>"$PYLOG" 2>&1; . ./.venv/bin/activate; python -m pip install -U pip setuptools wheel >>"$PYLOG" 2>&1; pip install -Ur requirements.txt >>"$PYLOG" 2>&1; good "Python deps installed"; }
 
-    pprint "\nProcessing your variables, please wait...\n" "ccyan"
-
-    # Save environment variables
-    cat << EOF > .env
-API_ID=$api_id
-API_HASH=$api_hash
-BOT_TOKEN=$bot_token
-MONGO_DB_URI=$mongo_db
-LOGGER_ID=$logger
-STRING_SESSION=$string_session
-OWNER_ID=$ownid
-DEEP_API=$deep_api
-COOKIE_URL=$cookie_url
-API_URL=$api_url
-API_KEY=$api_key
-
-EOF
-
-    clear
-    pprint "\nThanks for using the Tune installer. Configuration saved successfully!\n" "cgreen"
-    pprint "To edit variables later, use: vi .env\n" "ccyan"
-    pprint "To start the bot: bash start\n\n" "cgreen"
+# ------- Prompts -------
+prompt_req(){
+  local label="$1" var="$2" val=""
+  while :; do
+    IFS= read -r -p "  $(c yellow)$label (required): $(c reset)" val || true
+    [ -n "$val" ] && break
+    printf "  %s!%s required field\n" "$(c yellow)" "$(c reset)"
+  done
+  printf -v "$var" '%s' "$val"
 }
 
-main
+prompt_opt(){
+  local label="$1" var="$2" val=""
+  IFS= read -r -p "  $(c yellow)$label (optional): $(c reset)" val || true
+  printf -v "$var" '%s' "$val"
+}
+
+ell(){
+  local s="$1" max="$2" n=${#1}
+  if [ "$n" -gt "$max" ]; then
+    printf "%s…" "${s:0:$((max-1))}"
+  else
+    printf "%s" "$s"
+  fi
+}
+
+# ------- Summary Table -------
+print_table(){
+  local h1="$1" h2="$2"; shift 2
+  local rows=("$@") max1=${#h1}
+  local r c1 c2
+  for r in "${rows[@]}"; do c1="${r%%|*}"; [ ${#c1} -gt $max1 ] && max1=${#c1}; done
+  local w right sep1 sep2
+  w="$(term_width)"; right=$(( w - max1 - 7 )); [ $right -lt 20 ] && right=20
+  sep1="$(printf '─%.0s' $(seq 1 $((max1+2))))"; sep2="$(printf '─%.0s' $(seq 1 $right))"
+  printf "%s┌%s┬%s%s\n" "$(c dim)" "$sep1" "$sep2" "$(c reset)"
+  printf "│ %-${max1}s │ %s\n" "$(c bold)$h1$(c reset)" "$(c bold)$h2$(c reset)"
+  printf "%s├%s┼%s%s\n" "$(c dim)" "$sep1" "$sep2" "$(c reset)"
+  for r in "${rows[@]}"; do c1="${r%%|*}"; c2="${r#*|}"; printf "│ %-${max1}s │ %s\n" "$c1" "$(ell "$c2" "$right")"; done
+  printf "%s└%s┴%s%s\n" "$(c dim)" "$sep1" "$sep2" "$(c reset)"
+}
+
+write_env(){ umask 077; local tmp; tmp="$(mktemp .env.tmp.XXXXXX)"; {
+  printf "API_HASH=%s\n"        "$api_hash"
+  printf "API_ID=%s\n"          "$api_id"
+  printf "API_KEY=%s\n"         "$api_key"
+  printf "API_URL=%s\n"         "$api_url"
+  printf "BOT_TOKEN=%s\n"       "$bot_token"
+  printf "COOKIE_URL=%s\n"      "$cookie_url"
+  printf "LOGGER_ID=%s\n"       "$logger"
+  printf "MONGO_DB_URI=%s\n"    "$mongo_db"
+  printf "OWNER_ID=%s\n"        "$ownid"
+  printf "STRING_SESSION=%s\n"  "$string_session"
+} >"$tmp"; mv "$tmp" .env; }
+
+# ------- Flow -------
+collect_config(){
+  banner
+  info "Enter the following values"
+  printf "\n"
+
+  prompt_req "API ID" api_id
+  prompt_req "API HASH" api_hash
+  prompt_req "OWNER ID" ownid
+  prompt_req "LOG GROUP ID" logger
+  prompt_req "BOT TOKEN" bot_token
+  prompt_req "STRING SESSION" string_session
+  prompt_req "MONGO DB URI" mongo_db
+  prompt_req "COOKIE URL" cookie_url
+  prompt_opt "API_URL"  api_url
+  prompt_opt "API_KEY"  api_key
+
+  write_env
+  clear
+  printf "%sEnvironment Summary%s\n" "$(c bold)" "$(c reset)"; hr
+  print_table "Key" "Value" \
+    "API_ID|$api_id" \
+    "API_HASH|$api_hash" \
+    "OWNER_ID|$ownid" \
+    "LOGGER_ID|$logger" \
+    "BOT_TOKEN|$bot_token" \
+    "STRING_SESSION|$string_session" \
+    "MONGO_DB_URI|$mongo_db" \
+    "COOKIE_URL|$cookie_url" \
+    "API_URL|$api_url" \
+    "API_KEY|$api_key"
+}
+
+final_notes(){
+  printf "\n"; hr
+  good ".env saved successfully"
+  info  "Edit: ./.env"
+  if [ -x "./start" ] || [ -f "./start.sh" ]; then
+    info  "Start the bot: bash start"
+  else
+    warn  "Start script not found — run your launcher from project root"
+  fi
+  printf "\nLogs:\n  - %s\n  - %s\n  - %s\n" "$APTLOG" "$NODELOG" "$PYLOG"
+  printf "\n%sThank you for using Tune Installer%s\n" "$(c bold)$(c cyan)" "$(c reset)"
+}
+
+main(){
+  banner
+  info "Project: $(basename "$SCRIPT_DIR")"
+  need_sudo
+  update_system
+  install_prereqs
+  install_node
+  install_python
+  collect_config
+  final_notes
+}
+
+main "$@"

@@ -21,7 +21,8 @@ async def add_sudo_user(client, message: Message, _):
         return await message.reply_text(_["sudo_1"].format(user.mention))
 
     if await add_sudo(user.id):
-        SUDOERS.add(user.id)
+        if user.id not in SUDOERS:
+            SUDOERS.add(user.id)
         return await message.reply_text(_["sudo_2"].format(user.mention))
 
     await message.reply_text(_["sudo_8"])
@@ -39,7 +40,8 @@ async def remove_sudo_user(client, message: Message, _):
         return await message.reply_text(_["sudo_3"].format(user.mention))
 
     if await remove_sudo(user.id):
-        SUDOERS.remove(user.id)
+        if user.id in SUDOERS:
+            SUDOERS.remove(user.id)
         return await message.reply_text(_["sudo_4"].format(user.mention))
 
     await message.reply_text(_["sudo_8"])
@@ -68,19 +70,22 @@ async def view_sudo_list_callback(client, callback_query: CallbackQuery):
     caption = f"**˹ʟɪsᴛ ᴏғ ʙᴏᴛ ᴍᴏᴅᴇʀᴀᴛᴏʀs˼**\n\n**🌹Oᴡɴᴇʀ** ➥ {owner.mention}\n\n"
     keyboard = [[InlineKeyboardButton("๏ ᴠɪᴇᴡ ᴏᴡɴᴇʀ ๏", url=f"tg://openmessage?user_id={OWNER_ID}")]]
 
-    count = 1
+    count = 0
     for user_id in SUDOERS:
         if user_id == OWNER_ID:
             continue
         try:
             user = await app.get_users(user_id)
-            caption += f"**🎁 Sᴜᴅᴏ** {count} **»** {user.mention}\n"
+            count += 1
+            caption += f"**🎁 Sᴜᴅᴏ {count} »** {user.mention}\n"
             keyboard.append([
                 InlineKeyboardButton(f"๏ ᴠɪᴇᴡ sᴜᴅᴏ {count} ๏", url=f"tg://openmessage?user_id={user_id}")
             ])
-            count += 1
-        except:
+        except Exception:
             continue
+
+    if count == 0:
+        caption += "_No additional sudoers yet._"
 
     keyboard.append([InlineKeyboardButton("๏ ʙᴀᴄᴋ ๏", callback_data="sudo_list_back")])
     await callback_query.message.edit_caption(caption=caption, reply_markup=InlineKeyboardMarkup(keyboard))
@@ -105,6 +110,7 @@ async def remove_all_sudo_users(client, message: Message, _):
     for user_id in list(SUDOERS):
         if user_id != OWNER_ID:
             if await remove_sudo(user_id):
-                SUDOERS.remove(user_id)
+                if user_id in SUDOERS:
+                    SUDOERS.remove(user_id)
                 removed_count += 1
     await message.reply_text(f"Removed {removed_count} users from the sudo list.")

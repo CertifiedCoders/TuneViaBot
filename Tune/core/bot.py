@@ -1,5 +1,3 @@
-import asyncio
-import os
 import sys
 from pyrogram import Client, errors
 from pyrogram.enums import ChatMemberStatus
@@ -16,26 +14,13 @@ class JARVIS(Client):
             api_hash=config.API_HASH,
             bot_token=config.BOT_TOKEN,
             in_memory=True,
-            workers=30,
+            workers=48,
             max_concurrent_transmissions=7,
         )
         LOGGER(__name__).info("Bot client initialized.")
 
-    async def _auto_restart(self):
-        interval = getattr(config, "RESTART_INTERVAL", 86400)  # fallback 24 hours
-        while True:
-            await asyncio.sleep(interval)
-            try:
-                await self.disconnect()
-                await self.start()
-                LOGGER(__name__).info("🔄 Pyrogram session auto-restarted successfully.")
-            except Exception as exc:
-                LOGGER(__name__).warning(f"Auto-restart failed: {exc}")
-
     async def start(self):
         await super().start()
-        asyncio.create_task(self._auto_restart())
-
         me = await self.get_me()
         self.username, self.id = me.username, me.id
         self.name = f"{me.first_name} {me.last_name or ''}".strip()
@@ -55,7 +40,7 @@ class JARVIS(Client):
             LOGGER(__name__).error("❌ Bot cannot access the log group/channel – add & promote it first!")
             sys.exit()
         except Exception as exc:
-            LOGGER(__name__).error(f"❌ Failed to send startup message.\nReason: {type(exc).__name__}")
+            LOGGER(__name__).error(f"❌ Bot has failed to access the log group.\nReason: {type(exc).__name__}")
             sys.exit()
 
         try:
@@ -67,4 +52,4 @@ class JARVIS(Client):
             LOGGER(__name__).error(f"❌ Could not check admin status: {e}")
             sys.exit()
 
-        LOGGER(__name__).info(f"✅ Tune Music Bot Started as {self.name} (@{self.username})")
+        LOGGER(__name__).info(f"✅ Music Bot started as {self.name} (@{self.username})")

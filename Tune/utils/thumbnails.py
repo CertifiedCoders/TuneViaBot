@@ -4,11 +4,9 @@ import aiofiles
 import aiohttp
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 from youtubesearchpython.__future__ import VideosSearch
-from config import FAILED
+from config import YOUTUBE_IMG_URL
+from Tune.core.dir import CACHE_DIR 
 
-# Constants
-CACHE_DIR = "cache"
-os.makedirs(CACHE_DIR, exist_ok=True)
 
 PANEL_W, PANEL_H = 763, 545
 PANEL_X = (1280 - PANEL_W) // 2
@@ -58,11 +56,11 @@ async def get_thumb(videoid: str) -> str:
             raise ValueError("No results found.")
         data = result_items[0]
         title = re.sub(r"\W+", " ", data.get("title", "Unsupported Title")).title()
-        thumbnail = data.get("thumbnails", [{}])[0].get("url", FAILED)
+        thumbnail = data.get("thumbnails", [{}])[0].get("url", YOUTUBE_IMG_URL)
         duration = data.get("duration")
         views = data.get("viewCount", {}).get("short", "Unknown Views")
     except Exception:
-        title, thumbnail, duration, views = "Unsupported Title", FAILED, None, "Unknown Views"
+        title, thumbnail, duration, views = "Unsupported Title", YOUTUBE_IMG_URL, None, "Unknown Views"
 
     is_live = not duration or str(duration).strip().lower() in {"", "live", "live now"}
     duration_text = "Live" if is_live else duration or "Unknown Mins"
@@ -76,7 +74,7 @@ async def get_thumb(videoid: str) -> str:
                     async with aiofiles.open(thumb_path, "wb") as f:
                         await f.write(await resp.read())
     except Exception:
-        return FAILED
+        return YOUTUBE_IMG_URL
 
     # Create base image
     base = Image.open(thumb_path).resize((1280, 720)).convert("RGBA")

@@ -6,6 +6,7 @@ from pyrogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMa
 
 from config import (
     BANNED_USERS,
+    lyrical,
     SOUNCLOUD_IMG_URL,
     STREAM_IMG_URL,
     SUPPORT_CHAT,
@@ -34,7 +35,7 @@ from Tune.utils.database import (
     mute_on,
     set_loop,
 )
-from Tune.utils.decorators.language import languageCB
+from Tune.utils.decorators import ActualAdminCB, languageCB
 from Tune.utils.formatters import seconds_to_min
 from Tune.utils.inline import close_markup, stream_markup, stream_markup_timer
 from Tune.utils.stream.autoclear import auto_clean
@@ -469,3 +470,36 @@ async def markup_timer():
                 continue
 
 asyncio.create_task(markup_timer())
+
+
+# ── Close Button Callback ──
+@app.on_callback_query(filters.regex("close") & ~BANNED_USERS)
+async def close_menu(_, query: CallbackQuery):
+    try:
+        await query.answer()
+        await query.message.delete()
+        msg = await query.message.reply_text(f"✅ ᴄʟᴏꜱᴇᴅ ʙʏ : {query.from_user.mention}")
+        await asyncio.sleep(2)
+        await msg.delete()
+    except:
+        pass
+    
+
+# ── Stop Download Callback ──
+@app.on_callback_query(filters.regex("stop_downloading") & ~BANNED_USERS)
+@ActualAdminCB
+async def stop_download(_, query: CallbackQuery, _lang):
+    task = lyrical.get(query.message.id)
+    if not task:
+        return await query.answer(_lang["tg_4"], show_alert=True)
+
+    if task.done() or task.cancelled():
+        return await query.answer(_lang["tg_5"], show_alert=True)
+
+    try:
+        task.cancel()
+        lyrical.pop(query.message.id, None)
+        await query.answer(_lang["tg_6"], show_alert=True)
+        return await query.edit_message_text(_lang["tg_7"].format(query.from_user.mention))
+    except:
+        return await query.answer(_lang["tg_8"], show_alert=True)

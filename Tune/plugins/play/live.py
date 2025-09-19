@@ -1,56 +1,68 @@
-from pyrogram import filters
 import random
+
+from pyrogram import filters
+
 from Tune import YouTube, app
 from Tune.utils.channelplay import get_channeplayCB
 from Tune.utils.decorators.language import languageCB
-from Tune.utils.stream.stream import stream
 from Tune.utils.errors import capture_callback_err
-from config import BANNED_USERS, AYU
+from Tune.utils.stream.stream import stream
+from config import AYU, BANNED_USERS
+
 
 @app.on_callback_query(filters.regex("LiveStream") & ~BANNED_USERS)
 @languageCB
 @capture_callback_err
 async def play_live_stream(client, CallbackQuery, _):
-    callback_data = CallbackQuery.data.strip()
-    callback_request = callback_data.split(None, 1)[1]
-    vidid, user_id, mode, cplay, fplay = callback_request.split("|")
+    data = CallbackQuery.data.strip().split(None, 1)[1]
+    vidid, user_id, mode, cplay, fplay = data.split("|")
+
     if CallbackQuery.from_user.id != int(user_id):
         try:
             return await CallbackQuery.answer(_["playcb_1"], show_alert=True)
-        except:
+        except Exception:
             return
+
     try:
         chat_id, channel = await get_channeplayCB(_, cplay, CallbackQuery)
-    except:
+    except Exception:
         return
-    video = True if mode == "v" else None
+
+    is_video = (mode == "v")
+    forceplay = (fplay == "f")
     user_name = CallbackQuery.from_user.first_name
-    await CallbackQuery.message.delete()
+
+    try:
+        await CallbackQuery.message.delete()
+    except Exception:
+        pass
     try:
         await CallbackQuery.answer()
-    except:
+    except Exception:
         pass
+
     mystic = await CallbackQuery.message.reply_text(
         _["play_2"].format(channel) if channel else random.choice(AYU)
     )
+
     try:
-        details, track_id = await YouTube.track(vidid, True)
-    except:
+        details, track_id = await YouTube.track("", videoid=vidid)
+    except Exception:
         return await mystic.edit_text(_["play_3"])
-    ffplay = True if fplay == "f" else None
-    if not details["duration_min"]:
+
+    if not details.get("duration_min"):
         try:
             await stream(
                 _,
                 mystic,
-                user_id,
+                int(user_id),
                 details,
                 chat_id,
                 user_name,
                 CallbackQuery.message.chat.id,
-                video,
+                is_video,
                 streamtype="live",
-                forceplay=ffplay,
+                forceplay=forceplay,
             )
         except Exception as e:
             ex_type = type(e).__name__
@@ -58,4 +70,5 @@ async def play_live_stream(client, CallbackQuery, _):
             return await mystic.edit_text(err)
     else:
         return await mystic.edit_text("» ɴᴏᴛ ᴀ ʟɪᴠᴇ sᴛʀᴇᴀᴍ.")
+
     await mystic.delete()

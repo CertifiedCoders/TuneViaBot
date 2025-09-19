@@ -6,20 +6,17 @@ class AssistantErr(Exception):
 
 IGNORED_ERROR_KEYWORDS = [
     "Nᴏ ᴀᴄᴛɪᴠᴇ ᴠɪᴅᴇᴏᴄʜᴀᴛ ғᴏᴜɴᴅ",
-    "Please start videochat",
+    "لم يتم العثور على مكالمة فيديو نشطة",
+    "Активный видеочат не найден",
+    "Aktif video sohbet bulunamadı",
+    "कोई सक्रिय वीडियोचैट नहीं मिला।"
 ]
 
 IGNORED_EXCEPTION_CLASSES = (
-    # AssistantErr,  # ❌ Currently disabled
+    
 )
 
 def is_ignored_error(err: Union[Exception, BaseException]) -> bool:
-    """
-    Determine if the error should be skipped from full logging.
-    Matches:
-    - Exception type (if enabled)
-    - Known substrings in error message
-    """
     if isinstance(err, IGNORED_EXCEPTION_CLASSES):
         return True
 

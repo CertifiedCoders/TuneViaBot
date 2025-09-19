@@ -9,10 +9,10 @@ import config
 
 class SpotifyAPI:
     def __init__(self):
-        self.regex = r"^(https:\/\/open.spotify.com\/)(.*)$"
+        self.regex = r"^https:\/\/open\.spotify\.com\/.+"
         self.client_id = config.SPOTIFY_CLIENT_ID
         self.client_secret = config.SPOTIFY_CLIENT_SECRET
-        if config.SPOTIFY_CLIENT_ID and config.SPOTIFY_CLIENT_SECRET:
+        if self.client_id and self.client_secret:
             self.client_credentials_manager = SpotifyClientCredentials(
                 self.client_id, self.client_secret
             )
@@ -22,13 +22,12 @@ class SpotifyAPI:
         else:
             self.spotify = None
 
-    async def valid(self, link: str):
-        if re.search(self.regex, link):
-            return True
-        else:
-            return False
+    async def valid(self, link: str) -> bool:
+        return bool(re.search(self.regex, link or ""))
 
     async def track(self, link: str):
+        if not self.spotify:
+            raise RuntimeError("Spotify credentials not configured")
         track = self.spotify.track(link)
         info = track["name"]
         for artist in track["artists"]:
@@ -36,22 +35,20 @@ class SpotifyAPI:
             if "Various Artists" not in fetched:
                 info += fetched
         results = VideosSearch(info, limit=1)
-        for result in (await results.next())["result"]:
-            ytlink = result["link"]
-            title = result["title"]
-            vidid = result["id"]
-            duration_min = result["duration"]
-            thumbnail = result["thumbnails"][0]["url"].split("?")[0]
+        data = await results.next()
+        r = data["result"][0]
         track_details = {
-            "title": title,
-            "link": ytlink,
-            "vidid": vidid,
-            "duration_min": duration_min,
-            "thumb": thumbnail,
+            "title": r["title"],
+            "link": r["link"],
+            "vidid": r["id"],
+            "duration_min": r["duration"],
+            "thumb": r["thumbnails"][0]["url"].split("?")[0],
         }
-        return track_details, vidid
+        return track_details, track_details["vidid"]
 
     async def playlist(self, url):
+        if not self.spotify:
+            raise RuntimeError("Spotify credentials not configured")
         playlist = self.spotify.playlist(url)
         playlist_id = playlist["id"]
         results = []
@@ -66,6 +63,8 @@ class SpotifyAPI:
         return results, playlist_id
 
     async def album(self, url):
+        if not self.spotify:
+            raise RuntimeError("Spotify credentials not configured")
         album = self.spotify.album(url)
         album_id = album["id"]
         results = []
@@ -76,13 +75,11 @@ class SpotifyAPI:
                 if "Various Artists" not in fetched:
                     info += fetched
             results.append(info)
-
-        return (
-            results,
-            album_id,
-        )
+        return results, album_id
 
     async def artist(self, url):
+        if not self.spotify:
+            raise RuntimeError("Spotify credentials not configured")
         artistinfo = self.spotify.artist(url)
         artist_id = artistinfo["id"]
         results = []
@@ -94,5 +91,4 @@ class SpotifyAPI:
                 if "Various Artists" not in fetched:
                     info += fetched
             results.append(info)
-
         return results, artist_id

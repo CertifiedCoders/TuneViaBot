@@ -9,7 +9,7 @@ from Tune import app
 from Tune.core.call import JARVIS
 from Tune.misc import db
 from Tune.utils.database import get_assistant, get_authuser_names, get_cmode
-from Tune.utils.decorators import ActualAdminCB, AdminActual, language
+from Tune.utils.decorators import AdminActual, language
 from Tune.utils.formatters import alpha_to_int, get_readable_time
 from config import BANNED_USERS, adminlist, lyrical
 
@@ -17,8 +17,9 @@ from config import BANNED_USERS, adminlist, lyrical
 
 rel = {}
 
+# ── /reload, /refresh, /admincache ──
 @app.on_message(
-    filters.command(["admincache", "reload", "refresh"], prefixes=["/"])
+    filters.command(["admincache", "reload", "refresh"], prefixes=["/", "!", "%", ",", ".", "@", "#", ""])
     & filters.group
     & ~BANNED_USERS
 )
@@ -76,36 +77,3 @@ async def restart_bot(client, message: Message, _):
             pass
 
     await mystic.edit_text(_["reload_5"].format(app.mention))
-
-
-# ── Close Button Callback ──
-@app.on_callback_query(filters.regex("close") & ~BANNED_USERS)
-async def close_menu(_, query: CallbackQuery):
-    try:
-        await query.answer()
-        await query.message.delete()
-        msg = await query.message.reply_text(f"✅ ᴄʟᴏꜱᴇᴅ ʙʏ : {query.from_user.mention}")
-        await asyncio.sleep(2)
-        await msg.delete()
-    except:
-        pass
-
-
-# ── Stop Download Callback ──
-@app.on_callback_query(filters.regex("stop_downloading") & ~BANNED_USERS)
-@ActualAdminCB
-async def stop_download(_, query: CallbackQuery, _lang):
-    task = lyrical.get(query.message.id)
-    if not task:
-        return await query.answer(_lang["tg_4"], show_alert=True)
-
-    if task.done() or task.cancelled():
-        return await query.answer(_lang["tg_5"], show_alert=True)
-
-    try:
-        task.cancel()
-        lyrical.pop(query.message.id, None)
-        await query.answer(_lang["tg_6"], show_alert=True)
-        return await query.edit_message_text(_lang["tg_7"].format(query.from_user.mention))
-    except:
-        return await query.answer(_lang["tg_8"], show_alert=True)

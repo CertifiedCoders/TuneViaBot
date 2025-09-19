@@ -16,6 +16,7 @@ GROUPS_TO_JOIN = [
 ]
 
 
+# Initialize userbots
 class Userbot:
     def __init__(self):
         self.one = Client(

@@ -1,39 +1,56 @@
-from os import path
+import asyncio
+import re
+from typing import Any, Dict, Optional, Tuple, Union
 
 from yt_dlp import YoutubeDL
 
+from Tune.utils.downloader import download_audio_concurrent
 from Tune.utils.formatters import seconds_to_min
 
 
+_SC_RE = re.compile(r"^https?://(soundcloud\.com|on\.soundcloud\.com)/.+", re.I)
+
+
 class SoundAPI:
-    def __init__(self):
-        self.opts = {
-            "outtmpl": "downloads/%(id)s.%(ext)s",
-            "format": "best",
-            "retries": 3,
-            "nooverwrites": False,
-            "continuedl": True,
-        }
+    async def valid(self, link: str) -> bool:
+        return bool(link and _SC_RE.match(link))
 
-    async def valid(self, link: str):
-        if "soundcloud" in link:
-            return True
-        else:
-            return False
+    async def _extract_info(self, url: str) -> Dict[str, Any]:
+        def _run():
+            opts = {
+                "quiet": True,
+                "no_warnings": True,
+                "noplaylist": True,
+                "skip_download": True,
+            }
+            with YoutubeDL(opts) as ydl:
+                return ydl.extract_info(url, download=False)
 
-    async def download(self, url):
-        d = YoutubeDL(self.opts)
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(None, _run)
+
+    async def download(self, url: str) -> Union[Tuple[Dict[str, Any], str], bool]:
         try:
-            info = d.extract_info(url)
-        except:
+            info = await self._extract_info(url)
+        except Exception:
             return False
-        xyz = path.join("downloads", f"{info['id']}.{info['ext']}")
-        duration_min = seconds_to_min(info["duration"])
-        track_details = {
-            "title": info["title"],
-            "duration_sec": info["duration"],
-            "duration_min": duration_min,
-            "uploader": info["uploader"],
-            "filepath": xyz,
+
+        if not info or info.get("_type") == "playlist":
+            return False
+
+        title = info.get("title") or "SoundCloud"
+        duration_sec = int(info.get("duration") or 0)
+        uploader = info.get("uploader") or ""
+
+        out_path: Optional[str] = await download_audio_concurrent(url)
+        if not out_path:
+            return False
+
+        details = {
+            "title": title,
+            "duration_sec": duration_sec,
+            "duration_min": seconds_to_min(duration_sec),
+            "uploader": uploader,
+            "filepath": out_path,
         }
-        return track_details, xyz
+        return details, out_path

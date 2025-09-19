@@ -114,8 +114,6 @@ class Call:
             return
         try:
             await assistant.leave_call(chat_id)
-        except NoActiveGroupCall:
-            pass
         except Exception:
             pass
         finally:
@@ -138,8 +136,6 @@ class Call:
             return
         try:
             await assistant.leave_call(chat_id)
-        except NoActiveGroupCall:
-            pass
         except Exception:
             pass
         finally:
@@ -157,11 +153,6 @@ class Call:
         assistant = await group_assistant(self, chat_id)
         participants = await assistant.get_participants(chat_id)
         return [p.user_id for p in participants if not p.is_muted]
-
-    @capture_internal_err
-    async def change_volume(self, chat_id: int, volume: int) -> None:
-        assistant = await group_assistant(self, chat_id)
-        await assistant.change_volume_call(chat_id, volume)
 
     @capture_internal_err
     async def seek_stream(self, chat_id: int, file_path: str, to_seek: str, duration: str, mode: str) -> None:
@@ -493,26 +484,28 @@ class Call:
     async def decorators(self) -> None:
         assistants = list(filter(None, [self.one, self.two, self.three, self.four, self.five]))
 
-        CRITICAL_FLAGS = (
-            ChatUpdate.Status.KICKED |
-            ChatUpdate.Status.LEFT_GROUP |
-            ChatUpdate.Status.CLOSED_VOICE_CHAT |
-            ChatUpdate.Status.DISCARDED_CALL |
-            ChatUpdate.Status.BUSY_CALL
+        CRITICAL = (
+            ChatUpdate.Status.KICKED
+            | ChatUpdate.Status.LEFT_GROUP
+            | ChatUpdate.Status.CLOSED_VOICE_CHAT
+            | ChatUpdate.Status.DISCARDED_CALL
+            | ChatUpdate.Status.BUSY_CALL
         )
 
         async def unified_update_handler(client, update: Update) -> None:
             try:
                 if isinstance(update, ChatUpdate):
-                    if update.status & ChatUpdate.Status.LEFT_CALL or update.status & CRITICAL_FLAGS:
+                    status = update.status
+                    if (status & ChatUpdate.Status.LEFT_CALL) or (status & CRITICAL):
                         await self.stop_stream(update.chat_id)
                         return
 
-                elif isinstance(update, StreamEnded) and update.stream_type == StreamEnded.Type.AUDIO:
-                    assistant = await group_assistant(self, update.chat_id)
-                    await self.play(assistant, update.chat_id)
+                elif isinstance(update, StreamEnded):
+                    if update.stream_type == StreamEnded.Type.AUDIO:
+                        assistant = await group_assistant(self, update.chat_id)
+                        await self.play(assistant, update.chat_id)
 
-            except Exception as e:
+            except Exception:
                 import sys, traceback
                 exc_type, exc_obj, exc_tb = sys.exc_info()
                 full_trace = "".join(traceback.format_exception(exc_type, exc_obj, exc_tb))

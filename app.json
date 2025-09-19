@@ -5,9 +5,8 @@
   "keywords": [
   "python3",
   "telegram",
-  "bot",
   "MusicBot",
-  "telegram-bot",
+  "py-tgcalls",
   "pyrogram"
   ],
   "env": {

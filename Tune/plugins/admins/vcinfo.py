@@ -8,37 +8,6 @@ from Tune.utils.database import group_assistant
 from Tune.utils.admin_filters import admin_filter
 
 
-@app.on_message(filters.command("volume") & filters.group & admin_filter & ~BANNED_USERS)
-async def set_volume(client, message: Message):
-    chat_id = message.chat.id
-
-    args = message.text.split(maxsplit=1)
-    if len(args) < 2:
-        return await message.reply_text("⚠️ Usage: <code>/volume 1-200</code>")
-    
-    try:
-        volume_level = int(args[1])
-    except ValueError:
-        return await message.reply_text("❌ Invalid number. Please use <code>/volume 1-200</code>")
-    
-    if volume_level == 0:
-        return await message.reply_text("🔇 Use <code>/mute</code> to mute the stream.")
-    
-    if not 1 <= volume_level <= 200:
-        return await message.reply_text("⚠️ Volume must be between 1 and 200.")
-    
-    if chat_id >= 0:
-        return await message.reply_text("❌ Volume control is not supported in basic groups.")
-    
-    try:
-        await JARVIS.change_volume(chat_id, volume_level)
-        await message.reply_text(
-            f"<b>🔊 Stream volume set to {volume_level}</b>.\n\n└ Requested by: {message.from_user.mention} 🥀"
-        )
-    except Exception as e:
-        await message.reply_text(f"❌ Failed to change volume.\n<b>Error:</b> {e}")
-
-
 @app.on_message(filters.command(["vcinfo", "vcmembers"]) & filters.group & admin_filter & ~BANNED_USERS)
 async def vc_info(client, message: Message):
     chat_id = message.chat.id

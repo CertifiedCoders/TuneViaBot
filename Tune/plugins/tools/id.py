@@ -37,10 +37,16 @@ async def get_id(client, message: Message):
             out.append(f"**ʀᴇᴘʟɪᴇᴅ ᴍᴇssᴀɢᴇ ɪᴅ:** `{reply.id}`")
 
         if reply.from_user:
-            out.append(f"**[ʀᴇᴘʟɪᴇᴅ ᴜsᴇʀ ɪᴅ:](tg://user?id={reply.from_user.id})** `{reply.from_user.id}`")
+            out.append(
+                f"**[ʀᴇᴘʟɪᴇᴅ ᴜsᴇʀ ɪᴅ:](tg://user?id={reply.from_user.id})** "
+                f"`{reply.from_user.id}`"
+            )
 
         if reply.forward_from_chat:
-            out.append(f"ᴛʜᴇ ғᴏʀᴡᴀʀᴅᴇᴅ ᴄʜᴀɴɴᴇʟ **{reply.forward_from_chat.title}** ʜᴀs ɪᴅ `{reply.forward_from_chat.id}`")
+            out.append(
+                f"ᴛʜᴇ ғᴏʀᴡᴀʀᴅᴇᴅ ᴄʜᴀɴɴᴇʟ **{reply.forward_from_chat.title}** "
+                f"ʜᴀs ɪᴅ `{reply.forward_from_chat.id}`"
+            )
 
         if reply.sender_chat:
             out.append(f"ɪᴅ ᴏғ ᴛʜᴇ ʀᴇᴘʟɪᴇᴅ ᴄʜᴀᴛ/ᴄʜᴀɴɴᴇʟ: `{reply.sender_chat.id}`")
@@ -48,5 +54,5 @@ async def get_id(client, message: Message):
     await message.reply_text(
         "\n".join(out),
         disable_web_page_preview=True,
-        parse_mode=ParseMode.MARKDOWN
+        parse_mode=ParseMode.MARKDOWN,
     )

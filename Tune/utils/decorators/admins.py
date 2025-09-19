@@ -151,6 +151,8 @@ def AdminActual(mystic):
                 member = (
                     await app.get_chat_member(message.chat.id, message.from_user.id)
                 ).privileges
+                if not member:
+                    return await message.reply_text(_["general_4"])
             except:
                 return
             if not member.can_manage_video_chats:
@@ -184,6 +186,8 @@ def ActualAdminCB(mystic):
                         CallbackQuery.from_user.id,
                     )
                 ).privileges
+                if not a:
+                    return await CallbackQuery.answer(_["general_4"], show_alert=True)
             except:
                 return await CallbackQuery.answer(_["general_4"], show_alert=True)
             if not a.can_manage_video_chats:

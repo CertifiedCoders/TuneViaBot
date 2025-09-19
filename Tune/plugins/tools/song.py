@@ -10,10 +10,6 @@ from pyrogram.types import (
     Message,
 )
 
-class InlineKeyboardBuilder(list):
-    def row(self, *buttons):
-        self.append(list(buttons))
-
 from Tune import app, YouTube
 from config import (
     BANNED_USERS,
@@ -27,6 +23,12 @@ from Tune.utils.inline.song import song_markup
 
 SONG_COMMAND = ["song"]
 
+
+class InlineKeyboardBuilder(list):
+    def row(self, *buttons):
+        self.append(list(buttons))
+
+
 # ───────────────────────────── COMMANDS ───────────────────────────── #
 @app.on_message(filters.command(SONG_COMMAND) & filters.group & ~BANNED_USERS)
 @capture_err
@@ -35,10 +37,10 @@ async def song_command_group(client, message: Message, lang):
     await message.reply_text(
         lang["song_1"],
         reply_markup=InlineKeyboardMarkup(
-            [[InlineKeyboardButton(lang["SG_B_1"],
-                                   url=f"https://t.me/{app.username}?start=song")]]
+            [[InlineKeyboardButton(lang["SG_B_1"], url=f"https://t.me/{app.username}?start=song")]]
         ),
     )
+
 
 @app.on_message(filters.command(SONG_COMMAND) & filters.private & ~BANNED_USERS)
 @capture_err
@@ -72,6 +74,7 @@ async def song_command_private(client, message: Message, lang):
         reply_markup=InlineKeyboardMarkup(song_markup(lang, vidid)),
     )
 
+
 # ───────────────────────────── CALLBACKS ───────────────────────────── #
 @app.on_callback_query(filters.regex(r"song_back") & ~BANNED_USERS)
 @capture_callback_err
@@ -82,6 +85,7 @@ async def songs_back_helper(client, cq, lang):
     await cq.edit_message_reply_markup(
         reply_markup=InlineKeyboardMarkup(song_markup(lang, vidid))
     )
+
 
 @app.on_callback_query(filters.regex(r"song_helper") & ~BANNED_USERS)
 @capture_callback_err
@@ -96,18 +100,18 @@ async def song_helper_cb(client, cq, lang):
         pass
 
     try:
-        formats, _yturl = await YouTube.formats(vidid)
+        formats, _ = await YouTube.formats(vidid)
     except Exception:
         return await cq.edit_message_text(lang["song_7"])
 
     kb = InlineKeyboardBuilder()
-
     seen = set()
+
     if stype == "audio":
         for f in formats:
-            if "audio" not in f["format"] or not f["filesize"]:
+            if "audio" not in f.get("format", "") or not f.get("filesize"):
                 continue
-            label = f["format_note"].title()
+            label = (f.get("format_note") or "").title() or "Audio"
             if label in seen:
                 continue
             seen.add(label)
@@ -120,9 +124,14 @@ async def song_helper_cb(client, cq, lang):
     else:
         allowed = {160, 133, 134, 135, 136, 137, 298, 299, 264, 304, 266}
         for f in formats:
-            if not f["filesize"] or int(f["format_id"]) not in allowed:
+            try:
+                fmt_id = int(f.get("format_id", 0))
+            except Exception:
                 continue
-            res = f["format"].split("-")[1]
+            if not f.get("filesize") or fmt_id not in allowed:
+                continue
+            note = (f.get("format_note") or "").strip()
+            res = note or f.get("format", "").split("-")[-1].strip() or str(fmt_id)
             kb.row(
                 InlineKeyboardButton(
                     text=f"{res} • {convert_bytes(f['filesize'])}",
@@ -136,6 +145,7 @@ async def song_helper_cb(client, cq, lang):
     )
     await cq.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup(kb))
 
+
 @app.on_callback_query(filters.regex(r"song_download") & ~BANNED_USERS)
 @capture_callback_err
 @languageCB
@@ -148,55 +158,56 @@ async def song_download_cb(client, cq, lang):
     _ignored, req = cq.data.split(None, 1)
     stype, fmt_id, vidid = req.split("|")
     yturl = f"https://www.youtube.com/watch?v={vidid}"
+
     mystic = await cq.edit_message_text(lang["song_8"])
 
     file_path = None
     try:
-        info, _v = await YouTube.track(yturl)
-        title = re.sub(r"\W+", " ", info["title"])
-        thumb = await cq.message.download()
+        info, _ = await YouTube.track(yturl)
+        raw_title = info.get("title") or "Song"
+        title = re.sub(r"\s+", " ", re.sub(r"[^\w\s\-\.\(\)\[\]]+", " ", raw_title)).strip()[:200]
         duration_sec = time_to_seconds(info.get("duration_min")) if info.get("duration_min") else None
 
         if stype == "audio":
             file_path, _ = await YouTube.download(
                 yturl, mystic, songaudio=True, format_id=fmt_id, title=title
             )
-            await mystic.edit_text(lang["song_11"])
+            if not file_path:
+                raise RuntimeError("no audio file")
             await app.send_chat_action(cq.message.chat.id, ChatAction.UPLOAD_AUDIO)
             await cq.edit_message_media(
                 InputMediaAudio(
                     media=file_path,
                     caption=title,
-                    thumb=thumb,
                     title=title,
                     performer=info.get("uploader"),
                 )
             )
-        else:  # video
+        else:
             file_path, _ = await YouTube.download(
                 yturl, mystic, songvideo=True, format_id=fmt_id, title=title
             )
-            w, h = cq.message.photo.width, cq.message.photo.height
-            await mystic.edit_text(lang["song_11"])
+            if not file_path:
+                raise RuntimeError("no video file")
             await app.send_chat_action(cq.message.chat.id, ChatAction.UPLOAD_VIDEO)
+            w = getattr(getattr(cq.message, "photo", None), "width", None)
+            h = getattr(getattr(cq.message, "photo", None), "height", None)
             await cq.edit_message_media(
                 InputMediaVideo(
                     media=file_path,
                     duration=duration_sec,
                     width=w,
                     height=h,
-                    thumb=thumb,
                     caption=title,
                     supports_streaming=True,
                 )
             )
 
-    except Exception as err:
-        print(f"[SONG] download/upload error: {err}")
+    except Exception:
         await mystic.edit_text(lang["song_10"])
     finally:
         if file_path and os.path.exists(file_path):
             try:
                 os.remove(file_path)
-            except Exception as e:
-                print(f"[SONG] cleanup failed: {e}")
+            except Exception:
+                pass

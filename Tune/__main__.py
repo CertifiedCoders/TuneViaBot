@@ -13,14 +13,6 @@ from Tune.utils.database import get_banned_users, get_gbanned
 from Tune.utils.cookie_handler import fetch_and_store_cookies 
 from config import BANNED_USERS
 
-from Tune.antispam import (
-    init_antispam,
-    antispam_filter,
-    global_antispam_handler,
-)
-
-from pyrogram.handlers import MessageHandler
-
 
 async def init():
     if (
@@ -52,10 +44,6 @@ async def init():
         LOGGER("Tune").warning(f"ғᴀɪʟᴇᴅ ᴛᴏ ʟᴏᴀᴅ ʙᴀɴɴᴇᴅ ᴜsᴇʀs: {e}")
 
     await app.start()
-
-    app.add_handler(MessageHandler(global_antispam_handler, antispam_filter()))
-    init_antispam(config.OWNER_ID)
-    LOGGER("Tune").info("🛡️ ᴀɴᴛɪ-sᴘᴀᴍ ᴘʀᴏᴛᴇᴄᴛɪᴏɴ ʜᴀs ʟᴏᴀᴅᴇᴅ ✅")
 
     for all_module in ALL_MODULES:
         importlib.import_module("Tune.plugins" + all_module)
