@@ -9,11 +9,11 @@
 <div align="center">
   <table>
     <tr>
-      <td width="100px" align="center">
+      <td align="center">
         <img src="https://files.catbox.moe/r2ga8f.jpg" width="90px" style="border-radius: 50%;" />
       </td>
       <td>
-        <img src="https://readme-typing-svg.herokuapp.com?color=00BFFF&width=600&lines=Hey+There,+This+is+Certified+Coder+%F0%9F%A5%80" />
+        <img src="https://readme-typing-svg.herokuapp.com?color=00BFFF&width=600&lines=Hey+There,+This+is+Certified+Coder+%F0%9F%A5%80+%E2%9D%97%EF%B8%8F" />
       </td>
     </tr>
   </table>
@@ -29,151 +29,276 @@
   <img src="https://readme-typing-svg.herokuapp.com?color=FF69B4&width=500&lines=Welcome+to+TuneViaBot+%F0%9F%8E%B6;The+Ultimate+Telegram+Music+Bot" />
 </h1>
 
-<p align="center">
-  <img src="https://files.catbox.moe/d0ynvn.jpg" width="600" />
-</p>
 
----
+<p align="center">
+  <a href="https://t.me/CertifiedCoders">
+    <img src="https://files.catbox.moe/d0ynvn.jpg" width="600">
+  </a>
+</p>
 
 <p align="center">
   <a href="https://t.me/TuneViaBot"><img src="https://img.shields.io/badge/Try%20Bot-@TuneViaBot-blue?style=for-the-badge&logo=telegram" /></a>
 </p>
 
----
+
+<p align="center">
+  <a href="https://github.com/CertifiedCoders/TuneViaBot/stargazers"><img src="https://img.shields.io/github/stars/CertifiedCoders/TuneViaBot?style=flat-square"/></a>
+  <a href="https://github.com/CertifiedCoders/TuneViaBot/network/members"><img src="https://img.shields.io/github/forks/CertifiedCoders/TuneViaBot?style=flat-square"/></a>
+  <a href="https://github.com/CertifiedCoders/TuneViaBot/issues"><img src="https://img.shields.io/github/issues/CertifiedCoders/TuneViaBot?style=flat-square"/></a>
+  <a href="https://github.com/CertifiedCoders/TuneViaBot/commits/main"><img src="https://img.shields.io/github/last-commit/CertifiedCoders/TuneViaBot?style=flat-square"/></a>
+  <a href="https://github.com/CertifiedCoders/TuneViaBot/actions"><img src="https://img.shields.io/badge/CI-Status-grey?style=flat-square"/></a>
+</p>
 
 ## 🌟 What is TuneViaBot?
 
 **TuneViaBot** is a blazing fast, modern Telegram music bot built with **Pyrogram** and **PyTgCalls**. It streams high-quality music into your group voice chats and supports various platforms like YouTube, Spotify, Apple Music, and more.
 
----
-
+## 🚀 Features
 <table>
 <tr>
 <td>
-  <img src="https://files.catbox.moe/la0sxq.jpg" width="250" />
+  <img src="https://files.catbox.moe/la0sxq.jpg" width="300" />
 </td>
 <td>
 
-### 🚀 Key Features
-
-* 🎵 High-Quality, Lag-Free Streaming
-* 🌐 Streams from YouTube, Spotify, SoundCloud, and Apple Music
-* 🔐 Cookie Support to Bypass ISP Restrictions
-* ⚙️ Inline Controls: Play, Pause, Resume, Skip, End
-* ☁️ Supports Heroku & VPS Deployment
-* 🔄 Fast Setup Script with Auto Config
+| 🌟 Feature                | 🔎 Description                              |
+| ------------------------- | ------------------------------------------- |
+| 🎶 HQ Music Streaming     | Lag‑free HD audio in group voice chats      |
+| 🌐 Multi‑Platform Sources | YouTube, Spotify, Apple Music, Resso, etc.  |
+| ⚡ Fast Setup              | One‑click Heroku, VPS, or Docker deployment |
+| 🔄 Auto Config            | Quick setup script with pre‑checks          |
 
 </td>
 </tr>
 </table>
 
----
+## 🔑 Environment Variables
 
-## 🔐 Cookie & API URL Support (Secure Method)
+Below are the required and optional environment variables for deployment.
 
-To ensure fast and reliable audio downloads, TuneViaBot supports both `yt-dlp` and an optional API-based fallback. This dual system uses:
+```env
+API_ID=              # Required - Get from https://my.telegram.org
+API_HASH=            # Required - From https://my.telegram.org
+BOT_TOKEN=           # Required - Get t.me/BotFather
+OWNER_ID=            # Required - Your Telegram user ID
+LOGGER_ID=           # Required - Log group/channel ID
+STRING_SESSION=      # Required - Generate from @SessionBuilderbot
+MONGO_DB_URI=        # Required - MongoDB connection string
+COOKIE_URL=          # Required - YT Cookies url
 
-* 🚀 API method for faster performance (optional but recommended).
-* 🔐 Cookies are **mandatory** for YouTube access; API is **optional** but boosts speed.
-
-### 📥 Secure Links (Host Sensitive Data Safely)
-
-```python
-# ───── Custom API Configs ───── #
-COOKIE_URL = getenv("COOKIE_URL")  # necessary
-API_URL = getenv("API_URL")        # optional
-API_KEY = getenv("API_KEY")        # optional
+API_KEY=             # Optional - External API key for music Download
+API_URL=             # Optional - External API url for music Download
 ```
 
- ⚠️ Never commit raw cookie to public repositories. Use secure services like [Pastebin](https://pastebin.com) or [Batbin](https://batbin.me) to store sensitive data.
+⚠️ **Never expose raw cookies or tokens in public repos.** Use safe paste services like [Pastebin](https://pastebin.com) or [Batbin](https://batbin.me).
 
----
-
-
-
-## 🛡 VPS Deployment Guide
+##
 
 <details>
-<summary><b>Step-by-step VPS Deployment Instructions</b></summary>
+  <summary><b>Where do I get each key?</b></summary>
 
-### 📃 Update & Install Dependencies
+  <!-- Added: Well‑organized helper table -->
 
-```bash
-sudo apt update && sudo apt install git curl python3-pip ffmpeg -y
-```
+  <br/>
 
-### ⚡ Install Node.js with NVM
+  <table>
+    <thead>
+      <tr>
+        <th>Key</th>
+        <th>Where to Get It</th>
+        <th>Steps</th>
+        <th>Notes</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>API_ID</code> &amp; <code>API_HASH</code></td>
+        <td><a href="https://my.telegram.org" target="_blank">my.telegram.org</a> → <i>API Development Tools</i></td>
+        <td>
+          1) Log in with Telegram →
+          2) Open <b>API Development Tools</b> →
+          3) Create app →
+          4) Copy values
+        </td>
+        <td>Keep these private. Needed by both userbot &amp; bot client.</td>
+      </tr>
+      <tr>
+        <td><code>BOT_TOKEN</code></td>
+        <td><a href="https://t.me/BotFather" target="_blank">@BotFather</a></td>
+        <td>
+          1) <b>/newbot</b> →
+          2) Set name &amp; username →
+          3) Copy the token
+        </td>
+        <td>Rotate if leaked. Store in <code>.env</code>.</td>
+      </tr>
+      <tr>
+        <td><code>STRING_SESSION</code></td>
+        <td><a href="https://t.me/SessionBuilderbot" target="_blank">@SessionBuilderbot</a></td>
+        <td>
+          1) Start bot →
+          2) Provide <code>API_ID</code>/<code>API_HASH</code> →
+          3) Complete login →
+          4) Copy string
+        </td>
+        <td>Userbot auth for Pyrogram.</td>
+      </tr>
+      <tr>
+        <td><code>LOGGER_ID</code></td>
+        <td>Telegram <b>Channel/Group</b> you own</td>
+        <td>
+          1) Create private channel/group →
+          2) Add your bot as admin →
+          3) Get ID via <code>@AnnieXRobot</code> or <code>@MissRose_Bot</code>
+        </td>
+        <td>Use a private space so logs aren’t public.</td>
+      </tr>
+      <tr>
+        <td><code>MONGO_DB_URI</code></td>
+        <td><a href="https://www.mongodb.com/atlas/database" target="_blank">MongoDB Atlas</a></td>
+        <td>
+          1) Create free cluster →
+          2) Add database user &amp; IP allowlist →
+          3) Copy connection string (<code>mongodb+srv://...</code>)
+        </td>
+        <td>Required for persistence (queues, configs, etc.).</td>
+      </tr>
+      <tr>
+        <td><code>COOKIE_URL</code></td>
+        <td>Any secure host (e.g., <a href="https://pastebin.com" target="_blank">Pastebin</a>, <a href="https://batbin.me" target="_blank">Batbin</a>)</td>
+        <td>
+          1) Upload your <code>cookies.txt</code> privately →
+          2) Set paste visibility to <b>Unlisted</b> →
+          3) Copy the <b>raw</b> URL
+        </td>
+        <td>Improves YouTube reliability. Never commit raw cookies.</td>
+      </tr>
+      <tr>
+        <td><code>API_KEY</code> / <code>API_URL</code></td>
+        <td>Provider of your choice</td>
+        <td>generate key → paste here</td>
+        <td>Optional integrations.</td>
+      </tr>
+    </tbody>
+  </table>
 
-```bash
-curl https://raw.githubusercontent.com/creationix/nvm/master/install.sh | bash
-source ~/.bashrc
-nvm install node
-```
-
-### 💼 Clone the Bot
-
-```bash
-git clone https://github.com/CertifiedCoders/TuneViaBot
-cd TuneViaBot
-```
-
-### 📦 Install Python Requirements
-
-```bash
-pip3 install -U -r requirements.txt
-```
-
-### 🕸 Install Tmux
-
-```bash
-sudo apt install tmux -y
-```
-
-### 🚀 Start Setup
-
-```bash
-sudo bash setup
-```
-
-### ⏱ Run Bot in Tmux (Persistent Session)
-
-```bash
-tmux new -s tune
-sudo bash start
-```
-
+  <br/>
 </details>
 
----
+##
 
+### ☕ VPS Setup Guide
+
+<img src="https://img.shields.io/badge/Show%20/Hide-VPS%20Steps-0ea5e9?style=for-the-badge" alt="Toggle VPS Steps"/>
+<div align="left">
+  <details>
+
+```bash
+🎵 Deploy TuneViaBot on VPS
+
+### Step 1: Update & Install Packages
+sudo apt update && sudo apt upgrade -y
+sudo apt install git curl python3-pip python3-venv ffmpeg -y
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt install -y nodejs
+npm install -g npm
+
+### Step 2: Clone Repo
+git clone https://github.com/CertifiedCoders/TuneViaBot
+cd TuneViaBot
+tmux new -s tune
+
+### Step 3: Setup & Run
+python3 -m venv venv
+source venv/bin/activate
+pip install -U pip && pip install -r requirements.txt
+bash setup   # Fill environment variables
+bash start   # Start bot
+
+### Useful Commands
+tmux detach         # Use Ctrl+B, then D
+tmux attach-session -t tune # Attach to Running Bot session
+tmux kill-session -t tune # to kill the running bot session
+rm -rf TuneViaBot  # Uninstall the repo
+```
+
+  </details>
+</div>
+
+##
+
+### 🐳 Docker Deployment
+
+<img src="https://img.shields.io/badge/Show%20/Hide-Docker%20Steps-10b981?style=for-the-badge" alt="Toggle Docker Steps"/>
+
+<div align="left">
+  <details>
+
+```bash
+### Step 1: Clone Repo
+git clone https://github.com/CertifiedCoders/TuneViaBot
+cd TuneViaBot
+
+### Step 2: Create .env File
+nano .env
+# Paste your environment variables here and save (Ctrl+O, Enter, Ctrl+X)
+
+### Step 3: Build Image
+docker build -t tuneviabot .
+
+### Step 4: Run Container
+docker run -d --name tune --env-file .env --restart unless-stopped tuneviabot
+
+### Step 5: Manage Container
+docker logs -f tune        # View logs (Ctrl+C to exit)
+docker stop tune           # Stop container
+docker start tune          # Start again
+docker rm -f tune          # Remove container
+docker rmi tuneviabot      # Remove image
+```
+
+  </details>
+</div>
+
+
+
+##
 ### ☁️ Quick Deploy
 
-| Platform            | Link                                                                                                                                                                                                         |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 🔑 Generate Session | <a href="https://t.me/SessionBuilderbot"><img src="https://img.shields.io/badge/Session%20-Generator-orange?style=for-the-badge&logo=heroku" /></a>                                                        |
-| 🌍 Heroku Deploy    | <a href="http://dashboard.heroku.com/new?template=https://github.com/CertifiedCoders/TuneViaBot"><img src="https://img.shields.io/badge/Deploy%20to-Heroku-purple?style=for-the-badge&logo=heroku" /></a> |
+| Platform                | Deploy Link                                                                                                                                                                                               |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 🔑 **Generate Session** | <a href="https://t.me/SessionBuilderbot"><img src="https://img.shields.io/badge/Session%20-Generator-blue?style=for-the-badge&logo=telegram"/></a>                                                    |
+| 🌍 **Heroku Deploy**    | <a href="http://dashboard.heroku.com/new?template=https://github.com/CertifiedCoders/TuneViaBot"><img src="https://img.shields.io/badge/Deploy%20to-Heroku-purple?style=for-the-badge&logo=heroku"/></a> |
 
----
 
-## 👥 Support & Community
 
-<p align="center">
-  <a href="https://t.me/CertifiedCoders"><img src="https://img.shields.io/badge/Support%20Group-Join-orange?style=for-the-badge&logo=telegram" /></a>
-  <a href="https://t.me/CertifiedCodes"><img src="https://img.shields.io/badge/Channel-Updates-purple?style=for-the-badge&logo=telegram" /></a>
-  <a href="https://t.me/CertifiedCoder"><img src="https://img.shields.io/badge/Owner-Message-red?style=for-the-badge&logo=telegram" /></a>
-  <a href="https://youtube.com/@rajnisha3"><img src="https://img.shields.io/badge/Youtube-Subscribe-red?style=for-the-badge&logo=youtube" /></a>
-  <a href="https://instagram.com/rajnishthegreat"><img src="https://img.shields.io/badge/Instagram-Follow-pink?style=for-the-badge&logo=instagram" /></a>
-  <a href="mailto:rajnishmishraaa1@gmail.com"><img src="https://img.shields.io/badge/Email-Contact-blue?style=for-the-badge&logo=gmail" /></a>
-</p>
 
----
+## 💬 Community & Support
 
 <p align="center">
-  <img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif">
+  <a href="https://t.me/CertifiedCoders">
+    <img src="https://img.shields.io/badge/Support_Group-Telegram-0088cc?style=for-the-badge&logo=telegram&logoColor=white" />
+  </a>
+  <a href="https://t.me/CertifiedCodes">
+    <img src="https://img.shields.io/badge/Updates_Channel-Telegram-6A5ACD?style=for-the-badge&logo=telegram&logoColor=white" />
+  </a>
+  <a href="https://t.me/CertifiedCoder">
+    <img src="https://img.shields.io/badge/Contact_Owner-Telegram-4CAF50?style=for-the-badge&logo=telegram&logoColor=white" />
+  </a>
+  <a href="https://youtube.com/@rajnisha3">
+    <img src="https://img.shields.io/badge/Subscribe-YouTube-FF0000?style=for-the-badge&logo=youtube&logoColor=white" />
+  </a>
+  <a href="https://instagram.com/rajnishthegreat">
+    <img src="https://img.shields.io/badge/Follow-Instagram-E4405F?style=for-the-badge&logo=instagram&logoColor=white" />
+  </a>
+  <a href="mailto:rajnishmishraaa1@gmail.com">
+    <img src="https://img.shields.io/badge/Contact-Email-0078D4?style=for-the-badge&logo=gmail&logoColor=white" />
+  </a>
 </p>
 
-* <b> *sᴩᴇᴄɪᴀʟ ᴛʜᴀɴᴋs ᴛᴏ [Anony](https://github.com/AnonymousX1025) ғᴏʀ [AnonXMusic](https://github.com/AnonymousX1025/AnonXMusic)* </b>
 
-<p align="center">
-  <b>🌟 Crafted with Passion by Certified Coders 🌟</b>
-</p>
+##
+### 🔖 Credits
+
+* <b> *sᴩᴇᴄɪᴀʟ ᴛʜᴀɴᴋs ᴛᴏ <a href="https://github.com/AnonymousX1025">ᴀɴᴏɴʏ</a> ғᴏʀ <a href="https://github.com/AnonymousX1025/AnonXMusic">ᴀɴᴏɴxᴍᴜsɪᴄ</a>* </b>
+* <b> *ᴄʀᴀғᴛᴇᴅ ᴡɪᴛʜ ᴘᴀssɪᴏɴ ʙʏ <a href="https://github.com/CertifiedCoders">ᴄᴇʀᴛɪғɪᴇᴅ ᴄᴏᴅᴇʀs</a>* </b>
