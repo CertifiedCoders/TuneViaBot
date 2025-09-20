@@ -11,7 +11,7 @@ httpx==0.28.1
 motor 
 pillow==11.3.0
 psutil
-kurigram==2.2.10
+kurigram==2.2.12
 python-dotenv
 ntgcalls==2.0.6
 py-tgcalls==2.2.8
