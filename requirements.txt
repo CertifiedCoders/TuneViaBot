@@ -9,9 +9,9 @@ gitpython
 heroku3
 httpx==0.28.1
 motor 
-pillow==11.3.0
+pillow==12.0.0
 psutil
-kurigram==2.2.12
+kurigram==2.2.13
 python-dotenv
 ntgcalls==2.0.6
 py-tgcalls==2.2.8
@@ -21,5 +21,5 @@ speedtest-cli
 spotipy
 tgcrypto
 unidecode
-yt-dlp==2025.9.26
+yt-dlp==2025.10.22
 git+https://github.com/CertifiedCoders/youtube-search-python
