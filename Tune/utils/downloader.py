@@ -1,194 +1,279 @@
+
 import asyncio
+import contextlib
 import os
 import re
-from typing import Dict, Optional
+from typing import Dict, Optional, Union
 
 import aiofiles
 import aiohttp
 from aiohttp import TCPConnector
 from yt_dlp import YoutubeDL
 
-from Tune.core.dir import DOWNLOAD_DIR, CACHE_DIR
+from Tune.core.dir import DOWNLOAD_DIR as _DOWNLOAD_DIR, CACHE_DIR
 from Tune.utils.cookie_handler import COOKIE_PATH
 from Tune.utils.tuning import CHUNK_SIZE, SEM
 from config import API_KEY, API_URL
 
-USE_API = bool(API_URL and API_KEY)
-COOKIES_FILE = str(COOKIE_PATH) if COOKIE_PATH and os.path.exists(COOKIE_PATH) and os.path.getsize(COOKIE_PATH) > 0 else None
-_INFLIGHT: Dict[str, asyncio.Future] = {}
-_INFLIGHT_LOCK = asyncio.Lock()
-_SESSION: Optional[aiohttp.ClientSession] = None
-_SESSION_LOCK = asyncio.Lock()
+USE_API: bool = bool(API_URL and API_KEY)
+
+_COOKIES_FILE = str(COOKIE_PATH)
+
+_inflight: Dict[str, asyncio.Future] = {}
+_inflight_lock = asyncio.Lock()
+
+_session: Optional[aiohttp.ClientSession] = None
+_session_lock = asyncio.Lock()
+
 
 def extract_video_id(link: str) -> str:
-    return (link.split("v=")[-1].split("&")[0] if "v=" in link else link.split("/")[-1].split("?")[0].split("&")[0])
+    if "v=" in link:
+        return link.split("v=")[-1].split("&")[0]
+    return link.split("/")[-1].split("?")[0]
+
+
+def _cookiefile_path() -> Optional[str]:
+    try:
+        if _COOKIES_FILE and os.path.exists(_COOKIES_FILE) and os.path.getsize(
+            _COOKIES_FILE
+        ) > 0:
+            return _COOKIES_FILE
+    except Exception:
+        pass
+    return None
+
 
 def file_exists(video_id: str) -> Optional[str]:
-    for ext in ("mp3", "m4a", "webm", "mp4"):
-        path = f"{DOWNLOAD_DIR}/{video_id}.{ext}"
+    for ext in ("mp3", "m4a", "webm"):
+        path = f"{_DOWNLOAD_DIR}/{video_id}.{ext}"
         if os.path.exists(path):
             return path
     return None
 
-def safe_filename(name: str) -> str:
-    return re.sub(r'[\\/*?:"<>|]', "_", (name or "").strip())[:180]
 
-def base_ytdlp_opts() -> dict:
-    opts = {
+def _safe_filename(name: str) -> str:
+    return re.sub(r'[\\/*?:"<>|]+', "_", (name or "").strip())[:200]
+
+
+def _ytdlp_base_opts() -> Dict[str, Union[str, int, bool]]:
+    opts: Dict[str, Union[str, int, bool]] = {
+        "outtmpl": f"{_DOWNLOAD_DIR}/%(id)s.%(ext)s",
         "quiet": True,
         "no_warnings": True,
         "noplaylist": True,
         "overwrites": True,
         "continuedl": True,
         "noprogress": True,
-        "concurrent_fragment_downloads": 32,
-        "http_chunk_size": 1 << 20,          # 1 MiB
-        "retries": 10,
-        "fragment_retries": 15,
-        "socket_timeout": 8,
+        "concurrent_fragment_downloads": 16,
+        "http_chunk_size": 1 << 20,
+        "socket_timeout": 30,
+        "retries": 3,
+        "fragment_retries": 3,
         "cachedir": str(CACHE_DIR),
-        "external_downloader": "aria2c",
-        # aria2c: max 16 connections per server, 64 total jobs
-        "external_downloader_args": {"aria2c": ["-x", "16", "-s", "16", "-j", "64", "-k", "1M"]},
     }
-    if COOKIES_FILE:
-        opts["cookiefile"] = COOKIES_FILE
+    cookiefile = _cookiefile_path()
+    if cookiefile:
+        opts["cookiefile"] = cookiefile
     return opts
 
-async def get_session() -> aiohttp.ClientSession:
-    global _SESSION
-    async with _SESSION_LOCK:
-        if _SESSION and not _SESSION.closed:
-            return _SESSION
-        timeout = aiohttp.ClientTimeout(total=300, connect=5, sock_read=15)
-        connector = TCPConnector(limit=0, ttl_dns_cache=3600, use_dns_cache=True, enable_cleanup_closed=True)
-        _SESSION = aiohttp.ClientSession(timeout=timeout, connector=connector)
-        return _SESSION
 
-async def api_download(link: str) -> Optional[str]:
+async def _get_session() -> aiohttp.ClientSession:
+    global _session
+    if _session and not _session.closed:
+        return _session
+    async with _session_lock:
+        if _session and not _session.closed:
+            return _session
+        timeout = aiohttp.ClientTimeout(total=600, sock_connect=20, sock_read=60)
+        connector = TCPConnector(limit=0, ttl_dns_cache=300, enable_cleanup_closed=True)
+        _session = aiohttp.ClientSession(timeout=timeout, connector=connector)
+        return _session
+
+
+async def api_download_song(link: str) -> Optional[str]:
     if not USE_API:
         return None
     vid = extract_video_id(link)
-    url = f"{API_URL}/song/{vid}?api={API_KEY}"
-    session = await get_session()
+    poll_url = f"{API_URL}/song/{vid}?api={API_KEY}"
     try:
-        async with session.get(url) as r:
-            if r.status != 200:
-                return None
-            data = await r.json()
-            status = data.get("status", "").lower()
-            if status != "done":
-                return None
-            dl, fmt = data.get("link"), data.get("format", "mp3").lower()
-            path = f"{DOWNLOAD_DIR}/{vid}.{fmt}"
-            async with session.get(dl) as fr:
-                if fr.status != 200:
+        session = await _get_session()
+        while True:
+            async with session.get(poll_url) as r:
+                if r.status != 200:
                     return None
-                async with aiofiles.open(path, "wb") as f:
-                    async for chunk in fr.content.iter_chunked(CHUNK_SIZE):
-                        await f.write(chunk)
-            return path
-    except:
+                data = await r.json()
+                s = str(data.get("status", "")).lower()
+                if s == "downloading":
+                    await asyncio.sleep(1.5)
+                    continue
+                if s != "done":
+                    return None
+                dl = data.get("link")
+                fmt = str(data.get("format", "mp3")).lower()
+                out_path = f"{_DOWNLOAD_DIR}/{vid}.{fmt}"
+                async with session.get(dl) as fr:
+                    if fr.status != 200:
+                        return None
+                    async with aiofiles.open(out_path, "wb") as f:
+                        async for chunk in fr.content.iter_chunked(CHUNK_SIZE):
+                            if not chunk:
+                                break
+                            await f.write(chunk)
+                return out_path
+    except Exception:
         return None
 
-def ytdlp_sync_download(link: str, opts: dict) -> Optional[str]:
+
+def _download_ytdlp(link: str, opts: Dict) -> Optional[str]:
     try:
         with YoutubeDL(opts) as ydl:
             info = ydl.extract_info(link, download=False)
-            vid, ext = info["id"], info.get("ext", "webm")
-            path = f"{DOWNLOAD_DIR}/{vid}.{ext}"
+            ext = info.get("ext") or "webm"
+            vid = info.get("id")
+            path = f"{_DOWNLOAD_DIR}/{vid}.{ext}"
             if os.path.exists(path):
                 return path
             ydl.download([link])
-            return path if os.path.exists(path) else None
-    except:
+            return path
+    except Exception:
         return None
 
-async def dedup(key: str, runner):
-    async with _INFLIGHT_LOCK:
-        if key in _INFLIGHT:
-            return await _INFLIGHT[key]
-        fut = asyncio.get_event_loop().create_future()
-        _INFLIGHT[key] = fut
+
+async def _with_sem(coro):
+    async with SEM:
+        return await coro
+
+
+async def _dedup(key: str, runner):
+    async with _inflight_lock:
+        fut = _inflight.get(key)
+        if fut:
+            return await fut
+        fut = asyncio.get_running_loop().create_future()
+        _inflight[key] = fut
     try:
         res = await runner()
         fut.set_result(res)
         return res
-    except Exception as e:
-        fut.set_exception(e)
-        raise
+    except Exception:
+        fut.set_result(None)
+        return None
     finally:
-        async with _INFLIGHT_LOCK:
-            _INFLIGHT.pop(key, None)
+        async with _inflight_lock:
+            _inflight.pop(key, None)
 
-async def yt_dlp_download(link: str, type: str, format_id: str = None, title: str = None) -> Optional[str]:
-    loop = asyncio.get_event_loop()
+
+async def yt_dlp_download(
+    link: str, type: str, format_id: str = None, title: str = None
+) -> Optional[str]:
+    loop = asyncio.get_running_loop()
+
     if type == "audio":
         key = f"a:{link}"
+
         async def run():
-            opts = base_ytdlp_opts() | {"format": "bestaudio/best"}
-            return await loop.run_in_executor(None, ytdlp_sync_download, link, opts)
-        return await dedup(key, lambda: asyncio.wait_for(run(), timeout=180))
+            opts = _ytdlp_base_opts()
+            opts.update({"format": "bestaudio/best"})
+            return await _with_sem(
+                loop.run_in_executor(None, _download_ytdlp, link, opts)
+            )
+
+        return await _dedup(key, run)
 
     if type == "video":
         key = f"v:{link}"
+
         async def run():
-            opts = base_ytdlp_opts() | {"format": "best[height<=720][width<=1280]"}
-            return await loop.run_in_executor(None, ytdlp_sync_download, link, opts)
-        return await dedup(key, lambda: asyncio.wait_for(run(), timeout=300))
+            opts = _ytdlp_base_opts()
+            opts.update({"format": "best[height<=?720][width<=?1280]"})
+            return await _with_sem(
+                loop.run_in_executor(None, _download_ytdlp, link, opts)
+            )
+
+        return await _dedup(key, run)
 
     if type == "song_video" and format_id and title:
-        safe_title = safe_filename(title)
+        safe_title = _safe_filename(title)
         key = f"sv:{link}:{format_id}:{safe_title}"
+
         async def run():
-            opts = base_ytdlp_opts() | {
-                "format": f"{format_id}+bestaudio",
-                "outtmpl": f"{DOWNLOAD_DIR}/{safe_title}.%(ext)s",
-                "merge_output_format": "mp4",
-            }
-            await loop.run_in_executor(None, lambda: YoutubeDL(opts).download([link]))
-            path = f"{DOWNLOAD_DIR}/{safe_title}.mp4"
-            return path if os.path.exists(path) else None
-        return await dedup(key, lambda: asyncio.wait_for(run(), timeout=300))
+            opts = _ytdlp_base_opts()
+            opts.update(
+                {
+                    "format": f"{format_id}+140",
+                    "outtmpl": f"{_DOWNLOAD_DIR}/{safe_title}.mp4",
+                    "prefer_ffmpeg": True,
+                    "merge_output_format": "mp4",
+                }
+            )
+            await _with_sem(
+                loop.run_in_executor(None, lambda: YoutubeDL(opts).download([link]))
+            )
+            return f"{_DOWNLOAD_DIR}/{safe_title}.mp4"
+
+        return await _dedup(key, run)
 
     if type == "song_audio" and format_id and title:
-        safe_title = safe_filename(title)
+        safe_title = _safe_filename(title)
         key = f"sa:{link}:{format_id}:{safe_title}"
+
         async def run():
-            opts = base_ytdlp_opts() | {
-                "format": format_id,
-                "outtmpl": f"{DOWNLOAD_DIR}/{safe_title}.%(ext)s",
-                "postprocessors": [{
-                    "key": "FFmpegExtractAudio",
-                    "preferredcodec": "mp3",
-                    "preferredquality": "320",
-                }],
-            }
-            await loop.run_in_executor(None, lambda: YoutubeDL(opts).download([link]))
-            path = f"{DOWNLOAD_DIR}/{safe_title}.mp3"
-            return path if os.path.exists(path) else None
-        return await dedup(key, lambda: asyncio.wait_for(run(), timeout=300))
+            opts = _ytdlp_base_opts()
+            opts.update(
+                {
+                    "format": format_id,
+                    "outtmpl": f"{_DOWNLOAD_DIR}/{safe_title}.%(ext)s",
+                    "prefer_ffmpeg": True,
+                    "postprocessors": [
+                        {
+                            "key": "FFmpegExtractAudio",
+                            "preferredcodec": "mp3",
+                            "preferredquality": "192",
+                        }
+                    ],
+                }
+            )
+            await _with_sem(
+                loop.run_in_executor(None, lambda: YoutubeDL(opts).download([link]))
+            )
+            return f"{_DOWNLOAD_DIR}/{safe_title}.mp3"
+
+        return await _dedup(key, run)
 
     return None
 
+
 async def download_audio_concurrent(link: str) -> Optional[str]:
     vid = extract_video_id(link)
-    if cached := file_exists(vid):
+    cached = file_exists(vid)
+    if cached:
         return cached
 
+    if not USE_API:
+        return await yt_dlp_download(link, type="audio")
+
     key = f"rac:{link}"
+
     async def run():
-        async with SEM:
-            yt_task = asyncio.create_task(yt_dlp_download(link, "audio"))
-            api_task = asyncio.create_task(api_download(link)) if USE_API else None
-            tasks = [t for t in (yt_task, api_task) if t]
-            done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
-            for t in done:
-                if res := t.result():
-                    [p.cancel() for p in pending]
+        yt_task = asyncio.create_task(yt_dlp_download(link, type="audio"))
+        api_task = asyncio.create_task(api_download_song(link))
+        done, pending = await asyncio.wait(
+            {yt_task, api_task}, return_when=asyncio.FIRST_COMPLETED
+        )
+        for t in done:
+            with contextlib.suppress(Exception):
+                res = t.result()
+                if res:
+                    for p in pending:
+                        p.cancel()
+                        with contextlib.suppress(Exception, asyncio.CancelledError):
+                            await p
                     return res
-            for t in pending:
-                if res := await t:
+        for t in pending:
+            with contextlib.suppress(Exception, asyncio.CancelledError):
+                res = await t
+                if res:
                     return res
-            return None
-    return await dedup(key, run)
+        return None
+
+    return await _dedup(key, lambda: _with_sem(run()))
