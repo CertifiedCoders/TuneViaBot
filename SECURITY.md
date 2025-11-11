@@ -5,7 +5,7 @@
 The table below lists which versions are currently supported and receive security updates.
 
 | Version | Supported |
-| :##--: | :####-: |
+| :-----: | :-------: |
 |   1.0   |     ❌     |
 |   1.1   |     ❌     |
 |   1.2   |     ✅     |
