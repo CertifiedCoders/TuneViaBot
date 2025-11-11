@@ -3,7 +3,7 @@ from pyrogram.types import Message
 
 from config import BANNED_USERS
 from Tune import app
-from Tune.core.call import JARVIS
+from Tune.core.call import StreamController
 from Tune.utils.database import group_assistant
 from Tune.utils.admin_filters import admin_filter
 
@@ -12,7 +12,7 @@ from Tune.utils.admin_filters import admin_filter
 async def vc_info(client, message: Message):
     chat_id = message.chat.id
     try:
-        assistant = await group_assistant(JARVIS, chat_id)
+        assistant = await group_assistant(StreamController, chat_id)
         participants = await assistant.get_participants(chat_id)
 
         if not participants:

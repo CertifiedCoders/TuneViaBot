@@ -6,7 +6,7 @@ from pyrogram.enums import ChatMembersFilter
 from pyrogram.types import CallbackQuery, Message
 
 from Tune import app
-from Tune.core.call import JARVIS
+from Tune.core.call import StreamController
 from Tune.misc import db
 from Tune.utils.database import get_assistant, get_authuser_names, get_cmode
 from Tune.utils.decorators import AdminActual, language
@@ -55,7 +55,7 @@ async def restart_bot(client, message: Message, _):
 
     try:
         db[message.chat.id] = []
-        await JARVIS.force_stop_stream(message.chat.id)
+        await StreamController.force_stop_stream(message.chat.id)
     except:
         pass
 
@@ -72,7 +72,7 @@ async def restart_bot(client, message: Message, _):
             userbot = await get_assistant(chat_id)
             await userbot.resolve_peer(got.username or chat_id)
             db[chat_id] = []
-            await JARVIS.force_stop_stream(chat_id)
+            await StreamController.force_stop_stream(chat_id)
         except:
             pass
 

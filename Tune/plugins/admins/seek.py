@@ -2,7 +2,7 @@ from pyrogram import filters
 from pyrogram.types import Message
 
 from Tune import YouTube, app
-from Tune.core.call import JARVIS
+from Tune.core.call import StreamController
 from Tune.misc import db
 from Tune.utils import AdminRightsCheck, seconds_to_min
 from Tune.utils.inline import close_markup
@@ -56,7 +56,7 @@ async def seek_comm(cli, message: Message, _, chat_id):
     if "index_" in file_path:
         file_path = playing[0]["vidid"]
     try:
-        await JARVIS.seek_stream(
+        await StreamController.seek_stream(
             chat_id,
             file_path,
             seconds_to_min(to_seek),
