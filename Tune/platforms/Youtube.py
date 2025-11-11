@@ -5,7 +5,6 @@ import os
 import re
 import time
 from typing import Dict, List, Optional, Tuple, Union
-from urllib.parse import parse_qs, urlparse
 
 import yt_dlp
 from pyrogram.enums import MessageEntityType
@@ -23,7 +22,9 @@ _cache: Dict[str, Tuple[float, List[Dict]]] = {}
 _cache_lock = asyncio.Lock()
 _formats_cache: Dict[str, Tuple[float, List[Dict], str]] = {}
 _formats_lock = asyncio.Lock()
-_YT_HOST_RE = re.compile(r"(?:^|\.)((?:m|music|www)\.)?youtube\.com|youtu\.be", re.IGNORECASE)
+_YT_HOST_RE = re.compile(
+    r"(?:^|\.)((?:m|music|www)\.)?youtube\.com|youtu\.be", re.IGNORECASE
+)
 YOUTUBE_ID_RE = re.compile(r"^[a-zA-Z0-9_-]{11}$")
 
 
@@ -91,19 +92,6 @@ class YouTubeAPI:
             return s
         return None
 
-    def _is_playlist_url(self, s: str) -> bool:
-        if not self._is_url(s):
-            return False
-        u = urlparse(s)
-        if "youtu.be" in u.netloc:
-            return False
-        if u.path.startswith("/playlist"):
-            return True
-        qs = parse_qs(u.query or "")
-        if "list" in qs and "v" not in qs:
-            return True
-        return False
-
     def _prepare_link(self, link: str, videoid: Union[str, bool, None] = None) -> str:
         if isinstance(videoid, str) and videoid.strip():
             return self.base_url + videoid.strip()
@@ -117,7 +105,11 @@ class YouTubeAPI:
             if "youtu.be" in s:
                 vid = s.split("/")[-1].split("?")[0]
                 return self.base_url + vid
-            if "youtube.com/shorts/" in s or "youtube.com/live/" in s or "youtube.com/embed/" in s:
+            if (
+                "youtube.com/shorts/" in s
+                or "youtube.com/live/" in s
+                or "youtube.com/embed/" in s
+            ):
                 vid = s.split("/")[-1].split("?")[0]
                 return self.base_url + vid
             if "youtube.com/watch" in s:
@@ -146,10 +138,8 @@ class YouTubeAPI:
 
     async def _ensure_watch_url(self, maybe_query_or_url: str) -> Optional[str]:
         prepared = self._prepare_link(maybe_query_or_url)
-        if self._is_url(prepared) and not self._is_playlist_url(prepared):
+        if self._is_url(prepared):
             return prepared
-        if self._is_playlist_url(prepared):
-            return None
         data = await cached_youtube_search(prepared)
         if not data:
             return None
@@ -207,14 +197,16 @@ class YouTubeAPI:
 
     @capture_internal_err
     async def video(self, link: str, videoid: Union[str, bool, None] = None) -> Tuple[int, str]:
-        link = self._prepare_link(link, videoid)
-        if self._is_playlist_url(link):
-            return 0, "playlist_link"
-        link = await self._ensure_watch_url(link)
+        link = await self._ensure_watch_url(self._prepare_link(link, videoid))
         if not link:
             return 0, "not_found"
         stdout, stderr = await _exec_proc(
-            "yt-dlp", *(_cookies_args()), "-g", "-f", "best[height<=?720]/best", link
+            "yt-dlp",
+            *(_cookies_args()),
+            "-g",
+            "-f",
+            "best[height<=?720]/best",
+            link,
         )
         return (1, stdout.decode().split("\n")[0]) if stdout else (0, stderr.decode())
 
@@ -244,10 +236,7 @@ class YouTubeAPI:
             if not info:
                 raise ValueError("Track not found via API")
         except Exception:
-            prepared = self._prepare_link(link, videoid)
-            if self._is_playlist_url(prepared):
-                raise ValueError("Track not found (playlist link)")
-            prepared = await self._ensure_watch_url(prepared)
+            prepared = await self._ensure_watch_url(self._prepare_link(link, videoid))
             if not prepared:
                 raise ValueError("Track not found (invalid input)")
             stdout, _ = await _exec_proc("yt-dlp", *(_cookies_args()), "--dump-json", prepared)
@@ -266,10 +255,7 @@ class YouTubeAPI:
 
     @capture_internal_err
     async def formats(self, link: str, videoid: Union[str, bool, None] = None) -> Tuple[List[Dict], str]:
-        link = self._prepare_link(link, videoid)
-        if self._is_playlist_url(link):
-            return [], ""
-        link = await self._ensure_watch_url(link)
+        link = await self._ensure_watch_url(self._prepare_link(link, videoid))
         if not link:
             return [], ""
         key = f"f:{link}"
@@ -342,16 +328,20 @@ class YouTubeAPI:
         title: Union[bool, str, None] = None,
     ) -> Union[Tuple[str, Optional[bool]], Tuple[None, None]]:
         normalized = self._prepare_link(link, videoid)
-        if self._is_playlist_url(normalized):
-            return None, None
         if songvideo:
             p = await yt_dlp_download(
-                normalized, type="song_video", format_id=str(format_id or ""), title=str(title or "video")
+                normalized,
+                type="song_video",
+                format_id=str(format_id or ""),
+                title=str(title or "video"),
             )
             return (p, True) if p else (None, None)
         if songaudio:
             p = await yt_dlp_download(
-                normalized, type="song_audio", format_id=str(format_id or ""), title=str(title or "audio")
+                normalized,
+                type="song_audio",
+                format_id=str(format_id or ""),
+                title=str(title or "audio"),
             )
             return (p, True) if p else (None, None)
         if video:
@@ -375,6 +365,6 @@ class YouTubeAPI:
             return None, None
         url = await self._ensure_watch_url(normalized)
         if not url:
-            return None, None
+            return (None, None)
         p = await download_audio_concurrent(url)
         return (p, True) if p else (None, None)
