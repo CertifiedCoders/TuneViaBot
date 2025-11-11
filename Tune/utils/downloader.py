@@ -42,13 +42,14 @@ def base_ytdlp_opts() -> dict:
         "continuedl": True,
         "noprogress": True,
         "concurrent_fragment_downloads": 32,
-        "http_chunk_size": 2 << 20,  # 2MB
+        "http_chunk_size": 1 << 20,          # 1 MiB
         "retries": 10,
         "fragment_retries": 15,
         "socket_timeout": 8,
         "cachedir": str(CACHE_DIR),
         "external_downloader": "aria2c",
-        "external_downloader_args": {"aria2c": ["-x", "32", "-s", "32", "-j", "32", "-k", "1M"]},
+        # aria2c: max 16 connections per server, 64 total jobs
+        "external_downloader_args": {"aria2c": ["-x", "16", "-s", "16", "-j", "64", "-k", "1M"]},
     }
     if COOKIES_FILE:
         opts["cookiefile"] = COOKIES_FILE
