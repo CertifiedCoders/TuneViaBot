@@ -31,10 +31,10 @@ _formats_lock = asyncio.Lock()
 
 
 def _cookiefile_path() -> Optional[str]:
-    path = str(COOKIE_PATH)
+    p = str(COOKIE_PATH)
     try:
-        if path and os.path.exists(path) and os.path.getsize(path) > 0:
-            return path
+        if p and os.path.exists(p) and os.path.getsize(p) > 0:
+            return p
     except Exception:
         pass
     return None

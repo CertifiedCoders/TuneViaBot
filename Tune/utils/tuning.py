@@ -11,14 +11,16 @@ YTDLP_TIMEOUT = int(os.getenv("YTDLP_TIMEOUT", "60"))
 YOUTUBE_META_TTL = int(os.getenv("YOUTUBE_META_TTL", "300"))
 YOUTUBE_META_MAX = int(os.getenv("YOUTUBE_META_MAX", "2048"))
 
+HAS_COOKIE_FILE = bool(str(COOKIE_PATH) and os.path.exists(str(COOKIE_PATH)) and os.path.getsize(str(COOKIE_PATH)) > 0)
+
 EXTRACTOR_ARGS_CLI = (
-    "youtube:player_client=ios,android"
-    if not os.path.exists(str(COOKIE_PATH))
-    else "youtube:player_client=web"
+    "youtube:player_client=web"
+    if HAS_COOKIE_FILE
+    else "youtube:player_client=tvhtml5"
 )
 EXTRACTOR_ARGS_PY = {
     "youtube": {
-        "player_client": ["ios", "android"] if not os.path.exists(str(COOKIE_PATH)) else ["web"]
+        "player_client": ["web"] if HAS_COOKIE_FILE else ["tvhtml5"]
     }
 }
 

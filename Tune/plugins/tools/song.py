@@ -29,7 +29,6 @@ class InlineKeyboardBuilder(list):
         self.append(list(buttons))
 
 
-# ───────────────────────────── COMMANDS ───────────────────────────── #
 @app.on_message(filters.command(SONG_COMMAND) & filters.group & ~BANNED_USERS)
 @capture_err
 @language
@@ -75,7 +74,6 @@ async def song_command_private(client, message: Message, lang):
     )
 
 
-# ───────────────────────────── CALLBACKS ───────────────────────────── #
 @app.on_callback_query(filters.regex(r"song_back") & ~BANNED_USERS)
 @capture_callback_err
 @languageCB
@@ -107,9 +105,15 @@ async def song_helper_cb(client, cq, lang):
     kb = InlineKeyboardBuilder()
     seen = set()
 
+    def _size(f):
+        return f.get("filesize") or f.get("filesize_approx")
+
     if stype == "audio":
         for f in formats:
-            if "audio" not in f.get("format", "") or not f.get("filesize"):
+            if "audio" not in (f.get("format", "") + " " + (f.get("format_note") or "")).lower():
+                continue
+            size = _size(f)
+            if not size:
                 continue
             label = (f.get("format_note") or "").title() or "Audio"
             if label in seen:
@@ -117,24 +121,25 @@ async def song_helper_cb(client, cq, lang):
             seen.add(label)
             kb.row(
                 InlineKeyboardButton(
-                    text=f"{label} • {convert_bytes(f['filesize'])}",
+                    text=f"{label} • {convert_bytes(size)}",
                     callback_data=f"song_download {stype}|{f['format_id']}|{vidid}",
                 )
             )
     else:
-        allowed = {160, 133, 134, 135, 136, 137, 298, 299, 264, 304, 266}
+        allowed = {160, 133, 134, 135, 136, 137, 298, 299, 264, 304, 266, 18, 22}
         for f in formats:
             try:
-                fmt_id = int(f.get("format_id", 0))
+                fmt_id = int(str(f.get("format_id", "0")).split("/")[0])
             except Exception:
                 continue
-            if not f.get("filesize") or fmt_id not in allowed:
+            size = _size(f)
+            if not size or fmt_id not in allowed:
                 continue
             note = (f.get("format_note") or "").strip()
             res = note or f.get("format", "").split("-")[-1].strip() or str(fmt_id)
             kb.row(
                 InlineKeyboardButton(
-                    text=f"{res} • {convert_bytes(f['filesize'])}",
+                    text=f"{res} • {convert_bytes(size)}",
                     callback_data=f"song_download {stype}|{f['format_id']}|{vidid}",
                 )
             )
