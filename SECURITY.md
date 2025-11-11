@@ -1,50 +1,52 @@
-# 🛡️ sᴇᴄᴜʀɪᴛʏ ᴘᴏʟɪᴄʏ
+# 🛡️ Security Policy
 
-## 📦 sᴜᴘᴘᴏʀᴛᴇᴅ ᴠᴇʀsɪᴏɴs
+## 📦 Supported Versions
 
-ʙᴇʟᴏᴡ ᴛᴀʙʟᴇ sʜᴏᴡs ᴡʜɪᴄʜ ᴠᴇʀsɪᴏɴs ᴀʀᴇ sᴛᴀʙʟᴇ ᴀɴᴅ sᴇᴄᴜʀɪᴛʏ ᴜᴘᴅᴀᴛᴇᴅ, ᴀɴᴅ ᴡʜɪᴄʜ ᴀʀᴇ ɴᴏᴛ.
+The table below lists which versions are currently supported and receive security updates.
 
-| ᴠᴇʀsɪᴏɴ | sᴜᴘᴘᴏʀᴛᴇᴅ |
-|:--------:|:--------------:|
-| 1.0 | :x: |
-| 1.1 | :x: |
-| 1.2 | :white_check_mark: |
+| Version | Supported |
+| :-----: | :-------: |
+|   1.0   |     ❌     |
+|   1.1   |     ❌     |
+|   1.2   |     ✅     |
 
-##
+---
 
-## 🐞 ʀᴇᴘᴏʀᴛɪɴɢ ᴀ ᴠᴜʟɴᴇʀᴀʙɪʟɪᴛʏ
+## 🐞 Reporting a Vulnerability
 
-ɪғ ʏᴏᴜ ᴡᴀɴᴛ ᴛᴏ ʀᴇᴘᴏʀᴛ ᴀ ᴍᴀᴊᴏʀ ᴏʀ ᴍɪɴᴏʀ ᴠᴜʟɴᴇʀᴀʙɪʟɪᴛʏ ғʀᴏᴍ ᴏᴜʀ ᴘʀᴏᴊᴇᴄᴛ:
+If you discover a vulnerability (major or minor) in our project, please follow these steps:
 
-1. ɪɴғᴏʀᴍ ᴛʜᴇ ᴏʀɪɢɪɴᴀʟ ᴄʀᴇᴀᴛᴏʀ ᴏғ ᴛʜᴇ ᴘᴀᴄᴋᴀɢᴇ ғʀᴏᴍ [**PyPI**](https://pypi.org/).  
-2. ᴛʜᴇɴ, ᴍᴀᴋᴇ ᴀɴ ɪssᴜᴇ ɪɴ ᴏᴜʀ [**GitHub Repository**](https://github.com/CertifiedCoders/TuneViaBot/issues).
+1. Report the vulnerability directly in our [**GitHub Issues**](https://github.com/CertifiedCoders/TuneViaBot/issues).
+2. Alternatively, contact the maintainers via [**Telegram Support**](https://t.me/CertifiedCoders).
 
-##
+---
 
-## 👑 ᴛᴜɴᴇ ᴍᴜsɪᴄ ᴏᴡɴᴇʀ
+## 👑 Project Owner
 
-- [ɢɪᴛʜᴜʙ](https://github.com/CertifiedCoders)  
-- [ᴛᴇʟᴇɢʀᴀᴍ](https://t.me/CertifiedCoder)  
-- [sᴜᴘᴘᴏʀᴛ ᴄʜᴀᴛ](https://t.me/CertifiedCoders)
+**Tune Music** is maintained by **CertifiedCoders**.
 
-##
+* [GitHub](https://github.com/CertifiedCoders)
+* [Telegram](https://t.me/CertifiedCoder)
+* [Support Chat](https://t.me/CertifiedCoders)
 
-## ℹ️ ɪɴғᴏ
+---
 
-**ᴛᴜɴᴇ ᴠɪᴀ ʙᴏᴛ** ɪs ᴀɴ ᴏᴩᴇɴ-sᴏᴜʀᴄᴇ ᴛᴇʟᴇɢʀᴀᴍ ᴠᴄ ᴍᴜsɪᴄ ʙᴏᴛ ᴡɪᴛʜ sᴏᴍᴇ ɢʀᴏᴜᴘ ᴍᴀɴᴀɢᴇᴍᴇɴᴛ ғᴇᴀᴛᴜʀᴇs.  
-ᴡʀɪᴛᴛᴇɴ ɪɴ **ᴩʏᴛʜᴏɴ**, ᴜsɪɴɢ:
+## ℹ️ About
 
-- [ᴘʏᴛɢᴄᴀʟʟs](https://github.com/pytgcalls/pytgcalls)  
-- [ᴩʏʀᴏɢʀᴀᴍ](https://github.com/KurimuzonAkuma/pyrogram)  
-- [ʏᴛ-ᴅʟᴘ](https://github.com/yt-dlp/yt-dlp)  
-- [ᴍᴏɴɢᴏᴅʙ](https://cloud.mongodb.com)
+**Tune Via Bot** is an open-source Telegram voice chat music bot with additional group management features.
+It is built using **Python** and integrates with the following technologies:
 
-📂 **Source Code:** [GitHub Repository](https://github.com/CertifiedCoders/TuneViaBot)
+* [PyTgCalls](https://github.com/pytgcalls/pytgcalls)
+* [Pyrogram](https://github.com/KurimuzonAkuma/pyrogram)
+* [yt-dlp](https://github.com/yt-dlp/yt-dlp)
+* [MongoDB](https://cloud.mongodb.com)
 
-##
+**Source Code:** [GitHub Repository](https://github.com/CertifiedCoders/TuneViaBot)
 
-## 📜 ʟɪᴄᴇɴsᴇ
+---
 
-**ᴛᴜɴᴇ ᴠɪᴀ ʙᴏᴛ** ɪs ʟɪᴄᴇɴsᴇᴅ ᴜɴᴅᴇʀ ᴛʜᴇ [MIT License](https://github.com/CertifiedCoders/TuneViaBot/blob/master/LICENSE).  
+## 📜 License
 
-© 2024–2025 [**CertifiedCoders**](https://github.com/CertifiedCoders) • ᴀʟʟ ʀɪɢʜᴛs ʀᴇsᴇʀᴠᴇᴅ.
+**Tune Via Bot** is licensed under the [MIT License](https://github.com/CertifiedCoders/TuneViaBot/blob/master/LICENSE).
+
+© 2024–2025 [**CertifiedCoders**](https://github.com/CertifiedCoders). All rights reserved.
