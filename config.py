@@ -115,10 +115,3 @@ if SUPPORT_CHANNEL and not re.match(r"^https?://", SUPPORT_CHANNEL):
 
 if SUPPORT_CHAT and not re.match(r"^https?://", SUPPORT_CHAT):
     raise SystemExit("[ERROR] - Invalid SUPPORT_CHAT URL. Must start with https://")
-
-if not COOKIE_URL:
-    raise SystemExit("[ERROR] - COOKIE_URL is required.")
-
-# Only allow these cookie link formats
-if not re.match(r"^https://(batbin\.me|pastebin\.com)/[A-Za-z0-9]+$", COOKIE_URL):
-    raise SystemExit("[ERROR] - Invalid COOKIE_URL. Use https://batbin.me/<id> or https://pastebin.com/<id>")

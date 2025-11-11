@@ -32,7 +32,7 @@
 
 <p align="center">
   <a href="https://t.me/CertifiedCoders">
-    <img src="https://files.catbox.moe/d0ynvn.jpg" width="600">
+    <img src="https://files.catbox.moe/d0ynvn.jpg" width="450">
   </a>
 </p>
 
@@ -196,30 +196,33 @@ API_URL=             # Optional - External API url for music Download
 ```bash
 🎵 Deploy TuneViaBot on VPS
 
-### Step 1: Update & Install Packages
+# Step 1: Update & Install Dependencies
 sudo apt update && sudo apt upgrade -y
-sudo apt install git curl python3-pip python3-venv ffmpeg -y
-curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-sudo apt install -y nodejs
-npm install -g npm
+sudo apt install -y git curl python3-pip python3-venv ffmpeg unzip tmux
 
-### Step 2: Clone Repo
-git clone https://github.com/CertifiedCoders/TuneViaBot
+# Step 2: Install Deno (for yt-dlp)
+curl -fsSL https://deno.land/install.sh | sh
+echo 'export PATH="$HOME/.deno/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+
+# Step 3: Clone & Setup
+git clone https://github.com/CertifiedCoders/TuneViaBot 
 cd TuneViaBot
 tmux new -s tune
 
-### Step 3: Setup & Run
+# Inside tmux:
 python3 -m venv venv
 source venv/bin/activate
 pip install -U pip && pip install -r requirements.txt
-bash setup   # Fill environment variables
-bash start   # Start bot
+
+bash setup  # Fill: API_ID, BOT_TOKEN, COOKIE_URL, etc.
+bash start  # Run bot
 
 ### Useful Commands
-tmux detach         # Use Ctrl+B, then D
-tmux attach-session -t tune # Attach to Running Bot session
-tmux kill-session -t tune # to kill the running bot session
-rm -rf TuneViaBot  # Uninstall the repo
+tmux detach                      # Use Ctrl+B, then D
+tmux attach-session -t tune       # Reattach session
+tmux kill-session -t tune         # Kill bot session
+rm -rf TuneViaBot                 # Uninstall bot
 ```
 
   </details>
@@ -241,20 +244,25 @@ cd TuneViaBot
 
 ### Step 2: Create .env File
 nano .env
-# Paste your environment variables here and save (Ctrl+O, Enter, Ctrl+X)
+# Paste your environment variables here (API_ID, API_HASH, BOT_TOKEN, MONGO_DB_URI, COOKIE_URL, etc.)
+# Save with Ctrl+O, Enter, then Ctrl+X
 
-### Step 3: Build Image
+### Step 3: Build Docker Image
 docker build -t tuneviabot .
 
 ### Step 4: Run Container
-docker run -d --name tune --env-file .env --restart unless-stopped tuneviabot
+docker run -d \
+  --name tune \
+  --env-file .env \
+  --restart unless-stopped \
+  tuneviabot
 
 ### Step 5: Manage Container
-docker logs -f tune        # View logs (Ctrl+C to exit)
-docker stop tune           # Stop container
-docker start tune          # Start again
-docker rm -f tune          # Remove container
-docker rmi tuneviabot      # Remove image
+docker logs -f tune         # View logs (Ctrl+C to exit)
+docker stop tune            # Stop container
+docker start tune           # Start container
+docker rm -f tune           # Remove container
+docker rmi tuneviabot       # Remove image
 ```
 
   </details>

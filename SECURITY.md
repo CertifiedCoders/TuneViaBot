@@ -1,36 +1,50 @@
-# Security Policy
+# 🛡️ sᴇᴄᴜʀɪᴛʏ ᴘᴏʟɪᴄʏ
 
-## Supported Versions
+## 📦 sᴜᴘᴘᴏʀᴛᴇᴅ ᴠᴇʀsɪᴏɴs
 
-We currently support the following versions with security updates:
+ʙᴇʟᴏᴡ ᴛᴀʙʟᴇ sʜᴏᴡs ᴡʜɪᴄʜ ᴠᴇʀsɪᴏɴs ᴀʀᴇ sᴛᴀʙʟᴇ ᴀɴᴅ sᴇᴄᴜʀɪᴛʏ ᴜᴘᴅᴀᴛᴇᴅ, ᴀɴᴅ ᴡʜɪᴄʜ ᴀʀᴇ ɴᴏᴛ.
 
+| ᴠᴇʀsɪᴏɴ | sᴜᴘᴘᴏʀᴛᴇᴅ |
+|:--------:|:--------------:|
+| 1.0 | :x: |
+| 1.1 | :x: |
+| 1.2 | :white_check_mark: |
 
-| Version | Supported |
-|---------|-----------|
-| v1.0    | ✅         |
-| All other versions | ❌ |
+##
 
----
+## 🐞 ʀᴇᴘᴏʀᴛɪɴɢ ᴀ ᴠᴜʟɴᴇʀᴀʙɪʟɪᴛʏ
 
-## Reporting a Vulnerability
+ɪғ ʏᴏᴜ ᴡᴀɴᴛ ᴛᴏ ʀᴇᴘᴏʀᴛ ᴀ ᴍᴀᴊᴏʀ ᴏʀ ᴍɪɴᴏʀ ᴠᴜʟɴᴇʀᴀʙɪʟɪᴛʏ ғʀᴏᴍ ᴏᴜʀ ᴘʀᴏᴊᴇᴄᴛ:
 
-If you discover a security vulnerability, please follow these steps:
+1. ɪɴғᴏʀᴍ ᴛʜᴇ ᴏʀɪɢɪɴᴀʟ ᴄʀᴇᴀᴛᴏʀ ᴏғ ᴛʜᴇ ᴘᴀᴄᴋᴀɢᴇ ғʀᴏᴍ [**PyPI**](https://pypi.org/).  
+2. ᴛʜᴇɴ, ᴍᴀᴋᴇ ᴀɴ ɪssᴜᴇ ɪɴ ᴏᴜʀ [**GitHub Repository**](https://github.com/CertifiedCoders/TuneViaBot/issues).
 
-1. **Contact us privately**  
-   Report the issue by emailing us at [rajnishmishraaa1@gmail.com](mailto:rajnishmishraaa1@gmail.com).  
-   Please **do not** create a public GitHub issue to report vulnerabilities.
+##
 
-2. **What to expect**
-   * We'll acknowledge your report within **72 hours**.
-   * We'll work with you to confirm and address the issue.
-   * A patch will be prepared within **30 days**, depending on severity.
+## 👑 ᴛᴜɴᴇ ᴍᴜsɪᴄ ᴏᴡɴᴇʀ
 
-3. **Responsible Disclosure**
-   * Please keep the issue confidential until a fix is released.
-   * We encourage responsible disclosure to protect our users.
+- [ɢɪᴛʜᴜʙ](https://github.com/CertifiedCoders)  
+- [ᴛᴇʟᴇɢʀᴀᴍ](https://t.me/CertifiedCoder)  
+- [sᴜᴘᴘᴏʀᴛ ᴄʜᴀᴛ](https://t.me/CertifiedCoders)
 
----
+##
 
-## Thank You
+## ℹ️ ɪɴғᴏ
 
-We appreciate your efforts to help keep TuneViaBot and its users secure.
+**ᴛᴜɴᴇ ᴠɪᴀ ʙᴏᴛ** ɪs ᴀɴ ᴏᴩᴇɴ-sᴏᴜʀᴄᴇ ᴛᴇʟᴇɢʀᴀᴍ ᴠᴄ ᴍᴜsɪᴄ ʙᴏᴛ ᴡɪᴛʜ sᴏᴍᴇ ɢʀᴏᴜᴘ ᴍᴀɴᴀɢᴇᴍᴇɴᴛ ғᴇᴀᴛᴜʀᴇs.  
+ᴡʀɪᴛᴛᴇɴ ɪɴ **ᴩʏᴛʜᴏɴ**, ᴜsɪɴɢ:
+
+- [ᴘʏᴛɢᴄᴀʟʟs](https://github.com/pytgcalls/pytgcalls)  
+- [ᴩʏʀᴏɢʀᴀᴍ](https://github.com/KurimuzonAkuma/pyrogram)  
+- [ʏᴛ-ᴅʟᴘ](https://github.com/yt-dlp/yt-dlp)  
+- [ᴍᴏɴɢᴏᴅʙ](https://cloud.mongodb.com)
+
+📂 **Source Code:** [GitHub Repository](https://github.com/CertifiedCoders/TuneViaBot)
+
+##
+
+## 📜 ʟɪᴄᴇɴsᴇ
+
+**ᴛᴜɴᴇ ᴠɪᴀ ʙᴏᴛ** ɪs ʟɪᴄᴇɴsᴇᴅ ᴜɴᴅᴇʀ ᴛʜᴇ [MIT License](https://github.com/CertifiedCoders/TuneViaBot/blob/master/LICENSE).  
+
+© 2024–2025 [**CertifiedCoders**](https://github.com/CertifiedCoders) • ᴀʟʟ ʀɪɢʜᴛs ʀᴇsᴇʀᴠᴇᴅ.
