@@ -76,7 +76,7 @@ async def song_command_private(client, message: Message, lang):
 
 
 # ───────────────────────────── CALLBACKS ───────────────────────────── #
-@app.on_callback_query(filters.regex(r"^song_back") & ~BANNED_USERS)
+@app.on_callback_query(filters.regex(r"song_back") & ~BANNED_USERS)
 @capture_callback_err
 @languageCB
 async def songs_back_helper(client, cq, lang):
@@ -87,7 +87,7 @@ async def songs_back_helper(client, cq, lang):
     )
 
 
-@app.on_callback_query(filters.regex(r"^song_helper") & ~BANNED_USERS)
+@app.on_callback_query(filters.regex(r"song_helper") & ~BANNED_USERS)
 @capture_callback_err
 @languageCB
 async def song_helper_cb(client, cq, lang):
@@ -107,17 +107,9 @@ async def song_helper_cb(client, cq, lang):
     kb = InlineKeyboardBuilder()
     seen = set()
 
-    def _size_of(f):
-        """Prefer precise size; fall back to approx."""
-        return f.get("filesize") or f.get("filesize_approx")
-
     if stype == "audio":
         for f in formats:
-            # Accept entries that yt-dlp marks as audio only
-            if "audio" not in (f.get("format", "") + " " + (f.get("format_note") or "")).lower():
-                continue
-            size = _size_of(f)
-            if not size:
+            if "audio" not in f.get("format", "") or not f.get("filesize"):
                 continue
             label = (f.get("format_note") or "").title() or "Audio"
             if label in seen:
@@ -125,31 +117,25 @@ async def song_helper_cb(client, cq, lang):
             seen.add(label)
             kb.row(
                 InlineKeyboardButton(
-                    text=f"{label} • {convert_bytes(size)}",
-                    callback_data=f"song_download {stype}|{f.get('format_id')}|{vidid}",
+                    text=f"{label} • {convert_bytes(f['filesize'])}",
+                    callback_data=f"song_download {stype}|{f['format_id']}|{vidid}",
                 )
             )
     else:
-        # Include common progressive formats too (18=360p mp4, 22=720p mp4)
-        allowed = {
-            160, 133, 134, 135, 136, 137, 298, 299, 264, 304, 266,  # DASH set
-            18, 22  # Progressive mp4 that users expect to see
-        }
+        allowed = {160, 133, 134, 135, 136, 137, 298, 299, 264, 304, 266}
         for f in formats:
             try:
-                fmt_id = int(str(f.get("format_id", "0")).split("/")[0])
+                fmt_id = int(f.get("format_id", 0))
             except Exception:
                 continue
-            size = _size_of(f)
-            if not size or fmt_id not in allowed:
+            if not f.get("filesize") or fmt_id not in allowed:
                 continue
             note = (f.get("format_note") or "").strip()
-            # Some formats have "360p", "720p", otherwise try format tail or id
             res = note or f.get("format", "").split("-")[-1].strip() or str(fmt_id)
             kb.row(
                 InlineKeyboardButton(
-                    text=f"{res} • {convert_bytes(size)}",
-                    callback_data=f"song_download {stype}|{f.get('format_id')}|{vidid}",
+                    text=f"{res} • {convert_bytes(f['filesize'])}",
+                    callback_data=f"song_download {stype}|{f['format_id']}|{vidid}",
                 )
             )
 
@@ -160,7 +146,7 @@ async def song_helper_cb(client, cq, lang):
     await cq.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup(kb))
 
 
-@app.on_callback_query(filters.regex(r"^song_download") & ~BANNED_USERS)
+@app.on_callback_query(filters.regex(r"song_download") & ~BANNED_USERS)
 @capture_callback_err
 @languageCB
 async def song_download_cb(client, cq, lang):
@@ -179,7 +165,6 @@ async def song_download_cb(client, cq, lang):
     try:
         info, _ = await YouTube.track(yturl)
         raw_title = info.get("title") or "Song"
-        # Telegram/FS safe title (keep letters, numbers and a few symbols)
         title = re.sub(r"\s+", " ", re.sub(r"[^\w\s\-\.\(\)\[\]]+", " ", raw_title)).strip()[:200]
         duration_sec = time_to_seconds(info.get("duration_min")) if info.get("duration_min") else None
 
