@@ -5,12 +5,12 @@
 The table below lists which versions are currently supported and receive security updates.
 
 | Version | Supported |
-| :-----: | :-------: |
+| :##--: | :####-: |
 |   1.0   |     ❌     |
 |   1.1   |     ❌     |
 |   1.2   |     ✅     |
 
----
+##
 
 ## 🐞 Reporting a Vulnerability
 
@@ -19,7 +19,7 @@ If you discover a vulnerability (major or minor) in our project, please follow t
 1. Report the vulnerability directly in our [**GitHub Issues**](https://github.com/CertifiedCoders/TuneViaBot/issues).
 2. Alternatively, contact the maintainers via [**Telegram Support**](https://t.me/CertifiedCoders).
 
----
+##
 
 ## 👑 Project Owner
 
@@ -29,7 +29,7 @@ If you discover a vulnerability (major or minor) in our project, please follow t
 * [Telegram](https://t.me/CertifiedCoder)
 * [Support Chat](https://t.me/CertifiedCoders)
 
----
+##
 
 ## ℹ️ About
 
@@ -43,7 +43,7 @@ It is built using **Python** and integrates with the following technologies:
 
 **Source Code:** [GitHub Repository](https://github.com/CertifiedCoders/TuneViaBot)
 
----
+##
 
 ## 📜 License
 
