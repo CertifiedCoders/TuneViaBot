@@ -20,6 +20,8 @@ from Tune.utils.tuning import (
     YTDLP_TIMEOUT,
     YOUTUBE_META_MAX,
     YOUTUBE_META_TTL,
+    EXTRACTOR_ARGS_CLI,
+    EXTRACTOR_ARGS_PY,
 )
 
 _cache: Dict[str, Tuple[float, List[Dict]]] = {}
@@ -84,9 +86,7 @@ class YouTubeAPI:
         self.playlist_url = "https://youtube.com/playlist?list="
         self._url_pattern = re.compile(r"(?:youtube\.com|youtu\.be)")
 
-    def _prepare_link(
-        self, link: str, videoid: Union[str, bool, None] = None
-    ) -> str:
+    def _prepare_link(self, link: str, videoid: Union[str, bool, None] = None) -> str:
         if isinstance(videoid, str) and videoid.strip():
             link = self.base_url + videoid.strip()
         if "youtu.be" in link:
@@ -96,16 +96,12 @@ class YouTubeAPI:
         return link.split("&")[0]
 
     @capture_internal_err
-    async def exists(
-        self, link: str, videoid: Union[str, bool, None] = None
-    ) -> bool:
+    async def exists(self, link: str, videoid: Union[str, bool, None] = None) -> bool:
         return bool(self._url_pattern.search(self._prepare_link(link, videoid)))
 
     @capture_internal_err
     async def url(self, message: Message) -> Optional[str]:
-        msgs = [message] + (
-            [message.reply_to_message] if message.reply_to_message else []
-        )
+        msgs = [message] + ([message.reply_to_message] if message.reply_to_message else [])
         for msg in msgs:
             text = msg.text or msg.caption or ""
             entities = msg.entities or msg.caption_entities or []
@@ -117,9 +113,7 @@ class YouTubeAPI:
         return None
 
     @capture_internal_err
-    async def _fetch_video_info(
-        self, query: str, *, use_cache: bool = True
-    ) -> Optional[Dict]:
+    async def _fetch_video_info(self, query: str, *, use_cache: bool = True) -> Optional[Dict]:
         q = self._prepare_link(query)
         if use_cache and not q.startswith("http"):
             res = await cached_youtube_search(q)
@@ -132,7 +126,11 @@ class YouTubeAPI:
     async def is_live(self, link: str) -> bool:
         prepared = self._prepare_link(link)
         stdout, _ = await _exec_proc(
-            "yt-dlp", *(_cookies_args()), "--dump-json", prepared
+            "yt-dlp",
+            *(_cookies_args()),
+            "--extractor-args", EXTRACTOR_ARGS_CLI,
+            "--dump-json",
+            prepared,
         )
         if not stdout:
             return False
@@ -143,52 +141,37 @@ class YouTubeAPI:
             return False
 
     @capture_internal_err
-    async def details(
-        self, link: str, videoid: Union[str, bool, None] = None
-    ) -> Tuple[str, Optional[str], int, str, str]:
+    async def details(self, link: str, videoid: Union[str, bool, None] = None) -> Tuple[str, Optional[str], int, str, str]:
         info = await self._fetch_video_info(self._prepare_link(link, videoid))
         if not info:
             raise ValueError("Video not found")
         dt = info.get("duration")
         ds = int(time_to_seconds(dt)) if dt else 0
-        thumb = (
-            info.get("thumbnail")
-            or info.get("thumbnails", [{}])[0].get("url", "")
-        ).split("?")[0]
+        thumb = (info.get("thumbnail") or info.get("thumbnails", [{}])[0].get("url", "")).split("?")[0]
         return info.get("title", ""), dt, ds, thumb, info.get("id", "")
 
     @capture_internal_err
-    async def title(
-        self, link: str, videoid: Union[str, bool, None] = None
-    ) -> str:
+    async def title(self, link: str, videoid: Union[str, bool, None] = None) -> str:
         info = await self._fetch_video_info(self._prepare_link(link, videoid))
         return info.get("title", "") if info else ""
 
     @capture_internal_err
-    async def duration(
-        self, link: str, videoid: Union[str, bool, None] = None
-    ) -> Optional[str]:
+    async def duration(self, link: str, videoid: Union[str, bool, None] = None) -> Optional[str]:
         info = await self._fetch_video_info(self._prepare_link(link, videoid))
         return info.get("duration") if info else None
 
     @capture_internal_err
-    async def thumbnail(
-        self, link: str, videoid: Union[str, bool, None] = None
-    ) -> str:
+    async def thumbnail(self, link: str, videoid: Union[str, bool, None] = None) -> str:
         info = await self._fetch_video_info(self._prepare_link(link, videoid))
-        return (
-            info.get("thumbnail")
-            or info.get("thumbnails", [{}])[0].get("url", "")
-        ).split("?")[0] if info else ""
+        return ((info.get("thumbnail") or info.get("thumbnails", [{}])[0].get("url", "")).split("?")[0]) if info else ""
 
     @capture_internal_err
-    async def video(
-        self, link: str, videoid: Union[str, bool, None] = None
-    ) -> Tuple[int, str]:
+    async def video(self, link: str, videoid: Union[str, bool, None] = None) -> Tuple[int, str]:
         link = self._prepare_link(link, videoid)
         stdout, stderr = await _exec_proc(
             "yt-dlp",
             *(_cookies_args()),
+            "--extractor-args", EXTRACTOR_ARGS_CLI,
             "-g",
             "-f",
             "best[height<=?720][width<=?1280]",
@@ -197,20 +180,18 @@ class YouTubeAPI:
         return (1, stdout.decode().split("\n")[0]) if stdout else (0, stderr.decode())
 
     @capture_internal_err
-    async def playlist(
-        self, link: str, limit: int, user_id, videoid: Union[str, bool, None] = None
-    ) -> List[str]:
+    async def playlist(self, link: str, limit: int, user_id, videoid: Union[str, bool, None] = None) -> List[str]:
         if videoid:
             link = self.playlist_url + str(videoid)
         link = link.split("&")[0]
         stdout, _ = await _exec_proc(
             "yt-dlp",
             *(_cookies_args()),
+            "--extractor-args", EXTRACTOR_ARGS_CLI,
             "-i",
             "--get-id",
             "--flat-playlist",
-            "--playlist-end",
-            str(limit),
+            "--playlist-end", str(limit),
             "--skip-download",
             link,
         )
@@ -218,9 +199,7 @@ class YouTubeAPI:
         return [i for i in items if i]
 
     @capture_internal_err
-    async def track(
-        self, link: str, videoid: Union[str, bool, None] = None
-    ) -> Tuple[Dict, str]:
+    async def track(self, link: str, videoid: Union[str, bool, None] = None) -> Tuple[Dict, str]:
         try:
             info = await self._fetch_video_info(self._prepare_link(link, videoid))
             if not info:
@@ -228,30 +207,27 @@ class YouTubeAPI:
         except Exception:
             prepared = self._prepare_link(link, videoid)
             stdout, _ = await _exec_proc(
-                "yt-dlp", *(_cookies_args()), "--dump-json", prepared
+                "yt-dlp",
+                *(_cookies_args()),
+                "--extractor-args", EXTRACTOR_ARGS_CLI,
+                "--dump-json",
+                prepared,
             )
             if not stdout:
                 raise ValueError("Track not found (yt-dlp fallback)")
             info = json.loads(stdout.decode())
-        thumb = (
-            info.get("thumbnail")
-            or info.get("thumbnails", [{}])[0].get("url", "")
-        ).split("?")[0]
+        thumb = (info.get("thumbnail") or info.get("thumbnails", [{}])[0].get("url", "")).split("?")[0]
         details = {
             "title": info.get("title", ""),
             "link": info.get("webpage_url", self._prepare_link(link, videoid)),
             "vidid": info.get("id", ""),
-            "duration_min": info.get("duration")
-            if isinstance(info.get("duration"), str)
-            else None,
+            "duration_min": info.get("duration") if isinstance(info.get("duration"), str) else None,
             "thumb": thumb,
         }
         return details, info.get("id", "")
 
     @capture_internal_err
-    async def formats(
-        self, link: str, videoid: Union[str, bool, None] = None
-    ) -> Tuple[List[Dict], str]:
+    async def formats(self, link: str, videoid: Union[str, bool, None] = None) -> Tuple[List[Dict], str]:
         link = self._prepare_link(link, videoid)
         key = f"f:{link}"
         now = time.time()
@@ -260,32 +236,28 @@ class YouTubeAPI:
             if cached and now - cached[0] < YOUTUBE_META_TTL:
                 return cached[1], cached[2]
 
-        opts = {"quiet": True}
+        opts = {"quiet": True, "extractor_args": EXTRACTOR_ARGS_PY}
         cf = _cookiefile_path()
         if cf:
             opts["cookiefile"] = cf
+
         out: List[Dict] = []
         try:
             with yt_dlp.YoutubeDL(opts) as ydl:
                 info = ydl.extract_info(link, download=False)
                 for fmt in info.get("formats", []):
-                    if "dash" in str(fmt.get("format", "")).lower():
-                        continue
-                    need = ("format", "filesize", "filesize_approx", "format_id", "ext", "format_note")
-                    if not any(k in fmt for k in ("filesize", "filesize_approx")):
-                        continue
-                    if not all(k in fmt for k in ("format", "format_id", "ext", "format_note")):
-                        continue
                     size = fmt.get("filesize") or fmt.get("filesize_approx")
                     if not size:
                         continue
+                    if not all(k in fmt for k in ("format", "format_id", "ext")):
+                        continue
                     out.append(
                         {
-                            "format": fmt["format"],
+                            "format": fmt.get("format"),
                             "filesize": size,
-                            "format_id": fmt["format_id"],
-                            "ext": fmt["ext"],
-                            "format_note": fmt["format_note"],
+                            "format_id": fmt.get("format_id"),
+                            "ext": fmt.get("ext"),
+                            "format_note": fmt.get("format_note", ""),
                             "yturl": link,
                         }
                     )
@@ -300,15 +272,11 @@ class YouTubeAPI:
         return out, link
 
     @capture_internal_err
-    async def slider(
-        self, link: str, query_type: int, videoid: Union[str, bool, None] = None
-    ) -> Tuple[str, Optional[str], str, str]:
+    async def slider(self, link: str, query_type: int, videoid: Union[str, bool, None] = None) -> Tuple[str, Optional[str], str, str]:
         data = await VideosSearch(self._prepare_link(link, videoid), limit=10).next()
         results = data.get("result", [])
         if not results or query_type >= len(results):
-            raise IndexError(
-                f"Query type index {query_type} out of range (found {len(results)} results)"
-            )
+            raise IndexError(f"Query type index {query_type} out of range (found {len(results)} results)")
         r = results[query_type]
         return (
             r.get("title", ""),
@@ -333,15 +301,11 @@ class YouTubeAPI:
         link = self._prepare_link(link, videoid)
 
         if songvideo:
-            p = await yt_dlp_download(
-                link, type="song_video", format_id=format_id, title=title
-            )
+            p = await yt_dlp_download(link, type="song_video", format_id=str(format_id) if format_id else None, title=title)
             return (p, True) if p else (None, None)
 
         if songaudio:
-            p = await yt_dlp_download(
-                link, type="song_audio", format_id=format_id, title=title
-            )
+            p = await yt_dlp_download(link, type="song_audio", format_id=str(format_id) if format_id else None, title=title)
             return (p, True) if p else (None, None)
 
         if video:
@@ -356,6 +320,7 @@ class YouTubeAPI:
             stdout, _ = await _exec_proc(
                 "yt-dlp",
                 *(_cookies_args()),
+                "--extractor-args", EXTRACTOR_ARGS_CLI,
                 "-g",
                 "-f",
                 "best[height<=?720][width<=?1280]",
