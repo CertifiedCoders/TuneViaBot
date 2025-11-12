@@ -8,7 +8,9 @@ The table below lists which versions are currently supported and receive securit
 | :-----: | :-------: |
 |   1.0   |     ❌     |
 |   1.1   |     ❌     |
-|   1.2   |     ✅     |
+|   1.2   |     ❌     |
+|   1.3   |     ✅     |
+
 
 ##
 
