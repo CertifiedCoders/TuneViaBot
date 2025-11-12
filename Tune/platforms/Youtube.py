@@ -13,18 +13,16 @@ from youtubesearchpython.__future__ import VideosSearch
 
 from Tune.utils.cookie_handler import COOKIE_PATH
 from Tune.utils.database import is_on_off
-from Tune.utils.downloader import download_audio_concurrent, yt_dlp_download
+from Tune.utils.downloader import yt_dlp_download
 from Tune.utils.errors import capture_internal_err
 from Tune.utils.formatters import time_to_seconds
 from Tune.utils.tuning import YTDLP_TIMEOUT, YOUTUBE_META_MAX, YOUTUBE_META_TTL
 
-# === Caching ===
 _cache: Dict[str, Tuple[float, List[Dict]]] = {}
 _cache_lock = asyncio.Lock()
 _formats_cache: Dict[str, Tuple[float, List[Dict], str]] = {}
 _formats_lock = asyncio.Lock()
 
-# === Regex Patterns ===
 _YT_HOST_RE = re.compile(
     r"(?:^|\.)((?:m|music|www)\.)?youtube\.com|youtu\.be", re.IGNORECASE
 )
@@ -153,9 +151,6 @@ class YouTubeAPI:
     @capture_internal_err
     async def is_live(self, link: str) -> bool:
         prepared = self._prepare_link(link)
-        if "youtube.com/shorts/" in link or "shorts/" in prepared:
-            return False
-
         stdout, _ = await _exec_proc(
             "yt-dlp", *(_cookies_args()), "--dump-json", prepared
         )
@@ -360,34 +355,11 @@ class YouTubeAPI:
         *,
         video: Union[bool, str, None] = None,
         videoid: Union[str, bool, None] = None,
-        songaudio: Union[bool, str, None] = None,
-        songvideo: Union[bool, str, None] = None,
-        format_id: Union[bool, str, None] = None,
-        title: Union[bool, str, None] = None,
     ) -> Union[Tuple[str, Optional[bool]], Tuple[None, None]]:
         link = self._prepare_link(link, videoid)
-        is_short = "shorts/" in link or "youtube.com/shorts/" in link
-
-        if songvideo:
-            p = await yt_dlp_download(
-                link,
-                type="song_video",
-                format_id=str(format_id or ""),
-                title=str(title or "video"),
-            )
-            return (p, True) if p else (None, None)
-
-        if songaudio or is_short:
-            p = await yt_dlp_download(
-                link,
-                type="song_audio",
-                format_id=str(format_id or ""),
-                title=str(title or "audio"),
-            )
-            return (p, True) if p else (None, None)
 
         if video:
-            if not is_short and await self.is_live(link):
+            if await self.is_live(link):
                 status, stream_url = await self.video(link)
                 if status == 1:
                     return stream_url, None
@@ -409,5 +381,5 @@ class YouTubeAPI:
                 return stdout.decode().split("\n")[0], None
             return None, None
 
-        p = await download_audio_concurrent(link)
+        p = await yt_dlp_download(link, type="audio")
         return (p, True) if p else (None, None)

@@ -68,6 +68,7 @@ write_env(){ umask 077; local tmp; tmp="$(mktemp .env.tmp.XXXXXX)"; {
   printf "API_ID=%s\n"          "$api_id"
   printf "API_KEY=%s\n"         "$api_key"
   printf "API_URL=%s\n"         "$api_url"
+  printf "VIDEO_API_URL=%s\n"  "$video_api_url"
   printf "BOT_TOKEN=%s\n"       "$bot_token"
   printf "COOKIE_URL=%s\n"      "$cookie_url"
   printf "LOGGER_ID=%s\n"       "$logger"
@@ -86,6 +87,7 @@ collect_config(){ banner; info "Enter the following values"; printf "\n";
   prompt_req "MONGO DB URI" mongo_db
   prompt_req "COOKIE URL" cookie_url
   prompt_opt "API_URL"  api_url
+  prompt_opt "VIDEO_API_URL"  video_api_url
   prompt_opt "API_KEY"  api_key
   write_env; clear; printf "%sEnvironment Summary%s\n" "$(c bold)" "$(c reset)"; hr;
   print_table "Key" "Value" \
@@ -98,6 +100,7 @@ collect_config(){ banner; info "Enter the following values"; printf "\n";
     "MONGO_DB_URI|$mongo_db" \
     "COOKIE_URL|$cookie_url" \
     "API_URL|$api_url" \
+    "VIDEO_API_URL|$video_api_url" \
     "API_KEY|$api_key"
 }
 

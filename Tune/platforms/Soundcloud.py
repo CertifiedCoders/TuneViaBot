@@ -4,7 +4,7 @@ from typing import Any, Dict, Optional, Tuple, Union
 
 from yt_dlp import YoutubeDL
 
-from Tune.utils.downloader import download_audio_concurrent
+from Tune.utils.downloader import yt_dlp_download
 from Tune.utils.formatters import seconds_to_min
 
 
@@ -42,7 +42,7 @@ class SoundAPI:
         duration_sec = int(info.get("duration") or 0)
         uploader = info.get("uploader") or ""
 
-        out_path: Optional[str] = await download_audio_concurrent(url)
+        out_path: Optional[str] = await yt_dlp_download(url)
         if not out_path:
             return False
 
