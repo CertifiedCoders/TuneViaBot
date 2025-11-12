@@ -175,7 +175,7 @@ API_URL=             # Optional - External API url for audio Download
         <td>Improves YouTube reliability. Never commit raw cookies.</td>
       </tr>
       <tr>
-        <td><code>API_KEY</code> / <code>API_URL</code></td> / <code>VIDEO_API_URL</code></td>
+        <td><code>API_KEY</code> / <code>API_URL or VIDEO_API_URL</code></td>
         <td>Provider of your choice</td>
         <td>generate key → paste here</td>
         <td>Optional integrations.</td>
