@@ -1,16 +1,16 @@
-from Tune.core.bot import JARVIS
-from Tune.core.dir import dirr
+from Tune.core.bot import MusicBotClient
+from Tune.core.dir import StorageManager
 from Tune.core.git import git
 from Tune.core.userbot import Userbot
 from Tune.misc import dbb, heroku
 from Tune.logging import LOGGER
 
-dirr()
+StorageManager()
 git()
 dbb()
 heroku()
 
-app = JARVIS()
+app = MusicBotClient()
 userbot = Userbot()
 
 

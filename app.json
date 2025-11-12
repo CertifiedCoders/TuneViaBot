@@ -1,57 +1,63 @@
 {
   "name": "˹ᴛᴜɴᴇ ᴠɪᴀ ʙᴏᴛ˼",
-  "description": "A Telegram Music Player Bot, written in Python with Pyrogram and Py-Tgcalls.",
+  "description": "A Telegram Music Player Bot, written in Python with Pyrogram, Py-TgCalls, and yt-dlp.",
   "logo": "https://files.catbox.moe/7udxph.jpg",
   "keywords": [
-  "python3",
-  "telegram",
-  "MusicBot",
-  "py-tgcalls",
-  "pyrogram"
+    "python3",
+    "telegram",
+    "MusicBot",
+    "py-tgcalls",
+    "pyrogram",
+    "yt-dlp"
   ],
   "env": {
     "API_ID": {
-      "description": "Telegram API ID, available at https://my.telegram.org. Required to connect the bot to Telegram servers.",
+      "description": "Telegram API ID from https://my.telegram.org.",
       "required": true,
       "value": ""
     },
     "API_HASH": {
-      "description": "Telegram API Hash, available at https://my.telegram.org. Required alongside API ID.",
+      "description": "Telegram API Hash from https://my.telegram.org.",
       "required": true,
       "value": ""
     },
     "BOT_TOKEN": {
-      "description": "Bot Token from BotFather after creating your Telegram bot.",
+      "description": "Bot token from BotFather.",
       "required": true,
       "value": ""
     },
     "MONGO_DB_URI": {
-      "description": "MongoDB database connection URI, used for storing user and bot-related data. Get it from https://cloud.mongodb.com.",
+      "description": "MongoDB URI for storing bot data (get from https://cloud.mongodb.com).",
       "required": true,
       "value": ""
     },
     "OWNER_ID": {
-      "description": "Your Telegram numeric user ID (use @userinfobot to find it). Multiple IDs can be separated by a space.",
+      "description": "Your Telegram numeric user ID (use @userinfobot).",
       "required": true,
       "value": ""
     },
     "STRING_SESSION": {
-      "description": "Pyrogram v2 session string. Generate it securely from https://telegram.tools/session-string-generator#pyrogram.",
-      "value": "",
-      "required": true
+      "description": "Pyrogram v2 session string (generate from https://telegram.tools/session-string-generator#pyrogram).",
+      "required": true,
+      "value": ""
     },
     "LOGGER_ID": {
-      "description": "Chat ID of your log group where the bot sends important logs. Make sure the bot is admin in that group.",
+      "description": "Chat ID of the log group where the bot sends logs (bot must be admin).",
       "required": true,
       "value": ""
     },
     "COOKIE_URL": {
-      "description": "Direct raw link (from Batbin or Pastebin) to your YouTube cookies.txt file for better download support.",
+      "description": "Raw link (e.g., Pastebin or Batbin) to your YouTube cookies.txt file for better yt-dlp performance.",
       "required": true,
       "value": ""
     },
     "API_URL": {
       "description": "(Optional) URL of a custom API server used for music downloads or other services.",
+      "required": false,
+      "value": ""
+    },
+    "VIDEO_API_URL": {
+      "description": "(Optional) URL of a custom API server used for video downloads or other services.",
       "required": false,
       "value": ""
     },
@@ -61,12 +67,12 @@
       "value": ""
     },
     "HEROKU_API_KEY": {
-      "description": "Your Heroku account API key, required if you want the bot to support auto-updates or dynamic deployments.",
+      "description": "(Optional) Heroku API key for auto-deployments or restarts.",
       "required": false,
       "value": ""
     },
     "HEROKU_APP_NAME": {
-      "description": "The name of your Heroku app. Required if using HEROKU_API_KEY for deployments.",
+      "description": "(Optional) Your Heroku app name (used with HEROKU_API_KEY).",
       "required": false,
       "value": ""
     }
@@ -76,10 +82,10 @@
       "url": "heroku/python"
     },
     {
-      "url": "heroku/nodejs"
+      "url": "https://github.com/jonathanong/heroku-buildpack-ffmpeg-latest.git"
     },
     {
-      "url": "https://github.com/jonathanong/heroku-buildpack-ffmpeg-latest.git"
+      "url": "https://github.com/mixersoft/heroku-buildpack-deno.git"
     }
   ],
   "stack": "container"

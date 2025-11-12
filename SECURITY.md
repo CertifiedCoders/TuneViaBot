@@ -1,36 +1,52 @@
-# Security Policy
+# 🛡️ Security Policy
 
-## Supported Versions
+## 📦 Supported Versions
 
-We currently support the following versions with security updates:
-
+The table below lists which versions are currently supported and receive security updates.
 
 | Version | Supported |
-|---------|-----------|
-| v1.0    | ✅         |
-| All other versions | ❌ |
+| :-----: | :-------: |
+|   1.0   |     ❌     |
+|   1.1   |     ❌     |
+|   1.2   |     ✅     |
 
----
+##
 
-## Reporting a Vulnerability
+## 🐞 Reporting a Vulnerability
 
-If you discover a security vulnerability, please follow these steps:
+If you discover a vulnerability (major or minor) in our project, please follow these steps:
 
-1. **Contact us privately**  
-   Report the issue by emailing us at [rajnishmishraaa1@gmail.com](mailto:rajnishmishraaa1@gmail.com).  
-   Please **do not** create a public GitHub issue to report vulnerabilities.
+1. Report the vulnerability directly in our [**GitHub Issues**](https://github.com/CertifiedCoders/TuneViaBot/issues).
+2. Alternatively, contact the maintainers via [**Telegram Support**](https://t.me/CertifiedCoders).
 
-2. **What to expect**
-   * We'll acknowledge your report within **72 hours**.
-   * We'll work with you to confirm and address the issue.
-   * A patch will be prepared within **30 days**, depending on severity.
+##
 
-3. **Responsible Disclosure**
-   * Please keep the issue confidential until a fix is released.
-   * We encourage responsible disclosure to protect our users.
+## 👑 Project Owner
 
----
+**Tune Music** is maintained by **CertifiedCoders**.
 
-## Thank You
+* [GitHub](https://github.com/CertifiedCoders)
+* [Telegram](https://t.me/CertifiedCoder)
+* [Support Chat](https://t.me/CertifiedCoders)
 
-We appreciate your efforts to help keep TuneViaBot and its users secure.
+##
+
+## ℹ️ About
+
+**Tune Via Bot** is an open-source Telegram voice chat music bot with additional group management features.
+It is built using **Python** and integrates with the following technologies:
+
+* [PyTgCalls](https://github.com/pytgcalls/pytgcalls)
+* [Pyrogram](https://github.com/KurimuzonAkuma/pyrogram)
+* [yt-dlp](https://github.com/yt-dlp/yt-dlp)
+* [MongoDB](https://cloud.mongodb.com)
+
+**Source Code:** [GitHub Repository](https://github.com/CertifiedCoders/TuneViaBot)
+
+##
+
+## 📜 License
+
+**Tune Via Bot** is licensed under the [MIT License](https://github.com/CertifiedCoders/TuneViaBot/blob/master/LICENSE).
+
+© 2024–2025 [**CertifiedCoders**](https://github.com/CertifiedCoders). All rights reserved.

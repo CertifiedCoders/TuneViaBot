@@ -11,7 +11,7 @@ from Tune import app
 BOT_INFO: Optional[types.User] = None
 BOT_ID: Optional[int] = None
 
-PHOTOS = "https://files.catbox.moe/j1d9dn.jpg"
+img = "https://files.catbox.moe/iq5t4i.jpg"
 
 def _is_valid_url(url: Optional[str]) -> bool:
     if not url:
@@ -98,7 +98,7 @@ async def join_watcher(_, message: Message):
 
             await safe_send_photo(
                 LOGGER_ID,
-                photo=PHOTOS,
+                photo=img,
                 caption=caption,
                 reply_markup=reply_markup
             )

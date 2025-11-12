@@ -170,7 +170,7 @@ str_2 : "➻ Geçerli yayın doğrulandı.\n\nİşleniyor..."
 str_3 : "YouTube canlı yayını akışı başarısız oldu, canlı format bulunamadı."
 
 ping_1 : "{0} ping atıyor..."
-ping_2 : "{1}\n\n🏓 Ping : {0}ms..\n\n➻ Sistem Durumu :\n\n↬ Çalışma Süresi : {2}\n↬ RAM : {3}\n↬ CPU : {4}\n↬ Disk : {5}\n↬ Py-TgCalls : {6}ms\n\n🥀 tarafından » JARVIS ♡︎"
+ping_2 : "{1}\n\n🏓 Ping : {0}ms..\n\n➻ Sistem Durumu :\n\n↬ Çalışma Süresi : {2}\n↬ RAM : {3}\n↬ CPU : {4}\n↬ Disk : {5}\n↬ Py-TgCalls : {6}ms\n\n🥀 tarafından » CertifiedCoder ♡︎"
 
 queue_1 : "» Kuyruk getiriliyor...\n\nLütfen bekleyin..."
 queue_2 : "» Kuyruk boş."
@@ -323,7 +323,3 @@ gban_12 : "🙂 <b>Global olarak engellenmiş kullanıcılar :</b>\n\n"
 SG_B_1 : "• buraya tıkla •"
 SG_B_2 : "🎧 Ses 🎧"
 SG_B_3 : "🎥 Video 🎥"
-
-song_1 : "Yalnızca özel sohbette YouTube'dan müzik veya video indirebilirsiniz. Lütfen benimle özelden konuşmayı başlat."
-song_2 : "**Kullanım:**\n\n/song [şarkı adı] veya [youtube bağlantısı]"
-song_3 : "Canlı bağlantı algılandı. Canlı YouTube videolarını indiremiyorum."
