@@ -5,6 +5,7 @@ import os
 import re
 import time
 from typing import Dict, List, Optional, Tuple, Union
+from urllib.parse import urlparse, parse_qs
 
 import yt_dlp
 from pyrogram.enums import MessageEntityType
@@ -91,10 +92,15 @@ class YouTubeAPI:
         return None
 
     def _is_playlist_url(self, s: str) -> bool:
-        t = (s or "").lower()
-        if "youtube.com/playlist" in t:
+        if not s:
+            return False
+        if not self._is_url(s):
+            return False
+        u = urlparse(s)
+        if "playlist" in u.path.lower():
             return True
-        if "list=" in t:
+        q = parse_qs(u.query or "")
+        if "list" in q and q["list"]:
             return True
         return False
 
@@ -168,7 +174,17 @@ class YouTubeAPI:
             return False
         try:
             info = json.loads(stdout.decode())
-            return bool(info.get("is_live"))
+            if isinstance(info, dict):
+                if "entries" in info:
+                    return False
+                ek = str(info.get("extractor_key", "")).lower()
+                if "playlist" in ek or "tab" in ek:
+                    return False
+                if "webpage_url" in info and "list=" in str(info["webpage_url"]).lower():
+                    return False
+                if info.get("is_live") or str(info.get("live_status", "")).lower() == "is_live":
+                    return True
+            return False
         except json.JSONDecodeError:
             return False
 
@@ -265,7 +281,11 @@ class YouTubeAPI:
 
     @capture_internal_err
     async def formats(self, link: str, videoid: Union[str, bool, None] = None) -> Tuple[List[Dict], str]:
-        link = self._prepare_link(link, videoid)
+        link = self._ensure_watch_url(self._prepare_link(link, videoid))
+        if asyncio.iscoroutine(link):
+            link = await link
+        if not link:
+            return [], ""
         key = f"f:{link}"
         now = time.time()
         async with _formats_lock:
