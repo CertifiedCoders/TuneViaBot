@@ -153,7 +153,7 @@ async def api_download_audio(link: str) -> Optional[str]:
                 data = await r.json()
                 status = str(data.get("status", "")).lower()
                 if status == "downloading":
-                    await asyncio.sleep(1.5)
+                    await asyncio.sleep(1.0)
                     continue
                 if status != "done":
                     return None
@@ -181,7 +181,7 @@ async def api_download_video(link: str) -> Optional[str]:
                 data = await r.json()
                 status = str(data.get("status", "")).lower()
                 if status == "downloading":
-                    await asyncio.sleep(1.5)
+                    await asyncio.sleep(1.0)
                     continue
                 if status != "done":
                     return None
