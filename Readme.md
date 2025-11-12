@@ -86,8 +86,9 @@ STRING_SESSION=      # Required - Generate from @SessionBuilderbot
 MONGO_DB_URI=        # Required - MongoDB connection string
 COOKIE_URL=          # Required - YT Cookies url
 
-API_KEY=             # Optional - External API key for music Download
-API_URL=             # Optional - External API url for music Download
+API_KEY=             # Optional - External API key for song Download
+VIDEO_API_URL=       # Optional - External API url for video Download
+API_URL=             # Optional - External API url for audio Download
 ```
 
 ⚠️ **Never expose raw cookies or tokens in public repos.** Use safe paste services like [Pastebin](https://pastebin.com) or [Batbin](https://batbin.me).
@@ -174,7 +175,7 @@ API_URL=             # Optional - External API url for music Download
         <td>Improves YouTube reliability. Never commit raw cookies.</td>
       </tr>
       <tr>
-        <td><code>API_KEY</code> / <code>API_URL</code></td>
+        <td><code>API_KEY</code> / <code>API_URL</code></td> / <code>VIDEO_API_URL</code></td>
         <td>Provider of your choice</td>
         <td>generate key → paste here</td>
         <td>Optional integrations.</td>

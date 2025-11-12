@@ -9,7 +9,7 @@ import aiofiles
 import aiohttp
 from aiohttp import TCPConnector
 from yt_dlp import YoutubeDL
-
+from Tune.logging import LOGGER
 from Tune.core.dir import CACHE_DIR, DOWNLOAD_DIR
 from Tune.utils.cookie_handler import COOKIE_PATH
 from Tune.utils.tuning import CHUNK_SIZE, SEM
@@ -34,7 +34,10 @@ class _SilentLogger:
 
 _YDL_LOGGER = _SilentLogger()
 
-
+def log_download_source(title: str, source: str) -> None:
+    LOGGER.info(f"Track '{title}' - Downloaded by {source}")
+    
+    
 def extract_video_id(link: str) -> str:
     if not link:
         return ""
@@ -240,13 +243,15 @@ async def deduplicate_download(key: str, runner):
             _inflight.pop(key, None)
 
 
-async def race_ytdlp_and_api(yt_task, api_task):
+async def race_ytdlp_and_api(yt_task, api_task, title: str):
     done, pending = await asyncio.wait(
         {yt_task, api_task}, return_when=asyncio.FIRST_COMPLETED
     )
     for task in done:
         result = task.result()
         if result and os.path.exists(result):
+            source = "yt-dlp" if task is yt_task else "API"
+            log_download_source(title, source)
             for p in pending:
                 p.cancel()
                 with contextlib.suppress(asyncio.CancelledError):
@@ -256,6 +261,8 @@ async def race_ytdlp_and_api(yt_task, api_task):
         try:
             result = await task
             if result and os.path.exists(result):
+                source = "yt-dlp" if task is yt_task else "API"
+                log_download_source(title, source)
                 return result
         except asyncio.CancelledError:
             pass
@@ -264,10 +271,12 @@ async def race_ytdlp_and_api(yt_task, api_task):
     return None
 
 
-async def yt_dlp_download(link: str, type: str) -> Optional[str]:
+async def yt_dlp_download(link: str, type: str, title: str = "") -> Optional[str]:
     loop = asyncio.get_running_loop()
     vid = extract_video_id(link)
     if cached := find_cached_file(vid):
+        if title:
+            LOGGER.info(f"Track '{title}' - Served from cache")
         return cached
 
     if type == "audio":
@@ -281,8 +290,11 @@ async def yt_dlp_download(link: str, type: str) -> Optional[str]:
             )
             api_task = asyncio.create_task(api_download_audio(link)) if USE_AUDIO_API else None
             if api_task:
-                return await race_ytdlp_and_api(ytdlp_task, api_task)
-            return await ytdlp_task
+                return await race_ytdlp_and_api(ytdlp_task, api_task, title or "Unknown")
+            result = await ytdlp_task
+            if result and title:
+                log_download_source(title, "yt-dlp")
+            return result
 
         return await deduplicate_download(key, run)
 
@@ -297,8 +309,11 @@ async def yt_dlp_download(link: str, type: str) -> Optional[str]:
             )
             api_task = asyncio.create_task(api_download_video(link)) if USE_VIDEO_API else None
             if api_task:
-                return await race_ytdlp_and_api(ytdlp_task, api_task)
-            return await ytdlp_task
+                return await race_ytdlp_and_api(ytdlp_task, api_task, title or "Unknown")
+            result = await ytdlp_task
+            if result and title:
+                log_download_source(title, "yt-dlp")
+            return result
 
         return await deduplicate_download(key, run)
 

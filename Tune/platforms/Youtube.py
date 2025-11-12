@@ -366,7 +366,7 @@ class YouTubeAPI:
                 return None, None
 
             if await is_on_off(1):
-                p = await yt_dlp_download(link, type="video")
+                p = await yt_dlp_download(link, type="video", title=await self.title(link))
                 return (p, True) if p else (None, None)
 
             stdout, _ = await _exec_proc(
@@ -381,5 +381,5 @@ class YouTubeAPI:
                 return stdout.decode().split("\n")[0], None
             return None, None
 
-        p = await yt_dlp_download(link, type="audio")
+        p = await yt_dlp_download(link, type="audio", title=await self.title(link))
         return (p, True) if p else (None, None)
