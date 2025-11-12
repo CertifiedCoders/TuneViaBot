@@ -22,6 +22,7 @@ _cache: Dict[str, Tuple[float, List[Dict]]] = {}
 _cache_lock = asyncio.Lock()
 _formats_cache: Dict[str, Tuple[float, List[Dict], str]] = {}
 _formats_lock = asyncio.Lock()
+
 _YT_HOST_RE = re.compile(
     r"(?:^|\.)((?:m|music|www)\.)?youtube\.com|youtu\.be", re.IGNORECASE
 )
@@ -92,6 +93,14 @@ class YouTubeAPI:
             return s
         return None
 
+    def _is_playlist_url(self, s: str) -> bool:
+        t = (s or "").lower()
+        if "youtube.com/playlist" in t:
+            return True
+        if "list=" in t and "watch" not in t and "shorts" not in t and "live" not in t:
+            return True
+        return False
+
     def _prepare_link(self, link: str, videoid: Union[str, bool, None] = None) -> str:
         if isinstance(videoid, str) and videoid.strip():
             return self.base_url + videoid.strip()
@@ -158,8 +167,8 @@ class YouTubeAPI:
 
     @capture_internal_err
     async def is_live(self, link: str) -> bool:
-        prepared = await self._ensure_watch_url(link)
-        if not prepared:
+        prepared = self._prepare_link(link)
+        if self._is_playlist_url(prepared):
             return False
         stdout, _ = await _exec_proc("yt-dlp", *(_cookies_args()), "--dump-json", prepared)
         if not stdout:
@@ -197,16 +206,26 @@ class YouTubeAPI:
 
     @capture_internal_err
     async def video(self, link: str, videoid: Union[str, bool, None] = None) -> Tuple[int, str]:
-        link = await self._ensure_watch_url(self._prepare_link(link, videoid))
-        if not link:
-            return 0, "not_found"
+        raw = self._prepare_link(link, videoid)
+        if self._is_playlist_url(raw):
+            return 0, "playlist_url"
+        if await self.is_live(raw):
+            stdout, stderr = await _exec_proc(
+                "yt-dlp",
+                *(_cookies_args()),
+                "-g",
+                "-f",
+                "best[height<=?720][width<=?1280]",
+                raw,
+            )
+            return (1, stdout.decode().split("\n")[0]) if stdout else (0, stderr.decode())
         stdout, stderr = await _exec_proc(
             "yt-dlp",
             *(_cookies_args()),
             "-g",
             "-f",
             "best[height<=?720]/best",
-            link,
+            raw,
         )
         return (1, stdout.decode().split("\n")[0]) if stdout else (0, stderr.decode())
 
@@ -330,21 +349,17 @@ class YouTubeAPI:
         normalized = self._prepare_link(link, videoid)
         if songvideo:
             p = await yt_dlp_download(
-                normalized,
-                type="song_video",
-                format_id=str(format_id or ""),
-                title=str(title or "video"),
+                normalized, type="song_video", format_id=str(format_id or ""), title=str(title or "video")
             )
             return (p, True) if p else (None, None)
         if songaudio:
             p = await yt_dlp_download(
-                normalized,
-                type="song_audio",
-                format_id=str(format_id or ""),
-                title=str(title or "audio"),
+                normalized, type="song_audio", format_id=str(format_id or ""), title=str(title or "audio")
             )
             return (p, True) if p else (None, None)
         if video:
+            if self._is_playlist_url(normalized):
+                return None, None
             if await self.is_live(normalized):
                 status, stream_url = await self.video(normalized)
                 if status == 1:
@@ -362,6 +377,8 @@ class YouTubeAPI:
             status, stream_url = await self.video(url)
             if status == 1:
                 return stream_url, None
+            return None, None
+        if self._is_playlist_url(normalized):
             return None, None
         url = await self._ensure_watch_url(normalized)
         if not url:

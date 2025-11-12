@@ -200,9 +200,9 @@ API_URL=             # Optional - External API url for music Download
 sudo apt update && sudo apt upgrade -y
 sudo apt install -y git curl python3-pip python3-venv ffmpeg unzip tmux
 
-# Step 2: Install Deno (for yt-dlp)
+# Step 2: Install Deno (for yt-dlp) —
 curl -fsSL https://deno.land/install.sh | sh
-echo 'export PATH="$HOME/.deno/bin:$PATH"' >> ~/.bashrc
+# → When prompted: "Edit shell configs to add deno to the PATH? (y/n)" → Type: y
 source ~/.bashrc
 
 # Step 3: Clone & Setup
