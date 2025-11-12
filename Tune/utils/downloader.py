@@ -9,11 +9,14 @@ import aiofiles
 import aiohttp
 from aiohttp import TCPConnector
 from yt_dlp import YoutubeDL
-from Tune.logging import LOGGER
+
 from Tune.core.dir import CACHE_DIR, DOWNLOAD_DIR
 from Tune.utils.cookie_handler import COOKIE_PATH
 from Tune.utils.tuning import CHUNK_SIZE, SEM
 from config import API_KEY, API_URL, VIDEO_API_URL
+from Tune.logging import LOGGER
+
+LOGGER = LOGGER(__name__)
 
 USE_AUDIO_API = bool(API_URL and API_KEY)
 USE_VIDEO_API = bool(VIDEO_API_URL and API_KEY)
@@ -34,10 +37,11 @@ class _SilentLogger:
 
 _YDL_LOGGER = _SilentLogger()
 
+
 def log_download_source(title: str, source: str) -> None:
     LOGGER.info(f"Track '{title}' - Downloaded by {source}")
-    
-    
+
+
 def extract_video_id(link: str) -> str:
     if not link:
         return ""
