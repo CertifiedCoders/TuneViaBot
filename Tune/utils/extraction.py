@@ -1,3 +1,4 @@
+# Authored By Certified Coders — v1.2 (2025-11-14)
 from pyrogram.enums import MessageEntityType
 from pyrogram.types import Message, User
 

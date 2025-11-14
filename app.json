@@ -52,7 +52,7 @@
       "value": ""
     },
     "API_URL": {
-      "description": "(Optional) URL of a custom API server used for music downloads or other services.",
+      "description": "(Optional) URL of a custom API server used for song downloads or other services.",
       "required": false,
       "value": ""
     },

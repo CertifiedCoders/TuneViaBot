@@ -1,3 +1,4 @@
+# Authored By Certified Coders — v1.2 (2025-11-14)
 from Tune import app
 from Tune.utils.database import get_cmode
 

@@ -1,3 +1,4 @@
+# Authored By Certified Coders — v1.2 (2025-11-14)
 import asyncio
 
 from pyrogram.enums import ChatMemberStatus

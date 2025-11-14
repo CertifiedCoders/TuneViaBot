@@ -1,3 +1,4 @@
+# Authored By Certified Coders — v1.2 (2025-11-14)
 from motor.motor_asyncio import AsyncIOMotorClient
 from config import MONGO_DB_URI
 from Tune.logging import LOGGER

@@ -1,3 +1,4 @@
+# Authored By Certified Coders — v1.2 (2025-11-14)
 from Tune.core.bot import MusicBotClient
 from Tune.core.dir import StorageManager
 from Tune.core.git import git

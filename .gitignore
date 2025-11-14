@@ -4,6 +4,7 @@ log.txt
 .DS_Store
 *.session
 raw_files/
+venv/
 cache/
 downloads/
 __pycache__/

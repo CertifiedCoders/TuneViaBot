@@ -1,3 +1,4 @@
+# Authored By Certified Coders � v1.2 (2025-11-14)
 import sys
 from pyrogram import Client, errors
 from pyrogram.enums import ChatMemberStatus
@@ -13,7 +14,6 @@ class MusicBotClient(Client):
             api_id=config.API_ID,
             api_hash=config.API_HASH,
             bot_token=config.BOT_TOKEN,
-            in_memory=True,
             workers=48,
             max_concurrent_transmissions=7,
         )

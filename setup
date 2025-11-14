@@ -2,6 +2,7 @@
 set -Eeuo pipefail
 
 # ================ TuneViaBot ========================
+# Authored By Certified Coders — v1.2 (2025-11-14)
 # Only collects env and writes .env with summary UI
 # ====================================================
 
