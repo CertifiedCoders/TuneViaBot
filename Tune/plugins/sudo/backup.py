@@ -5,7 +5,7 @@ import json
 import shutil
 import zipfile
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 from motor.motor_asyncio import AsyncIOMotorClient
 from pyrogram import Client, filters
 from pyrogram.types import Message
@@ -81,7 +81,7 @@ async def manual_backup(_: Client, message: Message):
         "🔐 **Starting Backup…**\n"
         "_Please wait while we securely export your database._🚀"
     )
-    
+
     try:
         zip_path = await _create_backup_zip()
         caption = (
@@ -103,11 +103,20 @@ async def manual_backup(_: Client, message: Message):
 async def daily_backup_task():
     while True:
         now = datetime.now()
-        target = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        if now >= target:
-            target += asyncio.timedelta(days=1)
-        await asyncio.sleep((target - now).total_seconds())
 
+        # Next 12:00 AM IST
+        target = now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        # If already past midnight today → schedule for tomorrow
+        if now >= target:
+            target = target + timedelta(days=1)
+
+        wait_seconds = (target - now).total_seconds()
+        LOGGER(__name__).info(f"⏳ Daily backup scheduled in {wait_seconds} seconds…")
+
+        await asyncio.sleep(wait_seconds)
+
+        # Run backup at midnight
         try:
             zip_path = await _create_backup_zip()
             caption = (
