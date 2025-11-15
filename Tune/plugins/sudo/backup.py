@@ -22,6 +22,7 @@ async def _dump_collection(collection, path: str):
     async for doc in collection.find({}):
         doc.pop("_id", None)
         data.append(doc)
+
     if data:
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
@@ -67,10 +68,9 @@ async def _send_backup(zip_path: str, chat_id: int, caption: str):
     await app.send_document(
         chat_id=chat_id,
         document=zip_path,
-        caption=caption,
-        progress=True,
-        progress_args=("⏳ **Uploading backup… Hang tight!**",)
+        caption=caption
     )
+
     if os.path.exists(zip_path):
         os.remove(zip_path)
 
@@ -79,7 +79,7 @@ async def _send_backup(zip_path: str, chat_id: int, caption: str):
 async def manual_backup(_: Client, message: Message):
     processing = await message.reply_text(
         "🔐 **Starting Backup…**\n"
-        "_Please wait while we securely export your database._🚀"
+        "_Please wait while we securely export your database._ 🚀"
     )
 
     try:
@@ -91,9 +91,10 @@ async def manual_backup(_: Client, message: Message):
         )
         await _send_backup(zip_path, message.chat.id, caption)
         await processing.delete()
+
     except Exception as e:
         await processing.edit_text(
-            "**Backup Failed!**\n"
+            "❌ **Backup Failed!**\n"
             "_Something went wrong during the export process._\n\n"
             f"**Error:** `{e}`"
         )
@@ -103,20 +104,14 @@ async def manual_backup(_: Client, message: Message):
 async def daily_backup_task():
     while True:
         now = datetime.now()
-
-        # Next 12:00 AM IST
         target = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
-        # If already past midnight today → schedule for tomorrow
         if now >= target:
-            target = target + timedelta(days=1)
+            target += timedelta(days=1)
 
-        wait_seconds = (target - now).total_seconds()
-        LOGGER(__name__).info(f"⏳ Daily backup scheduled in {wait_seconds} seconds…")
+        wait_time = (target - now).total_seconds()
+        await asyncio.sleep(wait_time)
 
-        await asyncio.sleep(wait_seconds)
-
-        # Run backup at midnight
         try:
             zip_path = await _create_backup_zip()
             caption = (
@@ -126,6 +121,7 @@ async def daily_backup_task():
             )
             await _send_backup(zip_path, LOGGER_ID, caption)
             LOGGER(__name__).info("📤 Daily backup successfully sent to LOGGER_ID.")
+
         except Exception as e:
             LOGGER(__name__).error(f"⚠️ Daily backup failed: {e}")
 
