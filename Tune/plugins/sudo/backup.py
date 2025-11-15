@@ -1,4 +1,4 @@
-# Authored By Certified Coders ©
+# Authored By Certified Coders © 2025
 
 import os
 import json
@@ -14,7 +14,7 @@ from config import MONGO_DB_URI, LOGGER_ID, OWNER_ID
 from Tune.logging import LOGGER
 
 BACKUP_ROOT = "Tune"
-DB_NAME = AsyncIOMotorClient(MONGO_DB_URI).get_database().name
+DB_NAME = "Tune"
 
 
 async def _dump_collection(collection, path: str):
@@ -43,7 +43,6 @@ async def _create_backup_zip() -> str:
         _dump_collection(db[coll], f"{BACKUP_ROOT}/{coll}.json")
         for coll in collections
     ]
-
     await asyncio.gather(*tasks)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -80,22 +79,22 @@ async def _send_backup(zip_path: str, chat_id: int, caption: str):
 async def manual_backup(_: Client, message: Message):
     processing = await message.reply_text(
         "🔐 **Starting Backup…**\n"
-        "Please wait while we securely export your database. 🚀"
+        "_Please wait while we securely export your database._🚀"
     )
     
     try:
         zip_path = await _create_backup_zip()
         caption = (
             "✅ **Backup Successfully Completed!**\n"
-            "Your full MongoDB database has been safely exported. 📁✨\n\n"
+            "_Your full MongoDB database has been safely exported._ 📁✨\n\n"
             f"**File:** `{os.path.basename(zip_path)}`"
         )
         await _send_backup(zip_path, message.chat.id, caption)
         await processing.delete()
     except Exception as e:
         await processing.edit_text(
-            "❌ **Backup Failed!**\n"
-            "Something went wrong during the export process.\n\n"
+            "**Backup Failed!**\n"
+            "_Something went wrong during the export process._\n\n"
             f"**Error:** `{e}`"
         )
         LOGGER(__name__).error(f"⚠️ Manual backup failed: {e}")
@@ -113,7 +112,7 @@ async def daily_backup_task():
             zip_path = await _create_backup_zip()
             caption = (
                 "🕛 **Daily Backup — 12:00 AM IST**\n"
-                "Your automatic full database backup is ready. 🔒📦\n\n"
+                "_Your automatic full database backup is ready._ 🔒📦\n\n"
                 f"**File:** `{os.path.basename(zip_path)}`"
             )
             await _send_backup(zip_path, LOGGER_ID, caption)
