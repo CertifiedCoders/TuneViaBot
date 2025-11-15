@@ -29,6 +29,8 @@ async def _dump_collection(collection, path: str):
 
 
 async def _create_backup_zip() -> str:
+    LOGGER(__name__).info("🗂️ Starting backup process for all collections…")
+
     client = AsyncIOMotorClient(MONGO_DB_URI)
     db = client[DB_NAME]
     collections = await db.list_collection_names()
@@ -41,11 +43,14 @@ async def _create_backup_zip() -> str:
         _dump_collection(db[coll], f"{BACKUP_ROOT}/{coll}.json")
         for coll in collections
     ]
+
     await asyncio.gather(*tasks)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     zip_name = f"Tune_Backup_{timestamp}.zip"
-    
+
+    LOGGER(__name__).info(f"📦 Creating backup archive: {zip_name}")
+
     with zipfile.ZipFile(zip_name, "w", zipfile.ZIP_DEFLATED) as zf:
         for root, _, files in os.walk(BACKUP_ROOT):
             for file in files:
@@ -53,7 +58,9 @@ async def _create_backup_zip() -> str:
                 arcname = os.path.relpath(file_path, ".")
                 zf.write(file_path, arcname)
 
+    LOGGER(__name__).info("🧹 Cleaning temporary backup directory…")
     shutil.rmtree(BACKUP_ROOT)
+
     return zip_name
 
 
@@ -63,7 +70,7 @@ async def _send_backup(zip_path: str, chat_id: int, caption: str):
         document=zip_path,
         caption=caption,
         progress=True,
-        progress_args=("🔄 **Processing backup… Please wait**",)
+        progress_args=("⏳ **Uploading backup… Hang tight!**",)
     )
     if os.path.exists(zip_path):
         os.remove(zip_path)
@@ -72,22 +79,26 @@ async def _send_backup(zip_path: str, chat_id: int, caption: str):
 @app.on_message(filters.command("backup") & filters.user(OWNER_ID))
 async def manual_backup(_: Client, message: Message):
     processing = await message.reply_text(
-        "**Processing Backup…**\n"
-        "_Please wait while we secure your data_"
+        "🔐 **Starting Backup…**\n"
+        "Please wait while we securely export your database. 🚀"
     )
     
     try:
         zip_path = await _create_backup_zip()
         caption = (
-            "✔️ **Backup Completed**\n"
-            "_Your full MongoDB database has been backed up_\n\n"
-            f"`{os.path.basename(zip_path)}`"
+            "✅ **Backup Successfully Completed!**\n"
+            "Your full MongoDB database has been safely exported. 📁✨\n\n"
+            f"**File:** `{os.path.basename(zip_path)}`"
         )
         await _send_backup(zip_path, message.chat.id, caption)
         await processing.delete()
     except Exception as e:
-        await processing.edit_text(f"**Backup Failed**\n`{e}`")
-        LOGGER(__name__).error(f"Manual backup failed: {e}")
+        await processing.edit_text(
+            "❌ **Backup Failed!**\n"
+            "Something went wrong during the export process.\n\n"
+            f"**Error:** `{e}`"
+        )
+        LOGGER(__name__).error(f"⚠️ Manual backup failed: {e}")
 
 
 async def daily_backup_task():
@@ -101,14 +112,14 @@ async def daily_backup_task():
         try:
             zip_path = await _create_backup_zip()
             caption = (
-                "**Daily Backup (12:00 AM IST)**\n"
-                "_Full database dump completed automatically_\n\n"
-                f"`{os.path.basename(zip_path)}`"
+                "🕛 **Daily Backup — 12:00 AM IST**\n"
+                "Your automatic full database backup is ready. 🔒📦\n\n"
+                f"**File:** `{os.path.basename(zip_path)}`"
             )
             await _send_backup(zip_path, LOGGER_ID, caption)
-            LOGGER(__name__).info("Daily backup sent to LOGGER_ID")
+            LOGGER(__name__).info("📤 Daily backup successfully sent to LOGGER_ID.")
         except Exception as e:
-            LOGGER(__name__).error(f"Daily backup failed: {e}")
+            LOGGER(__name__).error(f"⚠️ Daily backup failed: {e}")
 
 
 # Start daily backup scheduler
