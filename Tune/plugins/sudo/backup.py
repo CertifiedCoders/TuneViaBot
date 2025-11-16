@@ -21,6 +21,9 @@ async def _dump_collection(collection, path: str):
     data = []
     async for doc in collection.find({}):
         doc.pop("_id", None)
+        for key, value in doc.items():
+            if isinstance(value, datetime):
+                doc[key] = value.isoformat()
         data.append(doc)
     if data:
         os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -62,7 +65,7 @@ async def _create_backup_zip() -> str:
         for root, _, files in os.walk(TEMP_DIR):
             for file in files:
                 fp = os.path.join(root, file)
-                arc = os.path.relpath(fp, TEMP_DIR)
+                arc = os.path.join("Tune", os.path.relpath(fp, TEMP_DIR))
                 zf.write(fp, arc)
 
     shutil.rmtree(TEMP_DIR)
