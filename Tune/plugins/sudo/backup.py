@@ -108,9 +108,8 @@ async def daily_backup_task():
         try:
             zip_path = await _create_backup_zip()
             caption = (
-                "🕛 **Daily Backup — 12:00 AM IST**\n"
-                "__Your automatic full database backup is ready.__ 🔒📦\n\n"
-                f"**File:** `{os.path.basename(zip_path)}`"
+                "🕛 **Daily Backup — Completed☑️**\n"
+                "__Your automatic full database backup is ready.__ 🔒📦"
             )
             await _send_backup(zip_path, LOGGER_ID, caption)
             LOGGER(__name__).info("Daily backup sent to LOGGER_ID.")
