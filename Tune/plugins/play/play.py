@@ -1,4 +1,5 @@
-# Authored By Certified Coders � v1.2 (2025-11-14)
+# Authored By Certified Coders © 2025
+
 import asyncio
 import random
 import string
@@ -202,8 +203,8 @@ async def play_command(
                     details = await YouTube.playlist(
                         url, config.PLAYLIST_FETCH_LIMIT, user_id
                     )
-                except Exception:
-                    return await mystic.edit_text(_["play_3"])
+                except Exception as e:
+                    return await mystic.edit_text(f"{_['play_3']}\nʀᴇᴀsᴏɴ: {e}")
 
                 plist_type = "yt"
                 plist_id = (
@@ -217,8 +218,8 @@ async def play_command(
             else:
                 try:
                     details, track_id = await YouTube.track(url)
-                except Exception:
-                    return await mystic.edit_text(_["play_3"])
+                except Exception as e:
+                    return await mystic.edit_text(f"{_['play_3']}\nʀᴇᴀsᴏɴ: {e}")
 
                 img = details["thumb"]
                 cap = _["play_10"].format(details["title"], details["duration_min"])
@@ -236,8 +237,8 @@ async def play_command(
             if "track" in url:
                 try:
                     details, track_id = await Spotify.track(url)
-                except Exception:
-                    return await mystic.edit_text(_["play_3"])
+                except Exception as e:
+                    return await mystic.edit_text(f"{_['play_3']}\nʀᴇᴀsᴏɴ: {e}")
 
                 img = details["thumb"]
                 cap = _["play_10"].format(details["title"], details["duration_min"])
@@ -247,8 +248,8 @@ async def play_command(
             elif "playlist" in url:
                 try:
                     details, plist_id = await Spotify.playlist(url)
-                except Exception:
-                    return await mystic.edit_text(_["play_3"])
+                except Exception as e:
+                    return await mystic.edit_text(f"{_['play_3']}\nʀᴇᴀsᴏɴ: {e}")
 
                 plist_type = "spplay"
                 img = config.SPOTIFY_PLAYLIST_IMG_URL
@@ -259,8 +260,8 @@ async def play_command(
             elif "album" in url:
                 try:
                     details, plist_id = await Spotify.album(url)
-                except Exception:
-                    return await mystic.edit_text(_["play_3"])
+                except Exception as e:
+                    return await mystic.edit_text(f"{_['play_3']}\nʀᴇᴀsᴏɴ: {e}")
 
                 plist_type = "spalbum"
                 img = config.SPOTIFY_ALBUM_IMG_URL
@@ -271,8 +272,8 @@ async def play_command(
             elif "artist" in url:
                 try:
                     details, plist_id = await Spotify.artist(url)
-                except Exception:
-                    return await mystic.edit_text(_["play_3"])
+                except Exception as e:
+                    return await mystic.edit_text(f"{_['play_3']}\nʀᴇᴀsᴏɴ: {e}")
 
                 plist_type = "spartist"
                 img = config.SPOTIFY_ARTIST_IMG_URL
@@ -287,8 +288,8 @@ async def play_command(
             if "album" in url or "/song/" in url:
                 try:
                     details, track_id = await Apple.track(url)
-                except Exception:
-                    return await mystic.edit_text(_["play_3"])
+                except Exception as e:
+                    return await mystic.edit_text(f"{_['play_3']}\nʀᴇᴀsᴏɴ: {e}")
 
                 img = details["thumb"]
                 cap = _["play_10"].format(details["title"], details["duration_min"])
@@ -299,8 +300,8 @@ async def play_command(
                 spotify = True
                 try:
                     details, plist_id = await Apple.playlist(url)
-                except Exception:
-                    return await mystic.edit_text(_["play_3"])
+                except Exception as e:
+                    return await mystic.edit_text(f"{_['play_3']}\nʀᴇᴀsᴏɴ: {e}")
 
                 plist_type = "apple"
                 img = url
@@ -314,8 +315,8 @@ async def play_command(
         elif await Resso.valid(url):
             try:
                 details, track_id = await Resso.track(url)
-            except Exception:
-                return await mystic.edit_text(_["play_3"])
+            except Exception as e:
+                return await mystic.edit_text(f"{_['play_3']}\nʀᴇᴀsᴏɴ: {e}")
 
             img = details["thumb"]
             cap = _["play_10"].format(details["title"], details["duration_min"])
@@ -325,8 +326,8 @@ async def play_command(
         elif await SoundCloud.valid(url):
             try:
                 details, track_path = await SoundCloud.download(url)
-            except Exception:
-                return await mystic.edit_text(_["play_3"])
+            except Exception as e:
+                return await mystic.edit_text(f"{_['play_3']}\nʀᴇᴀsᴏɴ: {e}")
 
             if details["duration_sec"] > config.DURATION_LIMIT:
                 return await mystic.edit_text(
@@ -409,8 +410,8 @@ async def play_command(
 
         try:
             details, track_id = await YouTube.track(query)
-        except Exception:
-            return await mystic.edit_text(_["play_3"])
+        except Exception as e:
+            return await mystic.edit_text(f"{_['play_3']}\nʀᴇᴀsᴏɴ: {e}")
 
         internal_type = "youtube"
         log_label = "Youtube Track"
