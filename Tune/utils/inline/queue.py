@@ -1,4 +1,5 @@
-# Authored By Certified Coders � v1.2 (2025-11-14)
+# Authored By Certified Coders © 2025
+
 from typing import Union
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
@@ -66,10 +67,10 @@ def queue_back_markup(_, CPLAY):
 def aq_markup(_, chat_id):
     buttons = [
         [
-            InlineKeyboardButton(text="▷", callback_data=f"ADMIN Resume|{chat_id}"),
-            InlineKeyboardButton(text="II", callback_data=f"ADMIN Pause|{chat_id}"),
-            InlineKeyboardButton(text="‣‣I", callback_data=f"ADMIN Skip|{chat_id}"),
-            InlineKeyboardButton(text="▢", callback_data=f"ADMIN Stop|{chat_id}"),
+            InlineKeyboardButton(text="▷", callback_data=f"stream_admin Resume|{chat_id}"),
+            InlineKeyboardButton(text="II", callback_data=f"stream_admin Pause|{chat_id}"),
+            InlineKeyboardButton(text="‣‣I", callback_data=f"stream_admin Skip|{chat_id}"),
+            InlineKeyboardButton(text="▢", callback_data=f"stream_admin Stop|{chat_id}"),
         ],
         [InlineKeyboardButton(text=_["CLOSE_BUTTON"], callback_data="close")],
     ]

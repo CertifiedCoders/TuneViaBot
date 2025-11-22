@@ -1,4 +1,5 @@
-# Authored By Certified Coders — v1.2 (2025-11-14)
+# Authored By Certified Coders Â© 2025
+
 import random
 from typing import Dict, List, Union
 
@@ -319,13 +320,6 @@ async def is_muted(chat_id: int) -> bool:
         return False
     return mode
 
-
-async def mute_on(chat_id: int):
-    mute[chat_id] = True
-
-
-async def mute_off(chat_id: int):
-    mute[chat_id] = False
 
 async def get_active_chats() -> list:
     return active

@@ -1,4 +1,4 @@
-# Authored By Certified Coders — v1.2 (2025-11-14)
+# Authored By Certified Coders © 2025
 
 import re
 from os import getenv
@@ -110,7 +110,7 @@ AYU = ["💞", "🦋", "🔍", "🧪", "⚡️", "🔥", "🎩", "🌈", "🍷",
 
 # ───── Runtime Structures ───── #
 BANNED_USERS = filters.user()
-adminlist, lyrical, votemode, autoclean, confirmer = {}, {}, {}, [], {}
+adminlist, lyrical, autoclean, confirmer = {}, {}, [], {}
 
 # ── Minimal validation ─────────────────────────────────────────────────────────
 if SUPPORT_CHANNEL and not re.match(r"^https?://", SUPPORT_CHANNEL):

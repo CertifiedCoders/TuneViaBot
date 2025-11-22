@@ -1,4 +1,5 @@
-# Authored By Certified Coders � v1.2 (2025-11-14)
+# Authored By Certified Coders © 2025
+
 import random
 
 from pyrogram import filters
@@ -48,8 +49,8 @@ async def play_live_stream(client, CallbackQuery, _):
 
     try:
         details, track_id = await YouTube.track("", videoid=vidid)
-    except Exception:
-        return await mystic.edit_text(_["play_3"])
+    except Exception as e:
+        return await mystic.edit_text(f"{_['play_3']}\nʀᴇᴀsᴏɴ: {e}")
 
     if not details.get("duration_min"):
         try:
