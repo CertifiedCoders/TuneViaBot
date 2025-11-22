@@ -1,2 +1,2 @@
-# Authored By Certified Coders � v1.2 (2025-11-14)
+﻿# Authored By Certified Coders © 2025
 

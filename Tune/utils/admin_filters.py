@@ -1,4 +1,4 @@
-# Authored By Certified Coders � v1.2 (2025-11-14)
+﻿# Authored By Certified Coders © 2025
 from pyrogram import filters
 from pyrogram.types import Message, CallbackQuery
 from Tune.utils.admin_check import is_admin, is_group_owner

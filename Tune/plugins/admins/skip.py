@@ -1,4 +1,4 @@
-from pyrogram import filters
+﻿# Authored By Certified Coders © 2025
 from pyrogram.types import InlineKeyboardMarkup, Message
 
 import config

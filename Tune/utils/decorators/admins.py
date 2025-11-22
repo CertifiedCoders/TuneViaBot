@@ -1,4 +1,4 @@
-# Authored By Certified Coders � v1.2 (2025-11-14)
+﻿# Authored By Certified Coders © 2025
 from pyrogram.enums import ChatType
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 

@@ -1,4 +1,4 @@
-# Authored By Certified Coders © 2025
+﻿# Authored By Certified Coders © 2025
 
 import time
 from pyrogram.types import InlineKeyboardButton

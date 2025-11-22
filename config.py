@@ -1,4 +1,4 @@
-# Authored By Certified Coders © 2025
+﻿# Authored By Certified Coders © 2025
 
 import re
 from os import getenv

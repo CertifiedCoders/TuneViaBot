@@ -1,4 +1,4 @@
-# Authored By Certified Coders — v1.2 (2025-11-14)
+﻿# Authored By Certified Coders © 2025
 
 HELP_1 = """<b><u>ᴀᴅᴍɪɴ ᴄᴏᴍᴍᴀɴᴅs :</b></u>
 
