@@ -28,6 +28,8 @@ call_7 : "» Kuyruktan bir sonraki parça indiriliyor.\n\nLütfen bekleyin..."
 call_8 : "<b>Aktif video sohbet bulunamadı.</b>\n\nLütfen grubunuzda/kanalınızda video sohbet başlatın ve tekrar deneyin."
 call_9 : "<b>Yardımcı zaten video sohbette.</b>\n\nYardımcı video sohbette değilse, <code>/reboot</code> komutunu gönderin ve tekrar oynatmayı deneyin."
 call_10 : "<b>Telegram sunucu hatası</b>\n\nTelegram şu anda bazı dahili sorunlar yaşıyor, lütfen tekrar oynatmayı deneyin veya grubunuzdaki video sohbeti yeniden başlatın."
+call_11: "<b>Ses kaynağı bulunamadı</b>\nTekrar oynatmayı deneyin."
+call_12: "<b>Görüntü kaynağı bulunamadı</b>\nTekrar oynatmayı deneyin."
 
 auth_1 : "» Grubunuzda yalnızca 25 yetkili kullanıcı olabilir."
 auth_2 : "» {0}, yetkili kullanıcılar listesine eklendi."
