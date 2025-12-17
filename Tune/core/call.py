@@ -1,4 +1,4 @@
-﻿# Authored By Certified Coders © 2025
+# Authored By Certified Coders © 2025
 
 import asyncio
 import os
@@ -329,15 +329,20 @@ class Call:
             streamtype = current["streamtype"]
             videoid = current["vidid"]
 
-            # Reset playback progress for the new current track, if the queue still exists
-            if chat_id in db and db[chat_id]:
-                db[chat_id][0]["played"] = 0
-                exis = current.get("old_dur")
-                if exis:
-                    db[chat_id][0]["dur"] = exis
-                    db[chat_id][0]["seconds"] = current["old_second"]
-                    db[chat_id][0]["speed_path"] = None
-                    db[chat_id][0]["speed"] = 1.0
+            # Reset playback progress for the new current track, if the queue still exists.
+            # Wrapped in a narrow try/except so concurrent queue clears can't raise IndexError/KeyError.
+            try:
+                if chat_id in db and db[chat_id]:
+                    db[chat_id][0]["played"] = 0
+                    exis = current.get("old_dur")
+                    if exis:
+                        db[chat_id][0]["dur"] = exis
+                        db[chat_id][0]["seconds"] = current["old_second"]
+                        db[chat_id][0]["speed_path"] = None
+                        db[chat_id][0]["speed"] = 1.0
+            except (IndexError, KeyError):
+                # Queue was modified or cleared concurrently; nothing left to reset.
+                pass
 
             video = True if str(streamtype) == "video" else False
 
