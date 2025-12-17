@@ -29,8 +29,13 @@ _session_lock = asyncio.Lock()
 YOUTUBE_ID_RE = re.compile(r"^[a-zA-Z0-9_-]{11}$")
 
 
-def log_download_source(title: str, source: str) -> None:
-    LOGGER.info(f"Track '{title}' - Downloaded by {source}")
+def log_download_source(media_type: str, title: str, source: str) -> None:
+    """
+    Log which backend provided the downloaded media, with its type.
+    media_type: "Audio" or "Video"
+    source: e.g. "yt-dlp" or "API"
+    """
+    LOGGER.info(f"[{media_type}] Track '{title}' - Downloaded by {source}")
 
 
 def extract_video_id(link: str) -> str:
@@ -238,7 +243,7 @@ async def deduplicate_download(key: str, runner):
             _inflight.pop(key, None)
 
 
-async def race_ytdlp_and_api(yt_task, api_task, title: str):
+async def race_ytdlp_and_api(yt_task, api_task, title: str, media_type: str):
     done, pending = await asyncio.wait(
         {yt_task, api_task}, return_when=asyncio.FIRST_COMPLETED
     )
@@ -246,7 +251,7 @@ async def race_ytdlp_and_api(yt_task, api_task, title: str):
         result = task.result()
         if result and os.path.exists(result):
             source = "yt-dlp" if task is yt_task else "API"
-            log_download_source(title, source)
+            log_download_source(media_type, title, source)
             for p in pending:
                 p.cancel()
                 with contextlib.suppress(asyncio.CancelledError):
@@ -257,7 +262,7 @@ async def race_ytdlp_and_api(yt_task, api_task, title: str):
             result = await task
             if result and os.path.exists(result):
                 source = "yt-dlp" if task is yt_task else "API"
-                log_download_source(title, source)
+                log_download_source(media_type, title, source)
                 return result
         except asyncio.CancelledError:
             pass
@@ -285,10 +290,15 @@ async def yt_dlp_download(link: str, type: str, title: str = "") -> Optional[str
             )
             api_task = asyncio.create_task(api_download_audio(link)) if USE_AUDIO_API else None
             if api_task:
-                return await race_ytdlp_and_api(ytdlp_task, api_task, title or "Unknown")
+                return await race_ytdlp_and_api(
+                    ytdlp_task,
+                    api_task,
+                    title or "Unknown",
+                    "Audio",
+                )
             result = await ytdlp_task
             if result and title:
-                log_download_source(title, "yt-dlp")
+                log_download_source("Audio", title, "yt-dlp")
             return result
 
         return await deduplicate_download(key, run)
@@ -304,10 +314,15 @@ async def yt_dlp_download(link: str, type: str, title: str = "") -> Optional[str
             )
             api_task = asyncio.create_task(api_download_video(link)) if USE_VIDEO_API else None
             if api_task:
-                return await race_ytdlp_and_api(ytdlp_task, api_task, title or "Unknown")
+                return await race_ytdlp_and_api(
+                    ytdlp_task,
+                    api_task,
+                    title or "Unknown",
+                    "Video",
+                )
             result = await ytdlp_task
             if result and title:
-                log_download_source(title, "yt-dlp")
+                log_download_source("Video", title, "yt-dlp")
             return result
 
         return await deduplicate_download(key, run)

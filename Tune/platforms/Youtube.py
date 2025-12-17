@@ -14,7 +14,6 @@ from pyrogram.types import Message
 from youtubesearchpython.__future__ import VideosSearch, Playlist
 
 from Tune.utils.cookie_handler import COOKIE_PATH
-from Tune.utils.database import is_on_off
 from Tune.utils.downloader import yt_dlp_download
 from Tune.utils.errors import capture_internal_err
 from Tune.utils.formatters import time_to_seconds
@@ -375,7 +374,17 @@ class YouTubeAPI:
         *,
         video: Union[bool, str, None] = None,
         videoid: Union[str, bool, None] = None,
+        title: Optional[str] = None,
     ) -> Union[Tuple[str, Optional[bool]], Tuple[None, None]]:
+        """
+        Resolve a YouTube link or ID into either:
+        - a direct streaming URL (for live videos), or
+        - a local file path downloaded via yt-dlp (preferred for reliability).
+
+        Returns:
+            (path_or_url, direct_flag)
+            direct_flag is True when the result is a local file path.
+        """
         link = self._prepare_link(link, videoid)
 
         if video:
@@ -385,21 +394,14 @@ class YouTubeAPI:
                     return stream_url, None
                 return None, None
 
-            if await is_on_off(1):
-                p = await yt_dlp_download(link, type="video", title=await self.title(link))
-                return (p, True) if p else (None, None)
+            # For non-live videos, always prefer a local file path over a
+            # transient streaming URL. This avoids ffmpeg/pytgcalls issues
+            # like NoVideoSourceFound on short-lived HLS manifests.
+            final_title = title or await self.title(link)
+            p = await yt_dlp_download(link, type="video", title=final_title)
+            return (p, True) if p else (None, None)
 
-            stdout, _ = await _exec_proc(
-                "yt-dlp",
-                *(_cookies_args()),
-                "-g",
-                "-f",
-                "best[height<=?720][width<=?1280]",
-                link,
-            )
-            if stdout:
-                return stdout.decode().split("\n")[0], None
-            return None, None
-
-        p = await yt_dlp_download(link, type="audio", title=await self.title(link))
+        # Audio path
+        final_title = title or await self.title(link)
+        p = await yt_dlp_download(link, type="audio", title=final_title)
         return (p, True) if p else (None, None)

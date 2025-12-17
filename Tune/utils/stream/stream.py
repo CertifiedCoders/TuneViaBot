@@ -82,7 +82,11 @@ async def stream(
                     db[chat_id] = []
                 try:
                     file_path, direct = await YouTube.download(
-                        vidid, mystic, video=is_video, videoid=vidid
+                        vidid,
+                        mystic,
+                        video=is_video,
+                        videoid=vidid,
+                        title=title,
                     )
                 except Exception:
                     raise AssistantErr(_["play_14"])
@@ -154,7 +158,11 @@ async def stream(
 
         try:
             file_path, direct = await YouTube.download(
-                vidid, mystic, video=is_video, videoid=vidid
+                vidid,
+                mystic,
+                video=is_video,
+                videoid=vidid,
+                title=title,
             )
         except Exception:
             raise AssistantErr(_["play_14"])

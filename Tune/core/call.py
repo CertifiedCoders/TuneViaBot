@@ -354,6 +354,7 @@ class Call:
                         mystic,
                         videoid=True,
                         video=True if str(streamtype) == "video" else False,
+                        title=title,
                     )
                 except:
                     return await mystic.edit_text(
