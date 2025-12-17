@@ -35,8 +35,8 @@ async def playmode_(client, message: Message, _):
     else:
         try:
             chat = await app.get_chat(query)
-        except:
-            return await message.reply_text(_["cplay_4"])
+        except Exception as e:
+            return await message.reply_text(_["cplay_4"].format(e))
         if chat.type != ChatType.CHANNEL:
             return await message.reply_text(_["cplay_5"])
         try:
@@ -46,8 +46,8 @@ async def playmode_(client, message: Message, _):
                 if user.status == ChatMemberStatus.OWNER:
                     cusn = user.user.username
                     crid = user.user.id
-        except:
-            return await message.reply_text(_["cplay_4"])
+        except Exception as e:
+            return await message.reply_text(_["cplay_4"].format(e))
         if crid != message.from_user.id:
             return await message.reply_text(_["cplay_6"].format(chat.title, cusn))
         await set_cmode(message.chat.id, chat.id)

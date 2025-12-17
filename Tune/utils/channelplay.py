@@ -13,9 +13,11 @@ async def get_channeplayCB(_, command, CallbackQuery):
                 return
         try:
             channel = (await app.get_chat(chat_id)).title
-        except:
+        except Exception as e:
             try:
-                return await CallbackQuery.answer(_["cplay_4"], show_alert=True)
+                return await CallbackQuery.answer(
+                    _["cplay_4"].format(e), show_alert=True
+                )
             except:
                 return
     else:
