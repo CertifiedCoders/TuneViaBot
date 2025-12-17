@@ -16,7 +16,7 @@ from pytgcalls.types import AudioQuality, ChatUpdate, MediaStream, StreamEnded, 
 import config
 from strings import get_string
 from Tune import LOGGER, YouTube, app
-from Tune.misc import db
+from Tune.misc import db, set_current_message
 from Tune.utils.database import (
     add_active_chat,
     add_active_video_chat,
@@ -300,22 +300,44 @@ class Call:
             except:
                 return
         else:
-            queued = check[0]["file"]
+            # Re-read queue to handle possible concurrent modifications
+            check = db.get(chat_id) or []
+            if not check:
+                # Queue became empty after popping/cleaning; nothing to play
+                try:
+                    await _clear_(chat_id)
+                except Exception:
+                    pass
+                if chat_id in self.active_calls:
+                    try:
+                        await client.leave_call(chat_id)
+                    except NoActiveGroupCall:
+                        pass
+                    except Exception:
+                        pass
+                    finally:
+                        self.active_calls.discard(chat_id)
+                return
+
+            current = check[0]
+            queued = current["file"]
             language = await get_lang(chat_id)
             _ = get_string(language)
-            title = (check[0]["title"]).title()
-            user = check[0]["by"]
-            original_chat_id = check[0]["chat_id"]
-            streamtype = check[0]["streamtype"]
-            videoid = check[0]["vidid"]
-            db[chat_id][0]["played"] = 0
+            title = (current["title"]).title()
+            user = current["by"]
+            original_chat_id = current["chat_id"]
+            streamtype = current["streamtype"]
+            videoid = current["vidid"]
 
-            exis = (check[0]).get("old_dur")
-            if exis:
-                db[chat_id][0]["dur"] = exis
-                db[chat_id][0]["seconds"] = check[0]["old_second"]
-                db[chat_id][0]["speed_path"] = None
-                db[chat_id][0]["speed"] = 1.0
+            # Reset playback progress for the new current track, if the queue still exists
+            if chat_id in db and db[chat_id]:
+                db[chat_id][0]["played"] = 0
+                exis = current.get("old_dur")
+                if exis:
+                    db[chat_id][0]["dur"] = exis
+                    db[chat_id][0]["seconds"] = current["old_second"]
+                    db[chat_id][0]["speed_path"] = None
+                    db[chat_id][0]["speed"] = 1.0
 
             video = True if str(streamtype) == "video" else False
 
@@ -338,13 +360,12 @@ class Call:
                     caption=_["stream_1"].format(
                         f"https://t.me/{app.username}?start=info_{videoid}",
                         title[:23],
-                        check[0]["dur"],
+                        current["dur"],
                         user,
                     ),
                     reply_markup=InlineKeyboardMarkup(button),
                 )
-                db[chat_id][0]["mystic"] = run
-                db[chat_id][0]["markup"] = "tg"
+                set_current_message(chat_id, run, "tg")
 
             elif "vid_" in queued:
                 mystic = await app.send_message(original_chat_id, _["call_7"])
@@ -376,13 +397,12 @@ class Call:
                     caption=_["stream_1"].format(
                         f"https://t.me/{app.username}?start=info_{videoid}",
                         title[:23],
-                        check[0]["dur"],
+                        current["dur"],
                         user,
                     ),
                     reply_markup=InlineKeyboardMarkup(button),
                 )
-                db[chat_id][0]["mystic"] = run
-                db[chat_id][0]["markup"] = "stream"
+                set_current_message(chat_id, run, "stream")
 
             elif "index_" in queued:
                 stream = dynamic_media_stream(path=videoid, video=video)
@@ -398,8 +418,7 @@ class Call:
                     caption=_["stream_2"].format(user),
                     reply_markup=InlineKeyboardMarkup(button),
                 )
-                db[chat_id][0]["mystic"] = run
-                db[chat_id][0]["markup"] = "tg"
+                set_current_message(chat_id, run, "tg")
 
             else:
                 stream = dynamic_media_stream(path=queued, video=video)
@@ -418,12 +437,11 @@ class Call:
                             else config.TELEGRAM_VIDEO_URL
                         ),
                         caption=_["stream_1"].format(
-                            config.SUPPORT_CHAT, title[:23], check[0]["dur"], user
+                            config.SUPPORT_CHAT, title[:23], current["dur"], user
                         ),
                         reply_markup=InlineKeyboardMarkup(button),
                     )
-                    db[chat_id][0]["mystic"] = run
-                    db[chat_id][0]["markup"] = "tg"
+                    set_current_message(chat_id, run, "tg")
 
                 elif videoid == "soundcloud":
                     button = stream_markup(_, chat_id)
@@ -431,12 +449,11 @@ class Call:
                         chat_id=original_chat_id,
                         photo=config.SOUNCLOUD_IMG_URL,
                         caption=_["stream_1"].format(
-                            config.SUPPORT_CHAT, title[:23], check[0]["dur"], user
+                            config.SUPPORT_CHAT, title[:23], current["dur"], user
                         ),
                         reply_markup=InlineKeyboardMarkup(button),
                     )
-                    db[chat_id][0]["mystic"] = run
-                    db[chat_id][0]["markup"] = "tg"
+                    set_current_message(chat_id, run, "tg")
 
                 else:
                     img = await get_thumb(videoid)
@@ -448,7 +465,7 @@ class Call:
                             caption=_["stream_1"].format(
                                 f"https://t.me/{app.username}?start=info_{videoid}",
                                 title[:23],
-                                check[0]["dur"],
+                                current["dur"],
                                 user,
                             ),
                             reply_markup=InlineKeyboardMarkup(button),
@@ -462,13 +479,12 @@ class Call:
                             caption=_["stream_1"].format(
                                 f"https://t.me/{app.username}?start=info_{videoid}",
                                 title[:23],
-                                check[0]["dur"],
+                                current["dur"],
                                 user,
                             ),
                             reply_markup=InlineKeyboardMarkup(button),
                         )
-                    db[chat_id][0]["mystic"] = run
-                    db[chat_id][0]["markup"] = "stream"
+                    set_current_message(chat_id, run, "stream")
 
 
     async def start(self) -> None:

@@ -38,9 +38,30 @@ XCB = [
 
 
 def dbb():
+    """
+    Initialize the in-memory playback database.
+    """
     global db
     db = {}
-    LOGGER(__name__).info(f"ᴅᴀᴛᴀʙᴀsᴇ ʟᴏᴀᴅᴇᴅ sᴜᴄᴄᴇssғᴜʟʟʏ💗")
+    LOGGER(__name__).info("Pʟᴀʏʙᴀᴄᴋ ᴅᴀᴛᴀʙᴀsᴇ ɪɴɪᴛɪᴀʟɪᴢᴇᴅ sᴜᴄᴄᴇssғᴜʟʟʏ. 🍂")
+
+
+def set_current_message(chat_id: int, mystic, markup: str) -> None:
+    """
+    Safely attach the current message object and markup tag to the head
+    of the playback queue for a chat. This is concurrency-safe against
+    the queue being cleared or emptied in another task.
+    """
+    try:
+        queue = db.get(chat_id)
+        if not queue:
+            return
+        queue[0]["mystic"] = mystic
+        queue[0]["markup"] = markup
+    except Exception:
+        # If the queue vanishes between the length check and assignment,
+        # just ignore – it means playback was cleared concurrently.
+        return
 
 
 async def sudo():

@@ -5,7 +5,7 @@ from pyrogram import filters
 import config
 from Tune import YouTube, app
 from Tune.core.call import StreamController
-from Tune.misc import db
+from Tune.misc import db, set_current_message
 from Tune.utils.database import get_loop
 from Tune.utils.decorators import AdminRightsCheck
 from Tune.utils.inline import close_markup, stream_markup
@@ -132,8 +132,7 @@ async def skip(cli, message: Message, _, chat_id):
             ),
             reply_markup=InlineKeyboardMarkup(button),
         )
-        db[chat_id][0]["mystic"] = run
-        db[chat_id][0]["markup"] = "tg"
+        set_current_message(chat_id, run, "tg")
     elif "vid_" in queued:
         mystic = await message.reply_text(_["call_7"], disable_web_page_preview=True)
         try:
@@ -166,8 +165,7 @@ async def skip(cli, message: Message, _, chat_id):
             ),
             reply_markup=InlineKeyboardMarkup(button),
         )
-        db[chat_id][0]["mystic"] = run
-        db[chat_id][0]["markup"] = "stream"
+        set_current_message(chat_id, run, "stream")
         await mystic.delete()
     elif "index_" in queued:
         try:
@@ -180,8 +178,7 @@ async def skip(cli, message: Message, _, chat_id):
             caption=_["stream_2"].format(user),
             reply_markup=InlineKeyboardMarkup(button),
         )
-        db[chat_id][0]["mystic"] = run
-        db[chat_id][0]["markup"] = "tg"
+        set_current_message(chat_id, run, "tg")
     else:
         if videoid == "telegram":
             image = None
@@ -207,8 +204,7 @@ async def skip(cli, message: Message, _, chat_id):
                 ),
                 reply_markup=InlineKeyboardMarkup(button),
             )
-            db[chat_id][0]["mystic"] = run
-            db[chat_id][0]["markup"] = "tg"
+            set_current_message(chat_id, run, "tg")
         elif videoid == "soundcloud":
             button = stream_markup(_, chat_id)
             run = await message.reply_photo(
@@ -220,8 +216,7 @@ async def skip(cli, message: Message, _, chat_id):
                 ),
                 reply_markup=InlineKeyboardMarkup(button),
             )
-            db[chat_id][0]["mystic"] = run
-            db[chat_id][0]["markup"] = "tg"
+            set_current_message(chat_id, run, "tg")
         else:
             button = stream_markup(_, chat_id)
             img = await get_thumb(videoid)
@@ -235,5 +230,4 @@ async def skip(cli, message: Message, _, chat_id):
                 ),
                 reply_markup=InlineKeyboardMarkup(button),
             )
-            db[chat_id][0]["mystic"] = run
-            db[chat_id][0]["markup"] = "stream"
+            set_current_message(chat_id, run, "stream")

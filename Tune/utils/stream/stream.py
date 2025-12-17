@@ -8,7 +8,7 @@ from pyrogram.types import InlineKeyboardMarkup
 import config
 from Tune import Carbon, YouTube, app
 from Tune.core.call import StreamController
-from Tune.misc import db
+from Tune.misc import db, set_current_message
 from Tune.utils.database import add_active_video_chat, is_active_chat
 from Tune.utils.exceptions import AssistantErr
 from Tune.utils.inline import aq_markup, close_markup, stream_markup
@@ -125,8 +125,7 @@ async def stream(
                     ),
                     reply_markup=InlineKeyboardMarkup(button),
                 )
-                db[chat_id][0]["mystic"] = run
-                db[chat_id][0]["markup"] = "stream"
+                set_current_message(chat_id, run, "stream")
 
         if count == 0:
             return
@@ -223,8 +222,7 @@ async def stream(
                 ),
                 reply_markup=InlineKeyboardMarkup(button),
             )
-            db[chat_id][0]["mystic"] = run
-            db[chat_id][0]["markup"] = "stream"
+            set_current_message(chat_id, run, "stream")
 
     elif streamtype == "soundcloud":
         file_path = result["filepath"]
@@ -277,8 +275,7 @@ async def stream(
                 ),
                 reply_markup=InlineKeyboardMarkup(button),
             )
-            db[chat_id][0]["mystic"] = run
-            db[chat_id][0]["markup"] = "tg"
+            set_current_message(chat_id, run, "tg")
 
     elif streamtype == "telegram":
         file_path = result["path"]
@@ -332,8 +329,7 @@ async def stream(
                 caption=_["stream_1"].format(link, title[:23], duration_min, user_name),
                 reply_markup=InlineKeyboardMarkup(button),
             )
-            db[chat_id][0]["mystic"] = run
-            db[chat_id][0]["markup"] = "tg"
+            set_current_message(chat_id, run, "tg")
 
     elif streamtype == "live":
         link = result["link"]
@@ -402,8 +398,7 @@ async def stream(
                 ),
                 reply_markup=InlineKeyboardMarkup(button),
             )
-            db[chat_id][0]["mystic"] = run
-            db[chat_id][0]["markup"] = "tg"
+            set_current_message(chat_id, run, "tg")
 
     elif streamtype == "index":
         link = result
@@ -454,6 +449,5 @@ async def stream(
                 caption=_["stream_2"].format(user_name),
                 reply_markup=InlineKeyboardMarkup(button),
             )
-            db[chat_id][0]["mystic"] = run
-            db[chat_id][0]["markup"] = "tg"
+            set_current_message(chat_id, run, "tg")
             await mystic.delete()
