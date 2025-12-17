@@ -48,9 +48,34 @@ def format_traceback(err, tb, label: str, extras: dict = None) -> str:
     parts.append(f"\n<b>Traceback:</b>\n<pre>{tb}</pre>")
     return "\n".join(parts)
 
+def _is_already_logged(err: BaseException) -> bool:
+    """
+    Check if this exception instance was already logged by one of our
+    decorators. Prevents duplicate logs when the same error bubbles
+    through multiple @capture_* wrappers (e.g. stream -> join_call).
+    """
+    return getattr(err, "_tune_logged", False)
+
+
+def _mark_logged(err: BaseException) -> None:
+    """
+    Mark this exception instance as already logged.
+    """
+    try:
+        setattr(err, "_tune_logged", True)
+    except Exception:
+        # In case someone raises a non-standard exception that forbids
+        # setting attributes, just ignore – worst case we log twice.
+        pass
+
+
 async def handle_trace(err, tb, label, filename, extras=None):
     if is_ignored_error(err):
         await log_ignored_error(err, tb, label, extras)
+        return
+
+    # Avoid double-logging the same exception instance
+    if _is_already_logged(err):
         return
 
     caption = format_traceback(err, tb, label, extras)
@@ -58,6 +83,8 @@ async def handle_trace(err, tb, label, filename, extras=None):
         await send_large_error(tb, caption.split("\n\n")[0], filename)
     else:
         await app.send_message(LOGGER_ID, caption)
+
+    _mark_logged(err)
 
 async def log_ignored_error(err, tb, label, extras=None):
     if not DEBUG_IGNORE_LOG:
