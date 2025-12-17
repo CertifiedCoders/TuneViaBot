@@ -1,11 +1,11 @@
-﻿# Authored By Certified Coders © 2025
+# Authored By Certified Coders © 2025
 from pyrogram import filters
 from pyrogram.types import Message
 
 from config import BANNED_USERS
 from Tune import app
 from Tune.core.call import StreamController
-from Tune.utils.database import group_assistant
+from Tune.utils.database import group_assistant, is_active_chat
 from Tune.utils.admin_filters import admin_filter
 
 
@@ -13,6 +13,9 @@ from Tune.utils.admin_filters import admin_filter
 async def vc_info(client, message: Message):
     chat_id = message.chat.id
     try:
+        if not await is_active_chat(chat_id):
+            return await message.reply_text("❌ No active voice chat in this chat.")
+
         assistant = await group_assistant(StreamController, chat_id)
         participants = await assistant.get_participants(chat_id)
 
