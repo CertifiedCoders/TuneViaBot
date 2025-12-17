@@ -34,7 +34,10 @@ async def playmode_(client, message: Message, _):
             return await message.reply_text(_["cplay_2"])
     else:
         try:
-            chat = await app.get_chat(query)
+            if query.lstrip("-").isdigit():
+                chat = await app.get_chat(int(query))
+            else:
+                chat = await app.get_chat(query)
         except Exception as e:
             return await message.reply_text(_["cplay_4"].format(e))
         if chat.type != ChatType.CHANNEL:
