@@ -43,15 +43,23 @@ async def playmode_(client, message: Message, _):
         if chat.type != ChatType.CHANNEL:
             return await message.reply_text(_["cplay_5"])
         try:
+            is_admin_or_owner = False
+            owner_username = None
             async for user in app.get_chat_members(
                 chat.id, filter=ChatMembersFilter.ADMINISTRATORS
             ):
                 if user.status == ChatMemberStatus.OWNER:
-                    cusn = user.user.username
-                    crid = user.user.id
+                    owner_username = user.user.username
+                if user.user.id == message.from_user.id and user.status in (
+                    ChatMemberStatus.OWNER,
+                    ChatMemberStatus.ADMINISTRATOR,
+                ):
+                    is_admin_or_owner = True
         except Exception as e:
             return await message.reply_text(_["cplay_4"].format(e))
-        if crid != message.from_user.id:
-            return await message.reply_text(_["cplay_6"].format(chat.title, cusn))
+        if not is_admin_or_owner:
+            return await message.reply_text(
+                _["cplay_6"].format(chat.title, owner_username or "Unknown")
+            )
         await set_cmode(message.chat.id, chat.id)
         return await message.reply_text(_["cplay_3"].format(chat.title, chat.id))

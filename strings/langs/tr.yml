@@ -139,7 +139,7 @@ cplay_2 : "» Bu sohbette bağlı herhangi bir kanal yok."
 cplay_3 : "» Kanal {0} olarak ayarlandı.\nKanal ID : <code>{1}</code>"
 cplay_4 : "» Kanal alınamadı.\n\nLütfen botun kanalınıza eklendiğinden ve yönetici olarak terfi ettirildiğinden emin olun."
 cplay_5 : "Yalnızca kanallar desteklenmektedir."
-cplay_6 : "» {0} kanalının <b>sahibi</b> olmalısınız.\n<b>Kanal sahibi :</b> @{1}\n\nAlternatif olarak, grubunuzu bu kanala bağlayıp ardından <code>/channelplay linked</code> komutunu kullanarak bağlayabilirsiniz."
+cplay_6 : "» {0} kanalının <b>yöneticisi veya sahibi</b> olmalısınız.\n<b>Kanal sahibi :</b> @{1}\n\nAlternatif olarak, grubunuzu bu kanala bağlayıp ardından <code>/channelplay linked</code> komutunu kullanarak bağlayabilirsiniz."
 cplay_7 : "» Kanal oynatma devre dışı bırakıldı."
 
 play_1 : "🦋"
