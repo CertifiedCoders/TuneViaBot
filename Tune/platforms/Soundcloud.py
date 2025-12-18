@@ -1,7 +1,7 @@
-﻿# Authored By Certified Coders © 2025
+# Authored By Certified Coders © 2025
 import asyncio
 import re
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from yt_dlp import YoutubeDL
 
@@ -9,40 +9,61 @@ from Tune.utils.downloader import yt_dlp_download
 from Tune.utils.formatters import seconds_to_min
 
 
-_SC_RE = re.compile(r"^https?://(soundcloud\.com|on\.soundcloud\.com)/.+", re.I)
+_SC_RE = re.compile(r"^https?://(?:www\.)?(soundcloud\.com|on\.soundcloud\.com)/.+", re.I)
 
 
 class SoundAPI:
     async def valid(self, link: str) -> bool:
         return bool(link and _SC_RE.match(link))
 
-    async def _extract_info(self, url: str) -> Dict[str, Any]:
+    async def is_playlist(self, url: str) -> bool:
+        """Check if the URL is a SoundCloud playlist."""
+        try:
+            info = await self._extract_info(url, allow_playlist=True)
+            return info is not None and info.get("_type") == "playlist"
+        except Exception:
+            return False
+
+    async def _extract_info(self, url: str, allow_playlist: bool = False) -> Optional[Dict[str, Any]]:
         def _run(u: str):
             opts = {
                 "quiet": True,
                 "no_warnings": True,
-                "noplaylist": True,
                 "skip_download": True,
             }
+            if not allow_playlist:
+                opts["noplaylist"] = True
             with YoutubeDL(opts) as ydl:
                 return ydl.extract_info(u, download=False)
 
-        loop = asyncio.get_running_loop()
-        info = await loop.run_in_executor(None, _run, url)
+        try:
+            loop = asyncio.get_running_loop()
+            info = await loop.run_in_executor(None, _run, url)
+            
+            if not info:
+                return None
 
-        _type = str(info.get("_type", ""))
-        if _type in ("url", "url_transparent") and info.get("url"):
-            info = await loop.run_in_executor(None, _run, info["url"])
+            _type = str(info.get("_type", ""))
+            if _type in ("url", "url_transparent") and info.get("url"):
+                try:
+                    info = await loop.run_in_executor(None, _run, info["url"])
+                except Exception:
+                    # If extracting from URL fails, use original info
+                    pass
 
-        return info
+            return info
+        except Exception:
+            return None
 
     async def download(self, url: str) -> Union[Tuple[Dict[str, Any], str], bool]:
         try:
             info = await self._extract_info(url)
+            if not info:
+                return False
         except Exception:
             return False
 
-        if not info or info.get("_type") == "playlist":
+        if info.get("_type") == "playlist":
             return False
 
         title = (info.get("title") or "SoundCloud").strip()
@@ -71,3 +92,60 @@ class SoundAPI:
             "filepath": out_path,
         }
         return details, out_path
+
+    async def details(self, url: str) -> Tuple[str, Optional[str], int, str, str]:
+        """
+        Extract track details similar to YouTube.details() format.
+        Returns: (title, duration_min, duration_sec, thumbnail, url)
+        """
+        try:
+            info = await self._extract_info(url)
+            if not info or info.get("_type") == "playlist":
+                raise ValueError("Invalid track or playlist")
+        except Exception as e:
+            raise ValueError(f"Failed to extract SoundCloud track info: {e}") from e
+
+        title = (info.get("title") or "SoundCloud Track").strip()
+        try:
+            duration_sec = int(info.get("duration") or 0)
+        except Exception:
+            duration_sec = 0
+        
+        duration_min = seconds_to_min(max(duration_sec, 0)) if duration_sec > 0 else None
+        
+        thumb = (
+            info.get("thumbnail")
+            or (info.get("thumbnails") or [{}])[0].get("url")
+            or ""
+        )
+
+        # Use the URL as the ID for SoundCloud tracks
+        track_url = info.get("webpage_url") or url
+
+        return title, duration_min, duration_sec, thumb, track_url
+
+    async def playlist(self, url: str, limit: int, user_id) -> List[str]:
+        """
+        Extract playlist track URLs from a SoundCloud playlist.
+        Returns a list of track URLs.
+        """
+        try:
+            info = await self._extract_info(url, allow_playlist=True)
+            if not info:
+                return []
+            
+            if info.get("_type") != "playlist":
+                return []
+
+            entries = info.get("entries", [])
+            if not entries:
+                return []
+
+            track_urls = []
+            for entry in entries[:limit]:
+                if entry and entry.get("webpage_url"):
+                    track_urls.append(entry["webpage_url"])
+            
+            return track_urls
+        except Exception:
+            return []

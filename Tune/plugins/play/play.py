@@ -324,39 +324,60 @@ async def play_command(
             log_label = "Resso"
 
         elif await SoundCloud.valid(url):
-            try:
-                details, track_path = await SoundCloud.download(url)
-            except Exception as e:
-                return await mystic.edit_text(f"{_['play_3']}\nʀᴇᴀsᴏɴ: {e}")
+            # Check if it's a playlist
+            if await SoundCloud.is_playlist(url):
+                # It's a playlist
+                try:
+                    details = await SoundCloud.playlist(
+                        url, config.PLAYLIST_FETCH_LIMIT, user_id
+                    )
+                except Exception as e:
+                    return await mystic.edit_text(f"{_['play_3']}\nʀᴇᴀsᴏɴ: {e}")
 
-            if details["duration_sec"] > config.DURATION_LIMIT:
-                return await mystic.edit_text(
-                    _["play_6"].format(config.DURATION_LIMIT_MIN, app.mention)
-                )
+                plist_type = "scplay"
+                plist_id = url
+                img = config.PLAYLIST_IMG_URL
+                cap = _["play_9"]
+                internal_type = "playlist"
+                log_label = "SoundCloud playlist"
+            else:
+                # It's a single track
+                try:
+                    result = await SoundCloud.download(url)
+                    if result is False or not isinstance(result, tuple):
+                        return await mystic.edit_text(_["play_3"])
+                    details, track_path = result
+                except Exception as e:
+                    return await mystic.edit_text(f"{_['play_3']}\nʀᴇᴀsᴏɴ: {e}")
 
-            try:
-                internal_type = "soundcloud"
-                await stream(
-                    _,
-                    mystic,
-                    user_id,
-                    details,
-                    chat_id,
-                    user_name,
-                    message.chat.id,
-                    streamtype=internal_type,
-                    forceplay=bool(fplay),
-                )
-            except Exception as e:
-                err = (
-                    e
-                    if type(e).__name__ == "AssistantErr"
-                    else _["general_2"].format(type(e).__name__)
-                )
-                return await mystic.edit_text(err)
+                if not details or details.get("duration_sec", 0) > config.DURATION_LIMIT:
+                    return await mystic.edit_text(
+                        _["play_6"].format(config.DURATION_LIMIT_MIN, app.mention)
+                    )
 
-            await play_logs(message, streamtype="Soundcloud")
-            return await mystic.delete()
+                try:
+                    internal_type = "soundcloud"
+                    await stream(
+                        _,
+                        mystic,
+                        user_id,
+                        details,
+                        chat_id,
+                        user_name,
+                        message.chat.id,
+                        streamtype=internal_type,
+                        forceplay=bool(fplay),
+                    )
+                except Exception as e:
+                    err = (
+                        e
+                        if type(e).__name__ == "AssistantErr"
+                        else _["general_2"].format(type(e).__name__)
+                    )
+                    return await mystic.edit_text(err)
+
+                await play_logs(message, streamtype="Soundcloud")
+                return await mystic.delete()
 
         else:
             try:
@@ -493,6 +514,7 @@ async def play_command(
             )
             plist_label_map = {
                 "yt": "Youtube playlist",
+                "scplay": "SoundCloud playlist",
                 "spplay": "Spotify playlist",
                 "spalbum": "Spotify album",
                 "spartist": "Spotify artist",
@@ -685,6 +707,15 @@ async def play_playlists_command(client, CallbackQuery, _):
             )
             internal_type = "playlist"
             log_label = "Youtube playlist"
+        elif ptype == "scplay":
+            spotify = False
+            result = await SoundCloud.playlist(
+                videoid,
+                config.PLAYLIST_FETCH_LIMIT,
+                CallbackQuery.from_user.id,
+            )
+            internal_type = "playlist"
+            log_label = "SoundCloud playlist"
         elif ptype == "spplay":
             result, _ = await Spotify.playlist(videoid)
             internal_type = "playlist"

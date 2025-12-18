@@ -15,7 +15,7 @@ from pytgcalls.types import AudioQuality, ChatUpdate, MediaStream, StreamEnded, 
 
 import config
 from strings import get_string
-from Tune import LOGGER, YouTube, app
+from Tune import LOGGER, SoundCloud, YouTube, app
 from Tune.misc import db, set_current_message
 from Tune.utils.database import (
     add_active_chat,
@@ -465,6 +465,44 @@ class Call:
                     reply_markup=InlineKeyboardMarkup(button),
                 )
                 set_current_message(chat_id, run, "stream")
+
+            elif "soundcloud.com" in queued or "on.soundcloud.com" in queued:
+                # Handle SoundCloud tracks from playlists
+                mystic = await app.send_message(original_chat_id, _["call_7"])
+                try:
+                    result = await SoundCloud.download(queued)
+                    if result is False or not isinstance(result, tuple):
+                        return await mystic.edit_text(
+                            _["call_6"], disable_web_page_preview=True
+                        )
+                    details_dict, file_path = result
+                except Exception as e:
+                    LOGGER(__name__).error(f"SoundCloud download failed in play: {e}")
+                    return await mystic.edit_text(
+                        _["call_6"], disable_web_page_preview=True
+                    )
+
+                stream = dynamic_media_stream(path=file_path, video=False)
+                try:
+                    await client.play(chat_id, stream)
+                except Exception as e:
+                    LOGGER(__name__).error(f"SoundCloud play failed: {e}")
+                    return await app.send_message(original_chat_id, text=_["call_6"])
+
+                button = stream_markup(_, chat_id)
+                await mystic.delete()
+                run = await app.send_photo(
+                    chat_id=original_chat_id,
+                    photo=config.SOUNCLOUD_IMG_URL,
+                    caption=_["stream_1"].format(
+                        queued,
+                        title[:23],
+                        current["dur"],
+                        user,
+                    ),
+                    reply_markup=InlineKeyboardMarkup(button),
+                )
+                set_current_message(chat_id, run, "tg")
 
             elif "index_" in queued:
                 if not videoid:
