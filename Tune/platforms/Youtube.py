@@ -1,4 +1,4 @@
-﻿# Authored By Certified Coders © 2025
+# Authored By Certified Coders © 2025
 
 import asyncio
 import contextlib
@@ -19,19 +19,14 @@ from Tune.utils.errors import capture_internal_err
 from Tune.utils.formatters import time_to_seconds
 from Tune.utils.tuning import YTDLP_TIMEOUT, YOUTUBE_META_MAX, YOUTUBE_META_TTL
 
-
-# === Caches ===
 _cache: Dict[str, Tuple[float, List[Dict]]] = {}
 _cache_lock = asyncio.Lock()
 _formats_cache: Dict[str, Tuple[float, List[Dict], str]] = {}
 _formats_lock = asyncio.Lock()
 
-
-# === Constants ===
 YOUTUBE_ID_RE = re.compile(r"^[a-zA-Z0-9_-]{11}$")
 
 
-# === Helpers ===
 def _cookiefile_path() -> Optional[str]:
     path = str(COOKIE_PATH)
     try:
@@ -45,6 +40,13 @@ def _cookiefile_path() -> Optional[str]:
 def _cookies_args() -> List[str]:
     path = _cookiefile_path()
     return ["--cookies", path] if path else []
+
+
+def _extract_thumbnail(info: Dict) -> str:
+    return (
+        info.get("thumbnail")
+        or info.get("thumbnails", [{}])[-1].get("url", "")
+    ).split("?")[0]
 
 
 async def _exec_proc(*args: str) -> Tuple[bytes, bytes]:
@@ -88,7 +90,6 @@ async def cached_youtube_search(query: str) -> List[Dict]:
     return result
 
 
-# === Main Class ===
 class YouTubeAPI:
     def __init__(self) -> None:
         self.base_url = "https://www.youtube.com/watch?v="
@@ -108,7 +109,6 @@ class YouTubeAPI:
 
         return link.split("&")[0]
 
-    # === URL Handling ===
     @capture_internal_err
     async def exists(self, link: str, videoid: Union[str, bool, None] = None) -> bool:
         return bool(self._url_pattern.search(self._prepare_link(link, videoid)))
@@ -136,7 +136,6 @@ class YouTubeAPI:
         vid = data[0].get("id")
         return self.base_url + vid if vid else None
 
-    # === Metadata Fetching ===
     @capture_internal_err
     async def _fetch_video_info(self, query: str, *, use_cache: bool = True) -> Optional[Dict]:
         q = self._prepare_link(query)
@@ -174,10 +173,7 @@ class YouTubeAPI:
 
         dt = info.get("duration")
         ds = int(time_to_seconds(dt)) if dt else 0
-        thumb = (
-            info.get("thumbnail")
-            or info.get("thumbnails", [{}])[-1].get("url", "")
-        ).split("?")[0]
+        thumb = _extract_thumbnail(info)
 
         return info.get("title", ""), dt, ds, thumb, info.get("id", "")
 
@@ -194,10 +190,7 @@ class YouTubeAPI:
     @capture_internal_err
     async def thumbnail(self, link: str, videoid: Union[str, bool, None] = None) -> str:
         info = await self._fetch_video_info(self._prepare_link(link, videoid))
-        return (
-            info.get("thumbnail")
-            or info.get("thumbnails", [{}])[-1].get("url", "")
-        ).split("?")[0] if info else ""
+        return _extract_thumbnail(info) if info else ""
 
     @capture_internal_err
     async def track(self, link: str, videoid: Union[str, bool, None] = None) -> Tuple[Dict, str]:
@@ -235,10 +228,7 @@ class YouTubeAPI:
                     f"     Raw: {raw}..."
                 ) from json_err
 
-        thumb = (
-            info.get("thumbnail")
-            or info.get("thumbnails", [{}])[-1].get("url", "")
-        ).split("?")[0]
+        thumb = _extract_thumbnail(info)
 
         details = {
             "title": info.get("title", ""),
@@ -253,7 +243,6 @@ class YouTubeAPI:
         }
         return details, info.get("id", "")
 
-    # === Media & Formats ===
     @capture_internal_err
     async def video(self, link: str, videoid: Union[str, bool, None] = None) -> Tuple[int, str]:
         link = self._prepare_link(link, videoid)
@@ -362,7 +351,7 @@ class YouTubeAPI:
         return (
             r.get("title", ""),
             r.get("duration"),
-            r.get("thumbnails", [{}])[-1].get("url", "").split("?")[0],
+            _extract_thumbnail(r),
             r.get("id", ""),
         )
 
@@ -376,15 +365,6 @@ class YouTubeAPI:
         videoid: Union[str, bool, None] = None,
         title: Optional[str] = None,
     ) -> Union[Tuple[str, Optional[bool]], Tuple[None, None]]:
-        """
-        Resolve a YouTube link or ID into either:
-        - a direct streaming URL (for live videos), or
-        - a local file path downloaded via yt-dlp (preferred for reliability).
-
-        Returns:
-            (path_or_url, direct_flag)
-            direct_flag is True when the result is a local file path.
-        """
         link = self._prepare_link(link, videoid)
 
         if video:
@@ -394,14 +374,13 @@ class YouTubeAPI:
                     return stream_url, None
                 return None, None
 
-            # For non-live videos, always prefer a local file path over a
-            # transient streaming URL. This avoids ffmpeg/pytgcalls issues
-            # like NoVideoSourceFound on short-lived HLS manifests.
             final_title = title or await self.title(link)
             p = await yt_dlp_download(link, type="video", title=final_title)
             return (p, True) if p else (None, None)
 
-        # Audio path
         final_title = title or await self.title(link)
         p = await yt_dlp_download(link, type="audio", title=final_title)
         return (p, True) if p else (None, None)
+
+
+YouTube = YouTubeAPI()
