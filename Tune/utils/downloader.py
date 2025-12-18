@@ -1,5 +1,4 @@
 # Authored By Certified Coders © 2025
-
 import asyncio
 import contextlib
 import glob
@@ -31,11 +30,6 @@ SOUNDCLOUD_RE = re.compile(r"^https?://(?:www\.)?(soundcloud\.com|on\.soundcloud
 
 
 def log_download_source(media_type: str, title: str, source: str) -> None:
-    """
-    Log which backend provided the downloaded media, with its type.
-    media_type: "Audio" or "Video"
-    source: e.g. "yt-dlp" or "API"
-    """
     LOGGER.info(f"[{media_type}] Track '{title}' - Downloaded by {source}")
 
 
@@ -73,12 +67,6 @@ def find_cached_file(video_id: str) -> Optional[str]:
 
 
 def get_ytdlp_base_opts(is_soundcloud: bool = False) -> Dict[str, object]:
-    """
-    Get base yt-dlp options.
-    
-    Args:
-        is_soundcloud: If True, optimize options for SoundCloud downloads
-    """
     opts = {
         "quiet": True,
         "no_warnings": True,
@@ -88,18 +76,14 @@ def get_ytdlp_base_opts(is_soundcloud: bool = False) -> Dict[str, object]:
         "noprogress": True,
         "cachedir": str(CACHE_DIR),
         "ignoreerrors": True,
+        "outtmpl": f"{DOWNLOAD_DIR}/%(id)s.%(ext)s",
     }
     
     if is_soundcloud:
-        # SoundCloud-specific optimizations
-        # Use URL hash as output filename for consistent caching
-        opts["outtmpl"] = f"{DOWNLOAD_DIR}/%(id)s.%(ext)s"
-        # SoundCloud doesn't use fragments, so skip concurrent fragment settings
-        opts["socket_timeout"] = 30  # Slightly longer timeout for SoundCloud
-        opts["retries"] = 3  # More retries for SoundCloud (can be flaky)
-        opts["extractor_args"] = {"soundcloud": {"client_id": None}}  # Use default client
+        opts["socket_timeout"] = 30
+        opts["retries"] = 3
+        opts["extractor_args"] = {"soundcloud": {"client_id": None}}
     else:
-        opts["outtmpl"] = f"{DOWNLOAD_DIR}/%(id)s.%(ext)s"
         opts["concurrent_fragment_downloads"] = 16
         opts["http_chunk_size"] = 1 << 20
         opts["socket_timeout"] = 15
@@ -151,13 +135,7 @@ async def download_file(url: str, out_path: str) -> Optional[str]:
         return None
 
 
-async def api_download_audio(link: str) -> Optional[str]:
-    if not USE_AUDIO_API:
-        return None
-    vid = extract_video_id(link)
-    if not vid:
-        return None
-    poll_url = f"{API_URL}/song/{vid}?api={API_KEY}"
+async def _api_poll_and_download(poll_url: str, video_id: str, default_format: str) -> Optional[str]:
     try:
         session = await get_http_session()
         while True:
@@ -172,11 +150,21 @@ async def api_download_audio(link: str) -> Optional[str]:
                 if status != "done":
                     return None
                 dl_url = data.get("link")
-                fmt = data.get("format", "webm")
-                out_path = f"{DOWNLOAD_DIR}/{vid}.{fmt}"
+                fmt = data.get("format", default_format)
+                out_path = f"{DOWNLOAD_DIR}/{video_id}.{fmt}"
                 return await download_file(dl_url, out_path)
     except Exception:
         return None
+
+
+async def api_download_audio(link: str) -> Optional[str]:
+    if not USE_AUDIO_API:
+        return None
+    vid = extract_video_id(link)
+    if not vid:
+        return None
+    poll_url = f"{API_URL}/song/{vid}?api={API_KEY}"
+    return await _api_poll_and_download(poll_url, vid, "webm")
 
 
 async def api_download_video(link: str) -> Optional[str]:
@@ -186,25 +174,7 @@ async def api_download_video(link: str) -> Optional[str]:
     if not vid:
         return None
     poll_url = f"{VIDEO_API_URL}/video/{vid}?api={API_KEY}"
-    try:
-        session = await get_http_session()
-        while True:
-            async with session.get(poll_url) as r:
-                if r.status != 200:
-                    return None
-                data = await r.json()
-                status = str(data.get("status", "")).lower()
-                if status == "downloading":
-                    await asyncio.sleep(1.0)
-                    continue
-                if status != "done":
-                    return None
-                dl_url = data.get("link")
-                fmt = data.get("format", "mp4")
-                out_path = f"{DOWNLOAD_DIR}/{vid}.{fmt}"
-                return await download_file(dl_url, out_path)
-    except Exception:
-        return None
+    return await _api_poll_and_download(poll_url, vid, "mp4")
 
 
 def get_final_path_from_info(info: Dict) -> Optional[str]:
@@ -225,34 +195,20 @@ def get_final_path_from_info(info: Dict) -> Optional[str]:
 
 
 def download_with_ytdlp_sync(link: str, fmt: str, is_soundcloud: bool = False, cache_id: Optional[str] = None) -> Optional[str]:
-    """
-    Synchronous yt-dlp download.
-    
-    Args:
-        link: URL to download
-        fmt: Format selector
-        is_soundcloud: Whether this is a SoundCloud URL
-        cache_id: Optional cache ID for SoundCloud (MD5 hash of URL) - used for pre-check only
-    """
     try:
         opts = get_ytdlp_base_opts(is_soundcloud=is_soundcloud)
         opts["format"] = fmt
         
         with YoutubeDL(opts) as ydl:
-            # Extract info first to check if file already exists
             info = ydl.extract_info(link, download=False)
             
-            # Check if file already exists using yt-dlp's extracted ID
             if path := get_final_path_from_info(info):
                 return path
             
-            # Download the file
             ydl.download([link])
             
-            # Return the path to the downloaded file
             return get_final_path_from_info(info)
     except Exception as e:
-        # Log the actual error for debugging, but don't raise
         LOGGER.error(f"yt-dlp download failed for {link}: {e}")
         return None
 
@@ -308,64 +264,43 @@ async def race_ytdlp_and_api(yt_task, api_task, title: str, media_type: str):
     return None
 
 
-async def yt_dlp_download(link: str, type: str, title: str = "") -> Optional[str]:
+async def _download_media(link: str, fmt: str, api_func, title: str, is_soundcloud: bool, media_type: str):
     loop = asyncio.get_running_loop()
+    key = f"{media_type}:{link}"
+    
+    async def run():
+        ytdlp_task = asyncio.create_task(
+            run_with_semaphore(
+                loop.run_in_executor(None, download_with_ytdlp_sync, link, fmt, is_soundcloud, None)
+            )
+        )
+        use_api = (USE_AUDIO_API if media_type == "audio" else USE_VIDEO_API) and not is_soundcloud
+        api_task = asyncio.create_task(api_func(link)) if use_api else None
+        
+        if api_task:
+            return await race_ytdlp_and_api(
+                ytdlp_task,
+                api_task,
+                title or "Unknown",
+                media_type.capitalize(),
+            )
+        
+        result = await ytdlp_task
+        if result and title:
+            log_download_source(media_type.capitalize(), title, "yt-dlp")
+        return result
+
+    return await deduplicate_download(key, run)
+
+
+async def yt_dlp_download(link: str, type: str, title: str = "") -> Optional[str]:
     is_soundcloud = bool(SOUNDCLOUD_RE.match(link))
     
-    # Cache check is handled inside download_with_ytdlp_sync via get_final_path_from_info
-    # which uses yt-dlp's extracted ID (works for both YouTube and SoundCloud)
-
     if type == "audio":
-        key = f"audio:{link}"
-        
-        # Use flexible format for SoundCloud (they may not have webm/opus),
-        # but prefer webm/opus for YouTube for better quality
-        audio_format = "bestaudio/best" if is_soundcloud else "bestaudio[ext=webm][acodec=opus]/bestaudio/best"
-
-        async def run():
-            ytdlp_task = asyncio.create_task(
-                run_with_semaphore(
-                    loop.run_in_executor(None, download_with_ytdlp_sync, link, audio_format, is_soundcloud, None)
-                )
-            )
-            # Skip API for SoundCloud (API only supports YouTube)
-            api_task = asyncio.create_task(api_download_audio(link)) if (USE_AUDIO_API and not is_soundcloud) else None
-            if api_task:
-                return await race_ytdlp_and_api(
-                    ytdlp_task,
-                    api_task,
-                    title or "Unknown",
-                    "Audio",
-                )
-            result = await ytdlp_task
-            if result and title:
-                log_download_source("Audio", title, "yt-dlp")
-            return result
-
-        return await deduplicate_download(key, run)
-
+        fmt = "bestaudio/best" if is_soundcloud else "bestaudio[ext=webm][acodec=opus]/bestaudio/best"
+        return await _download_media(link, fmt, api_download_audio, title, is_soundcloud, "audio")
     elif type == "video":
-        key = f"video:{link}"
-
-        async def run():
-            ytdlp_task = asyncio.create_task(
-                run_with_semaphore(
-                    loop.run_in_executor(None, download_with_ytdlp_sync, link, "(bestvideo[height<=?720][width<=?1280][ext=mp4])+(bestaudio)")
-                )
-            )
-            api_task = asyncio.create_task(api_download_video(link)) if USE_VIDEO_API else None
-            if api_task:
-                return await race_ytdlp_and_api(
-                    ytdlp_task,
-                    api_task,
-                    title or "Unknown",
-                    "Video",
-                )
-            result = await ytdlp_task
-            if result and title:
-                log_download_source("Video", title, "yt-dlp")
-            return result
-
-        return await deduplicate_download(key, run)
-
+        fmt = "(bestvideo[height<=?720][width<=?1280][ext=mp4])+(bestaudio)"
+        return await _download_media(link, fmt, api_download_video, title, is_soundcloud, "video")
+    
     return None
