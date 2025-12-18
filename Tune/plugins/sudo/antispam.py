@@ -13,7 +13,7 @@ from Tune.utils.database import (
 )
 from Tune.utils.decorators.language import language
 from Tune.utils.extraction import extract_user
-from Tune.plugins.security.antispam_handler import get_spam_blocked_cache
+from Tune.plugins.security.antispam_handler import get_spam_blocked_cache, clear_user_notification
 from Tune.utils.antispam import reset_user_tracking
 
 
@@ -63,6 +63,7 @@ async def antispam_command(client, message: Message, _):
             cache.discard(user.id)
         
         reset_user_tracking(user.id)
+        clear_user_notification(user.id)
         
         return await message.reply_text(f"✅ Unblocked {user.mention} from anti-spam system.")
     
