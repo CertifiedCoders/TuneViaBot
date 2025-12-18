@@ -376,7 +376,24 @@ class Call:
                         self.active_calls.discard(chat_id)
                 return
 
-            current = check[0]
+            # Wrap queue access in exception handling to catch concurrent modifications
+            try:
+                current = check[0]
+            except (IndexError, KeyError, AttributeError):
+                # Queue was emptied/modified between check and access
+                try:
+                    await _clear_(chat_id)
+                except Exception:
+                    pass
+                if chat_id in self.active_calls:
+                    try:
+                        await client.leave_call(chat_id)
+                    except Exception:
+                        pass
+                    finally:
+                        self.active_calls.discard(chat_id)
+                return
+
             queued = current["file"]
             language = await get_lang(chat_id)
             _ = get_string(language)
