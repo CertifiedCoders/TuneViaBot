@@ -4,7 +4,6 @@ import traceback
 import os
 from functools import wraps
 from datetime import datetime
-from typing import BaseException
 
 import aiofiles
 from pyrogram.errors.exceptions.forbidden_403 import ChatWriteForbidden
