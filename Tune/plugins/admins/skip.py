@@ -1,4 +1,4 @@
-﻿# Authored By Certified Coders © 2025
+# Authored By Certified Coders © 2025
 from pyrogram.types import InlineKeyboardMarkup, Message
 from pyrogram import filters
 
@@ -207,10 +207,10 @@ async def skip(cli, message: Message, _, chat_id):
             set_current_message(chat_id, run, "tg")
         elif videoid == "soundcloud":
             button = stream_markup(_, chat_id)
+            # Try to get thumbnail from queued URL if it's a SoundCloud URL
+            img = await get_thumb(queued if ("soundcloud.com" in str(queued) or "on.soundcloud.com" in str(queued)) else queued)
             run = await message.reply_photo(
-                photo=config.SOUNCLOUD_IMG_URL
-                if str(streamtype) == "audio"
-                else config.TELEGRAM_VIDEO_URL,
+                photo=img,
                 caption=_["stream_1"].format(
                     config.SUPPORT_CHAT, title[:23], check[0]["dur"], user
                 ),

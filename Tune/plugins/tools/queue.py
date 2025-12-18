@@ -13,6 +13,7 @@ from Tune.utils import TuneBin, get_channeplayCB, seconds_to_min
 from Tune.utils.database import get_cmode, is_active_chat, is_music_playing
 from Tune.utils.decorators.language import language, languageCB
 from Tune.utils.inline import queue_back_markup, queue_markup
+from Tune.utils.thumbnails import get_thumb
 from config import BANNED_USERS
 
 basic = {}
@@ -67,9 +68,9 @@ async def get_queue(client, message: Message, _):
     typo = (got[0]["streamtype"]).title()
     DUR = get_duration(got)
     if "live_" in file:
-        IMAGE = get_image(videoid)
+        IMAGE = await get_thumb(videoid)
     elif "vid_" in file:
-        IMAGE = get_image(videoid)
+        IMAGE = await get_thumb(videoid)
     elif "index_" in file:
         IMAGE = config.STREAM_IMG_URL
     else:
@@ -80,9 +81,10 @@ async def get_queue(client, message: Message, _):
                 else config.TELEGRAM_VIDEO_URL
             )
         elif videoid == "soundcloud":
-            IMAGE = config.SOUNCLOUD_IMG_URL
+            # Use videoid which may contain the URL, otherwise fallback to default
+            IMAGE = await get_thumb(videoid if ("soundcloud.com" in str(videoid) or "on.soundcloud.com" in str(videoid)) else "soundcloud")
         else:
-            IMAGE = get_image(videoid)
+            IMAGE = await get_thumb(videoid)
     send = _["queue_6"] if DUR == "Unknown" else _["queue_7"]
     cap = _["queue_8"].format(app.mention, title, typo, user, send)
     upl = (
@@ -207,9 +209,9 @@ async def queue_back(client, CallbackQuery: CallbackQuery, _):
     typo = (got[0]["streamtype"]).title()
     DUR = get_duration(got)
     if "live_" in file:
-        IMAGE = get_image(videoid)
+        IMAGE = await get_thumb(videoid)
     elif "vid_" in file:
-        IMAGE = get_image(videoid)
+        IMAGE = await get_thumb(videoid)
     elif "index_" in file:
         IMAGE = config.STREAM_IMG_URL
     else:
@@ -220,9 +222,10 @@ async def queue_back(client, CallbackQuery: CallbackQuery, _):
                 else config.TELEGRAM_VIDEO_URL
             )
         elif videoid == "soundcloud":
-            IMAGE = config.SOUNCLOUD_IMG_URL
+            # Use videoid which may contain the URL, otherwise fallback to default
+            IMAGE = await get_thumb(videoid if ("soundcloud.com" in str(videoid) or "on.soundcloud.com" in str(videoid)) else "soundcloud")
         else:
-            IMAGE = get_image(videoid)
+            IMAGE = await get_thumb(videoid)
     send = _["queue_6"] if DUR == "Unknown" else _["queue_7"]
     cap = _["queue_8"].format(app.mention, title, typo, user, send)
     upl = (

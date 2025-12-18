@@ -155,13 +155,9 @@ async def stream(
                     "video" if is_video else "audio",
                     forceplay=forceplay,
                 )
-                # For SoundCloud, we don't have a thumbnail URL format like YouTube
-                if "soundcloud.com" in vidid or "on.soundcloud.com" in vidid:
-                    img = config.SOUNCLOUD_IMG_URL
-                    info_url = vidid
-                else:
-                    img = await get_thumb(vidid)
-                    info_url = f"https://t.me/{app.username}?start=info_{vidid}"
+                # Get thumbnail (works for both YouTube and SoundCloud)
+                img = await get_thumb(vidid)
+                info_url = vidid if ("soundcloud.com" in vidid or "on.soundcloud.com" in vidid) else f"https://t.me/{app.username}?start=info_{vidid}"
                 button = stream_markup(_, chat_id)
                 run = await app.send_photo(
                     original_chat_id,
@@ -306,6 +302,8 @@ async def stream(
         file_path = result["filepath"]
         title = result["title"]
         duration_min = result["duration_min"]
+        # Get the original URL from result if available, otherwise use "soundcloud" as identifier
+        vidid = result.get("link") or "soundcloud"
         if not file_path:
             raise AssistantErr(_["play_14"])
 
@@ -317,7 +315,7 @@ async def stream(
                 title,
                 duration_min,
                 user_name,
-                streamtype,
+                vidid,
                 user_id,
                 "audio",
             )
@@ -339,15 +337,17 @@ async def stream(
                 title,
                 duration_min,
                 user_name,
-                streamtype,
+                vidid,
                 user_id,
                 "audio",
                 forceplay=forceplay,
             )
             button = stream_markup(_, chat_id)
+            # Use URL if available, otherwise fallback to default SoundCloud thumbnail
+            img = await get_thumb(vidid)
             run = await app.send_photo(
                 original_chat_id,
-                photo=config.SOUNCLOUD_IMG_URL,
+                photo=img,
                 caption=_["stream_1"].format(
                     config.SUPPORT_CHAT, title[:23], duration_min, user_name
                 ),

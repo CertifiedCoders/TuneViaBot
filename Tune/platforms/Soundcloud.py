@@ -90,6 +90,7 @@ class SoundAPI:
             "uploader": uploader,
             "thumb": thumb,
             "filepath": out_path,
+            "link": url,  # Store original URL for thumbnail extraction
         }
         return details, out_path
 

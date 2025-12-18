@@ -1,4 +1,4 @@
-﻿# Authored By Certified Coders © 2025
+# Authored By Certified Coders © 2025
 
 import asyncio
 import random
@@ -264,8 +264,11 @@ async def handle_skip_replay(callback: CallbackQuery, _, chat_id: int, command: 
             set_current_message(chat_id, run, "tg")
         elif videoid == "soundcloud":
             buttons = stream_markup(_, chat_id)
+            # Try to get thumbnail from queued URL if it's a SoundCloud URL, otherwise use videoid or fallback
+            thumb_source = queued if ("soundcloud.com" in str(queued) or "on.soundcloud.com" in str(queued)) else (videoid if ("soundcloud.com" in str(videoid) or "on.soundcloud.com" in str(videoid)) else "soundcloud")
+            img = await get_thumb(thumb_source)
             run = await callback.message.reply_photo(
-                photo=(SOUNCLOUD_IMG_URL if str(streamtype) == "audio" else TELEGRAM_VIDEO_URL),
+                photo=img,
                 caption=_["stream_1"].format(SUPPORT_CHAT, title[:23], duration, user),
                 reply_markup=InlineKeyboardMarkup(buttons)
             )

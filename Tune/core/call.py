@@ -501,9 +501,10 @@ class Call:
 
                 button = stream_markup(_, chat_id)
                 await mystic.delete()
+                img = await get_thumb(queued)
                 run = await app.send_photo(
                     chat_id=original_chat_id,
-                    photo=config.SOUNCLOUD_IMG_URL,
+                    photo=img,
                     caption=_["stream_1"].format(
                         queued,
                         title[:23],
@@ -561,9 +562,12 @@ class Call:
 
                 elif videoid == "soundcloud":
                     button = stream_markup(_, chat_id)
+                    # Try to get thumbnail from queued URL if it's a SoundCloud URL, otherwise use videoid or fallback
+                    thumb_source = queued if ("soundcloud.com" in str(queued) or "on.soundcloud.com" in str(queued)) else (videoid if ("soundcloud.com" in str(videoid) or "on.soundcloud.com" in str(videoid)) else "soundcloud")
+                    img = await get_thumb(thumb_source)
                     run = await app.send_photo(
                         chat_id=original_chat_id,
-                        photo=config.SOUNCLOUD_IMG_URL,
+                        photo=img,
                         caption=_["stream_1"].format(
                             config.SUPPORT_CHAT, title[:23], current["dur"], user
                         ),
