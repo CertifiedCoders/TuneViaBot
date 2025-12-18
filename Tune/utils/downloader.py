@@ -1,4 +1,4 @@
-﻿# Authored By Certified Coders © 2025
+# Authored By Certified Coders © 2025
 
 import asyncio
 import contextlib
@@ -27,6 +27,7 @@ _inflight_lock = asyncio.Lock()
 _session: Optional[aiohttp.ClientSession] = None
 _session_lock = asyncio.Lock()
 YOUTUBE_ID_RE = re.compile(r"^[a-zA-Z0-9_-]{11}$")
+SOUNDCLOUD_RE = re.compile(r"^https?://(?:www\.)?(soundcloud\.com|on\.soundcloud\.com)/.+", re.I)
 
 
 def log_download_source(media_type: str, title: str, source: str) -> None:
@@ -216,7 +217,9 @@ def download_with_ytdlp_sync(link: str, fmt: str) -> Optional[str]:
                 return path
             ydl.download([link])
             return get_final_path_from_info(info)
-    except Exception:
+    except Exception as e:
+        # Log the actual error for debugging, but don't raise
+        LOGGER.error(f"yt-dlp download failed for {link}: {e}")
         return None
 
 
@@ -281,11 +284,16 @@ async def yt_dlp_download(link: str, type: str, title: str = "") -> Optional[str
 
     if type == "audio":
         key = f"audio:{link}"
+        
+        # Use flexible format for SoundCloud (they may not have webm/opus),
+        # but prefer webm/opus for YouTube for better quality
+        is_soundcloud = bool(SOUNDCLOUD_RE.match(link))
+        audio_format = "bestaudio/best" if is_soundcloud else "bestaudio[ext=webm][acodec=opus]/bestaudio/best"
 
         async def run():
             ytdlp_task = asyncio.create_task(
                 run_with_semaphore(
-                    loop.run_in_executor(None, download_with_ytdlp_sync, link, "bestaudio[ext=webm][acodec=opus]")
+                    loop.run_in_executor(None, download_with_ytdlp_sync, link, audio_format)
                 )
             )
             api_task = asyncio.create_task(api_download_audio(link)) if USE_AUDIO_API else None
