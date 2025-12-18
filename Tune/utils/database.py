@@ -143,6 +143,7 @@ async def group_assistant(self, chat_id: int) -> int:
         else:
             assis = await set_calls_assistant(chat_id)
     
+    assis_int = None
     try:
         assis_int = int(assis)
         if assis_int == 1:
@@ -156,14 +157,21 @@ async def group_assistant(self, chat_id: int) -> int:
         elif assis_int == 5:
             result = self.five
         else:
-            # Fallback to first available assistant
-            result = self.one or self.two or self.three or self.four or self.five
+            result = None
+            assis_int = None
     except (ValueError, AttributeError):
-        # Fallback to first available assistant
-        result = self.one or self.two or self.three or self.four or self.five
+        result = None
+        assis_int = None
     
-    if not result:
-        raise AssistantErr("No active assistant available.")
+    if result is None:
+        if assis_int is None:
+            fallback = self.one or self.two or self.three or self.four or self.five
+            if fallback is None:
+                raise AssistantErr("No active assistant available.")
+            return fallback
+        else:
+            raise AssistantErr(f"Requested assistant {assis_int} is not available.")
+    
     return result
 
 
