@@ -45,6 +45,8 @@ async def stream(
         msg = f"{_['play_19']}\n\n"
         count = 0
         position = 0
+        is_chat_active = await is_active_chat(chat_id)
+        first_song_played = False
 
         for search in result:
             if int(count) == config.PLAYLIST_FETCH_LIMIT:
@@ -61,7 +63,8 @@ async def stream(
             if duration_sec and duration_sec > config.DURATION_LIMIT:
                 continue
 
-            if await is_active_chat(chat_id):
+            # If chat is already active, queue all songs
+            if is_chat_active:
                 await put_queue(
                     chat_id,
                     original_chat_id,
@@ -77,59 +80,83 @@ async def stream(
                 count += 1
                 msg += f"{count}. {title[:70]}\n"
                 msg += f"{_['play_20']} {position}\n\n"
-        else:
-            if not forceplay:
-                db[chat_id] = []
-            file_path = None
-            direct = False
-            try:
-                file_path, direct = await YouTube.download(
-                    vidid,
-                    mystic,
-                    video=is_video,
-                    videoid=vidid,
-                    title=title,
-                )
-                if not file_path:
+            # For first song when chat is not active, start playing immediately
+            elif not first_song_played:
+                if not forceplay:
+                    db[chat_id] = []
+                file_path = None
+                direct = False
+                try:
+                    file_path, direct = await YouTube.download(
+                        vidid,
+                        mystic,
+                        video=is_video,
+                        videoid=vidid,
+                        title=title,
+                    )
+                    if not file_path:
+                        raise AssistantErr(_["play_14"])
+                except AssistantErr:
+                    raise
+                except Exception as e:
                     raise AssistantErr(_["play_14"])
-            except AssistantErr:
-                raise
-            except Exception as e:
-                raise AssistantErr(_["play_14"])
 
-            await StreamController.join_call(
-                chat_id,
-                original_chat_id,
-                file_path,
-                video=is_video,
-                image=thumbnail,
-            )
-            await put_queue(
-                chat_id,
-                original_chat_id,
-                file_path if direct else f"vid_{vidid}",
-                title,
-                duration_min,
-                user_name,
-                vidid,
-                user_id,
-                "video" if is_video else "audio",
-                forceplay=forceplay,
-            )
-            img = await get_thumb(vidid)
-            button = stream_markup(_, chat_id)
-            run = await app.send_photo(
-                original_chat_id,
-                photo=img,
-                caption=_["stream_1"].format(
-                    f"https://t.me/{app.username}?start=info_{vidid}",
-                    title[:23],
+                await StreamController.join_call(
+                    chat_id,
+                    original_chat_id,
+                    file_path,
+                    video=is_video,
+                    image=thumbnail,
+                )
+                await put_queue(
+                    chat_id,
+                    original_chat_id,
+                    file_path if direct else f"vid_{vidid}",
+                    title,
                     duration_min,
                     user_name,
-                ),
-                reply_markup=InlineKeyboardMarkup(button),
-            )
-            set_current_message(chat_id, run, "stream")
+                    vidid,
+                    user_id,
+                    "video" if is_video else "audio",
+                    forceplay=forceplay,
+                )
+                img = await get_thumb(vidid)
+                button = stream_markup(_, chat_id)
+                run = await app.send_photo(
+                    original_chat_id,
+                    photo=img,
+                    caption=_["stream_1"].format(
+                        f"https://t.me/{app.username}?start=info_{vidid}",
+                        title[:23],
+                        duration_min,
+                        user_name,
+                    ),
+                    reply_markup=InlineKeyboardMarkup(button),
+                )
+                set_current_message(chat_id, run, "stream")
+                first_song_played = True
+                count += 1
+                msg += f"{count}. {title[:70]}\n"
+                msg += f"{_['play_20']} 0\n\n"
+                # Mark chat as active for remaining songs
+                is_chat_active = True
+            # For remaining songs, queue them
+            else:
+                await put_queue(
+                    chat_id,
+                    original_chat_id,
+                    f"vid_{vidid}",
+                    title,
+                    duration_min,
+                    user_name,
+                    vidid,
+                    user_id,
+                    "video" if is_video else "audio",
+                )
+                position = len(db.get(chat_id) or []) - 1
+                count += 1
+                msg += f"{count}. {title[:70]}\n"
+                msg += f"{_['play_20']} {position}\n\n"
 
         if count == 0:
             return
