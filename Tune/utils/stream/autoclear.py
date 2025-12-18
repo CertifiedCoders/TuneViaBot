@@ -20,7 +20,9 @@ async def auto_clean(popped):
         
         count = autoclean.count(rem) if hasattr(autoclean, 'count') else 0
         if count == 0:
-            if isinstance(rem, str) and "vid_" not in rem and "live_" not in rem and "index_" not in rem:
+            if isinstance(rem, str):
+                if "vid_" in rem or "live_" in rem or "index_" in rem:
+                    return
                 if os.path.exists(rem) and os.path.isfile(rem):
                     try:
                         os.remove(rem)
