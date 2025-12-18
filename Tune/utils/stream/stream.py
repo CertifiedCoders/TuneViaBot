@@ -176,27 +176,7 @@ async def stream(
                 count += 1
                 msg += f"{count}. {title[:70]}\n"
                 msg += f"{_['play_20']} 0\n\n"
-                # Mark chat as active for remaining songs
                 is_chat_active = True
-            # For remaining songs, queue them
-            else:
-                # Use appropriate file format based on source
-                file_identifier = _get_file_identifier(vidid)
-                await put_queue(
-                    chat_id,
-                    original_chat_id,
-                    file_identifier,
-                    title,
-                    duration_min,
-                    user_name,
-                    vidid,
-                    user_id,
-                    "video" if is_video else "audio",
-                )
-                position = len(db.get(chat_id) or []) - 1
-                count += 1
-                msg += f"{count}. {title[:70]}\n"
-                msg += f"{_['play_20']} {position}\n\n"
 
         if count == 0:
             return
