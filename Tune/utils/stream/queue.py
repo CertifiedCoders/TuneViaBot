@@ -60,6 +60,7 @@ async def put_queue_index(
     stream,
     forceplay: Union[bool, str] = None,
 ):
+    """Add an index/M3U8 stream to the playback queue for a chat."""
     if "20.212.146.162" in vidid:
         try:
             loop = asyncio.get_running_loop()
@@ -88,7 +89,8 @@ async def put_queue_index(
         if check:
             check.insert(0, put)
         else:
-            db[chat_id] = []
-            db[chat_id].append(put)
+            db[chat_id] = [put]
     else:
+        if chat_id not in db:
+            db[chat_id] = []
         db[chat_id].append(put)

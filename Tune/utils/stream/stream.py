@@ -18,6 +18,25 @@ from Tune.utils.thumbnails import get_thumb
 from Tune.utils.errors import capture_internal_err
 
 
+def _get_file_identifier(vidid: str, file_path: str = None, direct: bool = False) -> str:
+    """
+    Get appropriate file identifier for queue based on source and download type.
+    
+    Args:
+        vidid: Video/track identifier (URL or ID)
+        file_path: Downloaded file path (if available and direct)
+        direct: Whether the file_path is a direct file path
+        
+    Returns:
+        File identifier string for queue storage
+    """
+    if file_path and direct:
+        return file_path
+    if "soundcloud.com" in vidid or "on.soundcloud.com" in vidid:
+        return vidid
+    return f"vid_{vidid}"
+
+
 @capture_internal_err
 async def stream(
     _,
@@ -53,7 +72,8 @@ async def stream(
                 continue
             try:
                 # Check if it's a SoundCloud URL or YouTube URL
-                if "soundcloud.com" in search or "on.soundcloud.com" in search:
+                is_soundcloud = "soundcloud.com" in search or "on.soundcloud.com" in search
+                if is_soundcloud:
                     title, duration_min, duration_sec, thumbnail, vidid = await SoundCloud.details(search)
                 else:
                     title, duration_min, duration_sec, thumbnail, vidid = await YouTube.details(
@@ -94,7 +114,8 @@ async def stream(
                 direct = False
                 try:
                     # Check if it's a SoundCloud URL or YouTube URL
-                    if "soundcloud.com" in vidid or "on.soundcloud.com" in vidid:
+                    is_soundcloud = "soundcloud.com" in vidid or "on.soundcloud.com" in vidid
+                    if is_soundcloud:
                         result = await SoundCloud.download(vidid)
                         if result is False or not isinstance(result, tuple):
                             raise AssistantErr(_["play_14"])
@@ -125,7 +146,7 @@ async def stream(
                 await put_queue(
                     chat_id,
                     original_chat_id,
-                    file_path if direct else (f"vid_{vidid}" if "soundcloud.com" not in vidid and "on.soundcloud.com" not in vidid else vidid),
+                    _get_file_identifier(vidid, file_path, direct),
                     title,
                     duration_min,
                     user_name,
@@ -163,7 +184,7 @@ async def stream(
             # For remaining songs, queue them
             else:
                 # Use appropriate file format based on source
-                file_identifier = f"vid_{vidid}" if "soundcloud.com" not in vidid and "on.soundcloud.com" not in vidid else vidid
+                file_identifier = _get_file_identifier(vidid)
                 await put_queue(
                     chat_id,
                     original_chat_id,
@@ -229,7 +250,7 @@ async def stream(
             await put_queue(
                 chat_id,
                 original_chat_id,
-                file_path if direct else f"vid_{vidid}",
+                _get_file_identifier(vidid, file_path, direct),
                 title,
                 duration_min,
                 user_name,
@@ -257,7 +278,7 @@ async def stream(
             await put_queue(
                 chat_id,
                 original_chat_id,
-                file_path if direct else f"vid_{vidid}",
+                _get_file_identifier(vidid, file_path, direct),
                 title,
                 duration_min,
                 user_name,

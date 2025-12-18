@@ -35,12 +35,13 @@ from Tune.utils.formatters import check_duration, seconds_to_min, speed_converte
 from Tune.utils.inline.play import stream_markup
 from Tune.utils.stream.autoclear import auto_clean
 from Tune.utils.thumbnails import get_thumb
-from Tune.utils.errors import capture_internal_err, send_large_error
+from Tune.utils.errors import capture_internal_err
 
 autoend = {}
 counter = {}
 
 def dynamic_media_stream(path: str, video: bool = False, ffmpeg_params: str = None) -> MediaStream:
+    """Create a MediaStream object optimized for audio or video playback."""
     if video:
         return MediaStream(
             media_path=path,
@@ -50,16 +51,16 @@ def dynamic_media_stream(path: str, video: bool = False, ffmpeg_params: str = No
             video_flags=MediaStream.Flags.REQUIRED,
             ffmpeg_parameters=ffmpeg_params,
         )
-    else:
-        return MediaStream(
-            media_path=path,
-            audio_parameters=AudioQuality.HIGH,
-            audio_flags=MediaStream.Flags.REQUIRED,
-            video_flags=MediaStream.Flags.IGNORE,
-            ffmpeg_parameters=ffmpeg_params,
-        )
+    return MediaStream(
+        media_path=path,
+        audio_parameters=AudioQuality.HIGH,
+        audio_flags=MediaStream.Flags.REQUIRED,
+        video_flags=MediaStream.Flags.IGNORE,
+        ffmpeg_parameters=ffmpeg_params,
+    )
 
 async def _clear_(chat_id: int) -> None:
+    """Clear queue state and clean up downloaded files for a chat."""
     popped = db.pop(chat_id, None)
     if popped:
         for item in popped:
@@ -104,6 +105,20 @@ class Call:
 
         self.active_calls: set[int] = set()
 
+    async def _cleanup_and_leave(self, chat_id: int, client) -> None:
+        """Helper to cleanup queue state and leave voice call."""
+        try:
+            await _clear_(chat_id)
+        except Exception:
+            pass
+        if chat_id in self.active_calls:
+            try:
+                await client.leave_call(chat_id)
+            except (NoActiveGroupCall, Exception):
+                pass
+            finally:
+                self.active_calls.discard(chat_id)
+
 
     @capture_internal_err
     async def pause_stream(self, chat_id: int) -> None:
@@ -141,11 +156,14 @@ class Call:
 
     @capture_internal_err
     async def force_stop_stream(self, chat_id: int) -> None:
+        """Force stop playback, cleanup current track, and leave call immediately."""
         assistant = await group_assistant(self, chat_id)
+        
+        # Cleanup current track if exists
         try:
             check = db.get(chat_id)
-            if check:
-                popped_item = check.pop(0) if check else None
+            if check and check:
+                popped_item = check.pop(0)
                 if popped_item:
                     try:
                         await auto_clean(popped_item)
@@ -153,6 +171,8 @@ class Call:
                         pass
         except (IndexError, KeyError, AttributeError):
             pass
+        
+        # Leave call first to stop playback immediately
         if chat_id in self.active_calls:
             try:
                 await assistant.leave_call(chat_id)
@@ -160,6 +180,8 @@ class Call:
                 pass
             finally:
                 self.active_calls.discard(chat_id)
+        
+        # Cleanup remaining state
         try:
             await remove_active_video_chat(chat_id)
             await remove_active_chat(chat_id)
@@ -215,7 +237,7 @@ class Call:
         dur = int(await loop.run_in_executor(None, check_duration, out))
         played, con_seconds = speed_converter(playing[0]["played"], speed)
         duration_min = seconds_to_min(dur)
-        is_video = playing[0]["streamtype"] == "video"
+        is_video = str(playing[0].get("streamtype", "")) == "video"
         ffmpeg_params = f"-ss {played} -to {duration_min}"
         stream = dynamic_media_stream(path=out, video=is_video, ffmpeg_params=ffmpeg_params)
 
@@ -318,62 +340,21 @@ class Call:
                 await set_loop(chat_id, loop)
             
             if not check:
-                await _clear_(chat_id)
-                if chat_id in self.active_calls:
-                    try:
-                        await client.leave_call(chat_id)
-                    except NoActiveGroupCall:
-                        pass
-                    except Exception:
-                        pass
-                    finally:
-                        self.active_calls.discard(chat_id)
+                await self._cleanup_and_leave(chat_id, client)
                 return
         except (IndexError, KeyError, AttributeError):
-            try:
-                await _clear_(chat_id)
-                if chat_id in self.active_calls:
-                    try:
-                        await client.leave_call(chat_id)
-                    except Exception:
-                        pass
-                    finally:
-                        self.active_calls.discard(chat_id)
-            except Exception:
-                pass
+            await self._cleanup_and_leave(chat_id, client)
             return
         except Exception as e:
             LOGGER(__name__).error(f"Error in play method: {e}")
-            try:
-                await _clear_(chat_id)
-                if chat_id in self.active_calls:
-                    try:
-                        await client.leave_call(chat_id)
-                    except Exception:
-                        pass
-                    finally:
-                        self.active_calls.discard(chat_id)
-            except Exception:
-                pass
+            await self._cleanup_and_leave(chat_id, client)
             return
         else:
             # Re-read queue to handle possible concurrent modifications
             check = db.get(chat_id) or []
             if not check:
                 # Queue became empty after popping/cleaning; nothing to play
-                try:
-                    await _clear_(chat_id)
-                except Exception:
-                    pass
-                if chat_id in self.active_calls:
-                    try:
-                        await client.leave_call(chat_id)
-                    except NoActiveGroupCall:
-                        pass
-                    except Exception:
-                        pass
-                    finally:
-                        self.active_calls.discard(chat_id)
+                await self._cleanup_and_leave(chat_id, client)
                 return
 
             # Wrap queue access in exception handling to catch concurrent modifications
@@ -381,17 +362,7 @@ class Call:
                 current = check[0]
             except (IndexError, KeyError, AttributeError):
                 # Queue was emptied/modified between check and access
-                try:
-                    await _clear_(chat_id)
-                except Exception:
-                    pass
-                if chat_id in self.active_calls:
-                    try:
-                        await client.leave_call(chat_id)
-                    except Exception:
-                        pass
-                    finally:
-                        self.active_calls.discard(chat_id)
+                await self._cleanup_and_leave(chat_id, client)
                 return
 
             queued = current["file"]
@@ -418,7 +389,7 @@ class Call:
                 # Queue was modified or cleared concurrently; nothing left to reset.
                 pass
 
-            video = True if str(streamtype) == "video" else False
+            video = str(streamtype) == "video"
 
             if "live_" in queued:
                 try:
@@ -454,10 +425,11 @@ class Call:
                         videoid,
                         mystic,
                         videoid=True,
-                        video=True if str(streamtype) == "video" else False,
+                        video=str(streamtype) == "video",
                         title=title,
                     )
-                except:
+                except Exception as e:
+                    LOGGER(__name__).error(f"YouTube download failed in play: {e}")
                     return await mystic.edit_text(
                         _["call_6"], disable_web_page_preview=True
                     )
@@ -465,7 +437,8 @@ class Call:
                 stream = dynamic_media_stream(path=file_path, video=video)
                 try:
                     await client.play(chat_id, stream)
-                except:
+                except Exception as e:
+                    LOGGER(__name__).error(f"YouTube stream play failed: {e}")
                     return await app.send_message(original_chat_id, text=_["call_6"])
 
                 img = await get_thumb(videoid)
