@@ -480,7 +480,8 @@ class Call:
         img = await get_thumb(videoid)
         title = (current["title"]).title()
         user = current["by"]
-        caption = _["stream_1"].format(videoid, title[:23], current["dur"], user)
+        link = config.SUPPORT_CHAT if videoid == "soundcloud" else videoid
+        caption = _["stream_1"].format(link, title[:23], current["dur"], user)
         await self._send_playback_message(
             original_chat_id, img, caption, chat_id, _, "tg"
         )
@@ -531,7 +532,7 @@ class Call:
             await self._send_playback_message(
                 original_chat_id, photo, caption, chat_id, _, "tg"
             )
-        elif videoid == "soundcloud":
+        elif videoid == "soundcloud" or is_soundcloud_url(videoid):
             thumb_source = (
                 queued
                 if is_soundcloud_url(queued)
