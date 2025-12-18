@@ -1,10 +1,11 @@
-﻿# Authored By Certified Coders © 2025
+# Authored By Certified Coders © 2025
 
 import random
 from typing import Dict, List, Union
 
 from Tune import userbot
 from Tune.core.mongo import mongodb
+from Tune.utils.exceptions import AssistantErr
 
 authdb = mongodb.adminauth
 authuserdb = mongodb.authuser
@@ -134,7 +135,6 @@ async def group_assistant(self, chat_id: int) -> int:
             assis = dbassistant["assistant"]
             if assis in assistants:
                 assistantdict[chat_id] = assis
-                assis = assis
             else:
                 assis = await set_calls_assistant(chat_id)
     else:
@@ -142,16 +142,29 @@ async def group_assistant(self, chat_id: int) -> int:
             assis = assistant
         else:
             assis = await set_calls_assistant(chat_id)
-    if int(assis) == 1:
-        return self.one
-    elif int(assis) == 2:
-        return self.two
-    elif int(assis) == 3:
-        return self.three
-    elif int(assis) == 4:
-        return self.four
-    elif int(assis) == 5:
-        return self.five
+    
+    try:
+        assis_int = int(assis)
+        if assis_int == 1:
+            result = self.one
+        elif assis_int == 2:
+            result = self.two
+        elif assis_int == 3:
+            result = self.three
+        elif assis_int == 4:
+            result = self.four
+        elif assis_int == 5:
+            result = self.five
+        else:
+            # Fallback to first available assistant
+            result = self.one or self.two or self.three or self.four or self.five
+    except (ValueError, AttributeError):
+        # Fallback to first available assistant
+        result = self.one or self.two or self.three or self.four or self.five
+    
+    if not result:
+        raise AssistantErr("No active assistant available.")
+    return result
 
 
 async def is_skipmode(chat_id: int) -> bool:

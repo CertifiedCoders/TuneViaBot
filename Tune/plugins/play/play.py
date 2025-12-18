@@ -1,4 +1,4 @@
-﻿# Authored By Certified Coders © 2025
+# Authored By Certified Coders © 2025
 
 import asyncio
 import random
@@ -370,7 +370,11 @@ async def play_command(
             except Exception as e:
                 return await mystic.edit_text(_["general_2"].format(type(e).__name__))
 
-            await mystic.edit_text(_["str_2"])
+            try:
+                await mystic.edit_text(_["str_2"])
+            except Exception:
+                pass
+            
             try:
                 internal_type = "index"
                 await stream(

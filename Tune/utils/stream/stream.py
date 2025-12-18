@@ -1,4 +1,4 @@
-﻿# Authored By Certified Coders © 2025
+# Authored By Certified Coders © 2025
 import os
 from random import randint
 from typing import Union
@@ -73,25 +73,29 @@ async def stream(
                     user_id,
                     "video" if is_video else "audio",
                 )
-                position = len(db.get(chat_id)) - 1
+                position = len(db.get(chat_id) or []) - 1
                 count += 1
                 msg += f"{count}. {title[:70]}\n"
                 msg += f"{_['play_20']} {position}\n\n"
-            else:
-                if not forceplay:
-                    db[chat_id] = []
-                try:
-                    file_path, direct = await YouTube.download(
-                        vidid,
-                        mystic,
-                        video=is_video,
-                        videoid=vidid,
-                        title=title,
-                    )
-                except Exception:
-                    raise AssistantErr(_["play_14"])
+        else:
+            if not forceplay:
+                db[chat_id] = []
+            file_path = None
+            direct = False
+            try:
+                file_path, direct = await YouTube.download(
+                    vidid,
+                    mystic,
+                    video=is_video,
+                    videoid=vidid,
+                    title=title,
+                )
                 if not file_path:
                     raise AssistantErr(_["play_14"])
+            except AssistantErr:
+                raise
+            except Exception as e:
+                raise AssistantErr(_["play_14"])
 
                 await StreamController.join_call(
                     chat_id,
@@ -155,6 +159,8 @@ async def stream(
         duration_min = result["duration_min"]
         thumbnail = result["thumb"]
 
+        file_path = None
+        direct = False
         try:
             file_path, direct = await YouTube.download(
                 vidid,
@@ -163,9 +169,11 @@ async def stream(
                 videoid=vidid,
                 title=title,
             )
-        except Exception:
-            raise AssistantErr(_["play_14"])
-        if not file_path:
+            if not file_path:
+                raise AssistantErr(_["play_14"])
+        except AssistantErr:
+            raise
+        except Exception as e:
             raise AssistantErr(_["play_14"])
 
         if await is_active_chat(chat_id):
@@ -180,7 +188,7 @@ async def stream(
                 user_id,
                 "video" if is_video else "audio",
             )
-            position = len(db.get(chat_id)) - 1
+            position = len(db.get(chat_id) or []) - 1
             button = aq_markup(_, chat_id)
             await app.send_message(
                 chat_id=original_chat_id,
@@ -243,7 +251,7 @@ async def stream(
                 user_id,
                 "audio",
             )
-            position = len(db.get(chat_id)) - 1
+            position = len(db.get(chat_id) or []) - 1
             button = aq_markup(_, chat_id)
             await app.send_message(
                 chat_id=original_chat_id,
@@ -297,7 +305,7 @@ async def stream(
                 user_id,
                 "video" if is_video else "audio",
             )
-            position = len(db.get(chat_id)) - 1
+            position = len(db.get(chat_id) or []) - 1
             button = aq_markup(_, chat_id)
             await app.send_message(
                 chat_id=original_chat_id,
@@ -307,7 +315,12 @@ async def stream(
         else:
             if not forceplay:
                 db[chat_id] = []
-            await StreamController.join_call(chat_id, original_chat_id, file_path, video=is_video)
+            await StreamController.join_call(
+                chat_id,
+                original_chat_id,
+                file_path,
+                video=is_video,
+            )
             await put_queue(
                 chat_id,
                 original_chat_id,
@@ -350,7 +363,7 @@ async def stream(
                 user_id,
                 "video" if is_video else "audio",
             )
-            position = len(db.get(chat_id)) - 1
+            position = len(db.get(chat_id) or []) - 1
             button = aq_markup(_, chat_id)
             await app.send_message(
                 chat_id=original_chat_id,
@@ -360,11 +373,14 @@ async def stream(
         else:
             if not forceplay:
                 db[chat_id] = []
-            n, file_path = await YouTube.video(link)
-            if n == 0:
+            try:
+                n, file_path = await YouTube.video(link)
+                if n == 0 or not file_path:
+                    raise AssistantErr(_["str_3"])
+            except AssistantErr:
+                raise
+            except Exception as e:
                 raise AssistantErr(_["str_3"])
-            if not file_path:
-                raise AssistantErr(_["play_14"])
 
             await StreamController.join_call(
                 chat_id,
@@ -416,7 +432,7 @@ async def stream(
                 link,
                 "video" if is_video else "audio",
             )
-            position = len(db.get(chat_id)) - 1
+            position = len(db.get(chat_id) or []) - 1
             button = aq_markup(_, chat_id)
             await mystic.edit_text(
                 text=_["queue_4"].format(position, title[:27], duration_min, user_name),

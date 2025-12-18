@@ -1,4 +1,4 @@
-﻿# Authored By Certified Coders © 2025
+# Authored By Certified Coders © 2025
 import asyncio
 from typing import Union
 
@@ -22,7 +22,7 @@ async def put_queue(
     title = title.title()
     try:
         duration_in_seconds = time_to_seconds(duration) - 3
-    except:
+    except Exception:
         duration_in_seconds = 0
     put = {
         "title": title,
@@ -41,9 +41,10 @@ async def put_queue(
         if check:
             check.insert(0, put)
         else:
-            db[chat_id] = []
-            db[chat_id].append(put)
+            db[chat_id] = [put]
     else:
+        if chat_id not in db:
+            db[chat_id] = []
         db[chat_id].append(put)
     autoclean.append(file)
 
@@ -61,11 +62,12 @@ async def put_queue_index(
 ):
     if "20.212.146.162" in vidid:
         try:
-            dur = await asyncio.get_event_loop().run_in_executor(
+            loop = asyncio.get_running_loop()
+            dur = await loop.run_in_executor(
                 None, check_duration, vidid
             )
             duration = seconds_to_min(dur)
-        except:
+        except Exception:
             duration = "ᴜʀʟ sᴛʀᴇᴀᴍ"
             dur = 0
     else:

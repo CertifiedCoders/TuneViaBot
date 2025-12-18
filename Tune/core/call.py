@@ -61,11 +61,18 @@ def dynamic_media_stream(path: str, video: bool = False, ffmpeg_params: str = No
 async def _clear_(chat_id: int) -> None:
     popped = db.pop(chat_id, None)
     if popped:
-        await auto_clean(popped)
+        for item in popped:
+            try:
+                await auto_clean(item)
+            except Exception:
+                pass
     db[chat_id] = []
-    await remove_active_video_chat(chat_id)
-    await remove_active_chat(chat_id)
-    await set_loop(chat_id, 0)
+    try:
+        await remove_active_video_chat(chat_id)
+        await remove_active_chat(chat_id)
+        await set_loop(chat_id, 0)
+    except Exception:
+        pass
 
 class Call:
     def __init__(self):
@@ -137,20 +144,27 @@ class Call:
         try:
             check = db.get(chat_id)
             if check:
-                check.pop(0)
-        except (IndexError, KeyError):
+                popped_item = check.pop(0) if check else None
+                if popped_item:
+                    try:
+                        await auto_clean(popped_item)
+                    except Exception:
+                        pass
+        except (IndexError, KeyError, AttributeError):
             pass
-        await remove_active_video_chat(chat_id)
-        await remove_active_chat(chat_id)
-        await _clear_(chat_id)
-        if chat_id not in self.active_calls:
-            return
+        if chat_id in self.active_calls:
+            try:
+                await assistant.leave_call(chat_id)
+            except Exception:
+                pass
+            finally:
+                self.active_calls.discard(chat_id)
         try:
-            await assistant.leave_call(chat_id)
+            await remove_active_video_chat(chat_id)
+            await remove_active_chat(chat_id)
         except Exception:
             pass
-        finally:
-            self.active_calls.discard(chat_id)
+        await _clear_(chat_id)
 
 
     @capture_internal_err
@@ -193,27 +207,36 @@ class Call:
                 stderr=asyncio.subprocess.PIPE,
             )
             await proc.communicate()
+            if proc.returncode != 0:
+                raise AssistantErr("Failed to process speed change with ffmpeg.")
 
-        dur = int(await asyncio.get_event_loop().run_in_executor(None, check_duration, out))
+        loop = asyncio.get_running_loop()
+        dur = int(await loop.run_in_executor(None, check_duration, out))
         played, con_seconds = speed_converter(playing[0]["played"], speed)
         duration_min = seconds_to_min(dur)
         is_video = playing[0]["streamtype"] == "video"
         ffmpeg_params = f"-ss {played} -to {duration_min}"
         stream = dynamic_media_stream(path=out, video=is_video, ffmpeg_params=ffmpeg_params)
 
-        if chat_id in db and db[chat_id] and db[chat_id][0].get("file") == file_path:
+        try:
+            queue_check = db.get(chat_id)
+            if not queue_check or not queue_check[0] or queue_check[0].get("file") != file_path:
+                raise AssistantErr("Stream mismatch during speedup. Queue may have changed.")
+            
             await assistant.play(chat_id, stream)
-            db[chat_id][0].update({
+            old_dur = queue_check[0].get("dur")
+            old_second = queue_check[0].get("seconds")
+            queue_check[0].update({
                 "played": con_seconds,
                 "dur": duration_min,
                 "seconds": dur,
                 "speed_path": out,
                 "speed": speed,
-                "old_dur": db[chat_id][0].get("dur"),
-                "old_second": db[chat_id][0].get("seconds"),
+                "old_dur": old_dur,
+                "old_second": old_second,
             })
-        else:
-            raise AssistantErr("Stream mismatch during speedup.")
+        except (IndexError, KeyError, AttributeError) as e:
+            raise AssistantErr(f"Stream mismatch during speedup: {str(e)}")
 
 
     @capture_internal_err
@@ -257,10 +280,14 @@ class Call:
                 f"ᴜɴᴀʙʟᴇ ᴛᴏ ᴊᴏɪɴ ᴛʜᴇ ɢʀᴏᴜᴘ ᴄᴀʟʟ.\nRᴇᴀsᴏɴ: {e}"
             )
         self.active_calls.add(chat_id)
-        await add_active_chat(chat_id)
-        await music_on(chat_id)
-        if video:
-            await add_active_video_chat(chat_id)
+        try:
+            await add_active_chat(chat_id)
+            await music_on(chat_id)
+            if video and bool(video):
+                await add_active_video_chat(chat_id)
+        except Exception:
+            # If database operations fail, we still have the call active
+            pass
 
         if await is_autoend():
             counter[chat_id] = {}
@@ -272,33 +299,62 @@ class Call:
     @capture_internal_err
     async def play(self, client, chat_id: int) -> None:
         check = db.get(chat_id)
+        if not check:
+            return
+        
         popped = None
         loop = await get_loop(chat_id)
         try:
             if loop == 0:
                 popped = check.pop(0)
+                if popped:
+                    try:
+                        await auto_clean(popped)
+                    except Exception:
+                        pass
             else:
                 loop = loop - 1
                 await set_loop(chat_id, loop)
-            await auto_clean(popped)
+            
             if not check:
-                    await _clear_(chat_id)
-                    if chat_id in self.active_calls:
-                        try:
-                            await client.leave_call(chat_id)
-                        except NoActiveGroupCall:
-                            pass
-                        except Exception:
-                            pass
-                        finally:
-                            self.active_calls.discard(chat_id)
-                    return
-        except:
+                await _clear_(chat_id)
+                if chat_id in self.active_calls:
+                    try:
+                        await client.leave_call(chat_id)
+                    except NoActiveGroupCall:
+                        pass
+                    except Exception:
+                        pass
+                    finally:
+                        self.active_calls.discard(chat_id)
+                return
+        except (IndexError, KeyError, AttributeError):
             try:
                 await _clear_(chat_id)
-                return await client.leave_call(chat_id)
-            except:
-                return
+                if chat_id in self.active_calls:
+                    try:
+                        await client.leave_call(chat_id)
+                    except Exception:
+                        pass
+                    finally:
+                        self.active_calls.discard(chat_id)
+            except Exception:
+                pass
+            return
+        except Exception as e:
+            LOGGER(__name__).error(f"Error in play method: {e}")
+            try:
+                await _clear_(chat_id)
+                if chat_id in self.active_calls:
+                    try:
+                        await client.leave_call(chat_id)
+                    except Exception:
+                        pass
+                    finally:
+                        self.active_calls.discard(chat_id)
+            except Exception:
+                pass
+            return
         else:
             # Re-read queue to handle possible concurrent modifications
             check = db.get(chat_id) or []
@@ -347,14 +403,15 @@ class Call:
             video = True if str(streamtype) == "video" else False
 
             if "live_" in queued:
-                n, link = await YouTube.video(videoid, True)
-                if n == 0:
-                    return await app.send_message(original_chat_id, text=_["call_6"])
-
-                stream = dynamic_media_stream(path=link, video=video)
                 try:
+                    n, link = await YouTube.video(videoid, True)
+                    if n == 0 or not link:
+                        return await app.send_message(original_chat_id, text=_["call_6"])
+
+                    stream = dynamic_media_stream(path=link, video=video)
                     await client.play(chat_id, stream)
-                except Exception:
+                except Exception as e:
+                    LOGGER(__name__).error(f"Live stream play failed: {e}")
                     return await app.send_message(original_chat_id, text=_["call_6"])
 
                 img = await get_thumb(videoid)
@@ -410,10 +467,13 @@ class Call:
                 set_current_message(chat_id, run, "stream")
 
             elif "index_" in queued:
+                if not videoid:
+                    return await app.send_message(original_chat_id, text=_["call_6"])
                 stream = dynamic_media_stream(path=videoid, video=video)
                 try:
                     await client.play(chat_id, stream)
-                except:
+                except Exception as e:
+                    LOGGER(__name__).error(f"Index stream play failed: {e}")
                     return await app.send_message(original_chat_id, text=_["call_6"])
 
                 button = stream_markup(_, chat_id)
@@ -426,10 +486,13 @@ class Call:
                 set_current_message(chat_id, run, "tg")
 
             else:
+                if not queued:
+                    return await app.send_message(original_chat_id, text=_["call_6"])
                 stream = dynamic_media_stream(path=queued, video=video)
                 try:
                     await client.play(chat_id, stream)
-                except:
+                except Exception as e:
+                    LOGGER(__name__).error(f"Regular stream play failed: {e}")
                     return await app.send_message(original_chat_id, text=_["call_6"])
 
                 if videoid == "telegram":
@@ -494,30 +557,36 @@ class Call:
 
     async def start(self) -> None:
         LOGGER(__name__).info("Starting PyTgCalls Clients...")
-        if config.STRING1:
-            await self.one.start()
-        if config.STRING2:
-            await self.two.start()
-        if config.STRING3:
-            await self.three.start()
-        if config.STRING4:
-            await self.four.start()
-        if config.STRING5:
-            await self.five.start()
+        try:
+            if config.STRING1 and self.one:
+                await self.one.start()
+            if config.STRING2 and self.two:
+                await self.two.start()
+            if config.STRING3 and self.three:
+                await self.three.start()
+            if config.STRING4 and self.four:
+                await self.four.start()
+            if config.STRING5 and self.five:
+                await self.five.start()
+        except Exception as e:
+            LOGGER(__name__).error(f"Error starting PyTgCalls clients: {e}")
 
     @capture_internal_err
     async def ping(self) -> str:
         pings = []
-        if config.STRING1:
-            pings.append(self.one.ping)
-        if config.STRING2:
-            pings.append(self.two.ping)
-        if config.STRING3:
-            pings.append(self.three.ping)
-        if config.STRING4:
-            pings.append(self.four.ping)
-        if config.STRING5:
-            pings.append(self.five.ping)
+        try:
+            if config.STRING1 and self.one:
+                pings.append(self.one.ping)
+            if config.STRING2 and self.two:
+                pings.append(self.two.ping)
+            if config.STRING3 and self.three:
+                pings.append(self.three.ping)
+            if config.STRING4 and self.four:
+                pings.append(self.four.ping)
+            if config.STRING5 and self.five:
+                pings.append(self.five.ping)
+        except Exception:
+            pass
         return str(round(sum(pings) / len(pings), 3)) if pings else "0.0"
 
     @capture_internal_err
@@ -531,19 +600,33 @@ class Call:
         )
 
         async def unified_update_handler(client, update: Update) -> None:
-            if isinstance(update, StreamEnded):
-                if update.stream_type == StreamEnded.Type.AUDIO:
-                    assistant = await group_assistant(self, update.chat_id)
-                    await self.play(assistant, update.chat_id)
-            
-            elif isinstance(update, ChatUpdate):
-                status = update.status
-                if (status & ChatUpdate.Status.LEFT_CALL) or (status & CRITICAL):
-                    await self.stop_stream(update.chat_id)
-                    return
+            try:
+                if isinstance(update, StreamEnded):
+                    if update.stream_type == StreamEnded.Type.AUDIO:
+                        try:
+                            assistant = await group_assistant(self, update.chat_id)
+                            if assistant:
+                                await self.play(assistant, update.chat_id)
+                        except Exception as e:
+                            LOGGER(__name__).error(f"Error in StreamEnded handler: {e}")
+                
+                elif isinstance(update, ChatUpdate):
+                    status = update.status
+                    if (status & ChatUpdate.Status.LEFT_CALL) or (status & CRITICAL):
+                        try:
+                            await self.stop_stream(update.chat_id)
+                        except Exception as e:
+                            LOGGER(__name__).error(f"Error in ChatUpdate handler: {e}")
+                        return
+            except Exception as e:
+                LOGGER(__name__).error(f"Error in unified_update_handler: {e}")
 
         for assistant in assistants:
-            assistant.on_update()(unified_update_handler)
+            if assistant:
+                try:
+                    assistant.on_update()(unified_update_handler)
+                except Exception as e:
+                    LOGGER(__name__).error(f"Error registering update handler: {e}")
 
 
 StreamController = Call()
