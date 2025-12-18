@@ -162,7 +162,7 @@ class Call:
         # Cleanup current track if exists
         try:
             check = db.get(chat_id)
-            if check and check:
+            if check:
                 popped_item = check.pop(0)
                 if popped_item:
                     try:
