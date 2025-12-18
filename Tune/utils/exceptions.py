@@ -5,18 +5,10 @@ from typing import Union, Tuple
 try:
     from pytgcalls.exceptions import (
         NoActiveGroupCall,
-        NoAudioSourceFound,
-        NoVideoSourceFound,
-        AlreadyJoinedError,
-        NotJoinedError,
     )
 except ImportError:
     # Fallback if pytgcalls is not available
     NoActiveGroupCall = type("NoActiveGroupCall", (Exception,), {})
-    NoAudioSourceFound = type("NoAudioSourceFound", (Exception,), {})
-    NoVideoSourceFound = type("NoVideoSourceFound", (Exception,), {})
-    AlreadyJoinedError = type("AlreadyJoinedError", (Exception,), {})
-    NotJoinedError = type("NotJoinedError", (Exception,), {})
 
 # Import pyrogram exceptions
 try:
@@ -56,8 +48,6 @@ class ExpectedError(Exception):
 # These represent normal operational states (e.g., no active call, user left chat)
 EXPECTED_EXCEPTIONS: Tuple[type, ...] = (
     NoActiveGroupCall,  # No active voice call - expected when VC is not started
-    NotJoinedError,     # Assistant not in call - expected during transitions
-    AlreadyJoinedError, # Already in call - race condition, not an error
     UserNotParticipant, # User not in chat - expected permission issue
     ChatWriteForbidden, # Bot cannot write - expected permission issue
 )
@@ -65,8 +55,6 @@ EXPECTED_EXCEPTIONS: Tuple[type, ...] = (
 # Exception types that are expected but should be handled gracefully
 # These may still need user-facing messages but shouldn't spam logs
 GRACEFUL_EXCEPTIONS: Tuple[type, ...] = (
-    NoAudioSourceFound,  # Audio source issue - should be handled with user message
-    NoVideoSourceFound,  # Video source issue - should be handled with user message
     ChatAdminRequired,   # Admin required - expected permission issue
     FloodWait,          # Rate limiting - expected, should be handled by pyrogram
 )
