@@ -474,40 +474,49 @@ class Call:
                 )
                 set_current_message(chat_id, run, "stream")
 
-            elif "soundcloud.com" in queued or "on.soundcloud.com" in queued:
-                # Handle SoundCloud tracks from playlists
-                mystic = await app.send_message(original_chat_id, _["call_7"])
-                try:
-                    result = await SoundCloud.download(queued)
-                    if result is False or not isinstance(result, tuple):
+            elif videoid and ("soundcloud.com" in str(videoid) or "on.soundcloud.com" in str(videoid)):
+                # Handle SoundCloud tracks (check videoid since it always contains the URL)
+                # queued may be either a URL (from playlist queuing) or a file path (already downloaded)
+                
+                # Check if queued is already a downloaded file path (not a URL)
+                if "soundcloud.com" not in str(queued) and "on.soundcloud.com" not in str(queued) and os.path.exists(str(queued)):
+                    # File is already downloaded, use it directly
+                    file_path = queued
+                else:
+                    # Need to download from the URL in videoid
+                    mystic = await app.send_message(original_chat_id, _["call_7"])
+                    try:
+                        result = await SoundCloud.download(videoid)
+                        if result is False or not isinstance(result, tuple):
+                            return await mystic.edit_text(
+                                _["call_6"], disable_web_page_preview=True
+                            )
+                        details_dict, file_path = result
+                    except Exception as e:
+                        LOGGER(__name__).error(f"SoundCloud download failed in play: {e}")
                         return await mystic.edit_text(
                             _["call_6"], disable_web_page_preview=True
                         )
-                    details_dict, file_path = result
-                except Exception as e:
-                    LOGGER(__name__).error(f"SoundCloud download failed in play: {e}")
-                    return await mystic.edit_text(
-                        _["call_6"], disable_web_page_preview=True
-                    )
 
-                # Update the queue entry to store the actual file path instead of URL
-                # This ensures auto_clean can properly delete the file later
-                try:
-                    if chat_id in db and db[chat_id] and len(db[chat_id]) > 0:
-                        # Remove the URL from autoclean if it was added
-                        if queued in autoclean:
-                            try:
-                                autoclean.remove(queued)
-                            except (ValueError, AttributeError):
-                                pass
-                        # Update the queue entry with the actual file path
-                        db[chat_id][0]["file"] = file_path
-                        # Add the file path to autoclean for cleanup later
-                        if file_path not in autoclean:
-                            autoclean.append(file_path)
-                except (IndexError, KeyError, AttributeError):
-                    # Queue was modified concurrently; continue anyway
-                    pass
+                    # Update the queue entry to store the actual file path instead of URL
+                    # This ensures auto_clean can properly delete the file later
+                    try:
+                        if chat_id in db and db[chat_id] and len(db[chat_id]) > 0:
+                            # Remove the URL from autoclean if it was added
+                            if queued in autoclean:
+                                try:
+                                    autoclean.remove(queued)
+                                except (ValueError, AttributeError):
+                                    pass
+                            # Update the queue entry with the actual file path
+                            db[chat_id][0]["file"] = file_path
+                            # Add the file path to autoclean for cleanup later
+                            if file_path not in autoclean:
+                                autoclean.append(file_path)
+                    except (IndexError, KeyError, AttributeError):
+                        # Queue was modified concurrently; continue anyway
+                        pass
+                    await mystic.delete()
 
                 stream = dynamic_media_stream(path=file_path, video=False)
                 try:
@@ -517,13 +526,13 @@ class Call:
                     return await app.send_message(original_chat_id, text=_["call_6"])
 
                 button = stream_markup(_, chat_id)
-                await mystic.delete()
-                img = await get_thumb(queued)
+                # Use videoid (URL) for thumbnail since it always contains the SoundCloud URL
+                img = await get_thumb(videoid)
                 run = await app.send_photo(
                     chat_id=original_chat_id,
                     photo=img,
                     caption=_["stream_1"].format(
-                        queued,
+                        videoid,
                         title[:23],
                         current["dur"],
                         user,
