@@ -97,39 +97,39 @@ async def stream(
             except Exception as e:
                 raise AssistantErr(_["play_14"])
 
-                await StreamController.join_call(
-                    chat_id,
-                    original_chat_id,
-                    file_path,
-                    video=is_video,
-                    image=thumbnail,
-                )
-                await put_queue(
-                    chat_id,
-                    original_chat_id,
-                    file_path if direct else f"vid_{vidid}",
-                    title,
+            await StreamController.join_call(
+                chat_id,
+                original_chat_id,
+                file_path,
+                video=is_video,
+                image=thumbnail,
+            )
+            await put_queue(
+                chat_id,
+                original_chat_id,
+                file_path if direct else f"vid_{vidid}",
+                title,
+                duration_min,
+                user_name,
+                vidid,
+                user_id,
+                "video" if is_video else "audio",
+                forceplay=forceplay,
+            )
+            img = await get_thumb(vidid)
+            button = stream_markup(_, chat_id)
+            run = await app.send_photo(
+                original_chat_id,
+                photo=img,
+                caption=_["stream_1"].format(
+                    f"https://t.me/{app.username}?start=info_{vidid}",
+                    title[:23],
                     duration_min,
                     user_name,
-                    vidid,
-                    user_id,
-                    "video" if is_video else "audio",
-                    forceplay=forceplay,
-                )
-                img = await get_thumb(vidid)
-                button = stream_markup(_, chat_id)
-                run = await app.send_photo(
-                    original_chat_id,
-                    photo=img,
-                    caption=_["stream_1"].format(
-                        f"https://t.me/{app.username}?start=info_{vidid}",
-                        title[:23],
-                        duration_min,
-                        user_name,
-                    ),
-                    reply_markup=InlineKeyboardMarkup(button),
-                )
-                set_current_message(chat_id, run, "stream")
+                ),
+                reply_markup=InlineKeyboardMarkup(button),
+            )
+            set_current_message(chat_id, run, "stream")
 
         if count == 0:
             return
