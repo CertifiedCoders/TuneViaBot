@@ -14,6 +14,7 @@ from Tune.utils.database import get_cmode, is_active_chat, is_music_playing
 from Tune.utils.decorators.language import language, languageCB
 from Tune.utils.inline import queue_back_markup, queue_markup
 from Tune.utils.thumbnails import get_thumb
+from Tune.platforms.Soundcloud import is_soundcloud_url
 from config import BANNED_USERS
 
 basic = {}
@@ -82,7 +83,7 @@ async def get_queue(client, message: Message, _):
             )
         elif videoid == "soundcloud":
             # Use videoid which may contain the URL, otherwise fallback to default
-            IMAGE = await get_thumb(videoid if ("soundcloud.com" in str(videoid) or "on.soundcloud.com" in str(videoid)) else "soundcloud")
+            IMAGE = await get_thumb(videoid if is_soundcloud_url(videoid) else "soundcloud")
         else:
             IMAGE = await get_thumb(videoid)
     send = _["queue_6"] if DUR == "Unknown" else _["queue_7"]
@@ -223,7 +224,7 @@ async def queue_back(client, CallbackQuery: CallbackQuery, _):
             )
         elif videoid == "soundcloud":
             # Use videoid which may contain the URL, otherwise fallback to default
-            IMAGE = await get_thumb(videoid if ("soundcloud.com" in str(videoid) or "on.soundcloud.com" in str(videoid)) else "soundcloud")
+            IMAGE = await get_thumb(videoid if is_soundcloud_url(videoid) else "soundcloud")
         else:
             IMAGE = await get_thumb(videoid)
     send = _["queue_6"] if DUR == "Unknown" else _["queue_7"]

@@ -7,7 +7,7 @@ from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 from youtubesearchpython.__future__ import VideosSearch
 from config import YOUTUBE_IMG_URL, SOUNCLOUD_IMG_URL
 from Tune.core.dir import CACHE_DIR 
-
+from Tune.platforms.Soundcloud import is_soundcloud_url
 
 PANEL_W, PANEL_H = 763, 545
 PANEL_X = (1280 - PANEL_W) // 2
@@ -44,11 +44,6 @@ def trim_to_width(text: str, font: ImageFont.FreeTypeFont, max_w: int) -> str:
     return ellipsis
 
 
-def _is_soundcloud_url(url_or_id: str) -> bool:
-    """Check if the provided string is a SoundCloud URL."""
-    return bool(url_or_id and (
-        "soundcloud.com" in url_or_id or "on.soundcloud.com" in url_or_id
-    ))
 
 
 async def _create_decorated_thumbnail(
@@ -232,7 +227,7 @@ async def get_thumb(videoid: str) -> str:
         Path to cached decorated thumbnail, or fallback URL if extraction fails
     """
     # Check if it's a SoundCloud URL
-    if _is_soundcloud_url(videoid):
+    if is_soundcloud_url(videoid):
         return await get_soundcloud_thumb(videoid)
     
     # If it's the string "soundcloud" without a URL, return fallback

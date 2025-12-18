@@ -11,6 +11,12 @@ from Tune.utils.formatters import seconds_to_min
 
 _SC_RE = re.compile(r"^https?://(?:www\.)?(soundcloud\.com|on\.soundcloud\.com)/.+", re.I)
 
+
+def is_soundcloud_url(url: str) -> bool:
+    """Check if a string contains a SoundCloud URL (both soundcloud.com and on.soundcloud.com)."""
+    return bool(url and "soundcloud.com" in str(url))
+
+
 # Simple cache for extracted info to avoid redundant extractions
 # Key: URL, Value: (info_dict, timestamp)
 _info_cache: Dict[str, Tuple[Dict[str, Any], float]] = {}

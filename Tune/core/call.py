@@ -17,6 +17,7 @@ import config
 from config import autoclean
 from strings import get_string
 from Tune import LOGGER, SoundCloud, YouTube, app
+from Tune.platforms.Soundcloud import is_soundcloud_url
 from Tune.misc import db, set_current_message
 from Tune.utils.database import (
     add_active_chat,
@@ -474,12 +475,12 @@ class Call:
                 )
                 set_current_message(chat_id, run, "stream")
 
-            elif videoid and ("soundcloud.com" in str(videoid) or "on.soundcloud.com" in str(videoid)):
+            elif videoid and is_soundcloud_url(videoid):
                 # Handle SoundCloud tracks (check videoid since it always contains the URL)
                 # queued may be either a URL (from playlist queuing) or a file path (already downloaded)
                 
                 # Check if queued is already a downloaded file path (not a URL)
-                if "soundcloud.com" not in str(queued) and "on.soundcloud.com" not in str(queued) and os.path.exists(str(queued)):
+                if not is_soundcloud_url(queued) and os.path.exists(str(queued)):
                     # File is already downloaded, use it directly
                     file_path = queued
                 else:
@@ -589,7 +590,7 @@ class Call:
                 elif videoid == "soundcloud":
                     button = stream_markup(_, chat_id)
                     # Try to get thumbnail from queued URL if it's a SoundCloud URL, otherwise use videoid or fallback
-                    thumb_source = queued if ("soundcloud.com" in str(queued) or "on.soundcloud.com" in str(queued)) else (videoid if ("soundcloud.com" in str(videoid) or "on.soundcloud.com" in str(videoid)) else "soundcloud")
+                    thumb_source = queued if is_soundcloud_url(queued) else (videoid if is_soundcloud_url(videoid) else "soundcloud")
                     img = await get_thumb(thumb_source)
                     run = await app.send_photo(
                         chat_id=original_chat_id,

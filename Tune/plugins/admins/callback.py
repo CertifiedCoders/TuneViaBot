@@ -16,6 +16,7 @@ from config import (
 from strings import get_string
 from Tune import YouTube, app
 from Tune.core.call import StreamController
+from Tune.platforms.Soundcloud import is_soundcloud_url
 from Tune.misc import db, set_current_message
 from Tune.utils.database import (
     get_active_chats,
@@ -265,7 +266,7 @@ async def handle_skip_replay(callback: CallbackQuery, _, chat_id: int, command: 
         elif videoid == "soundcloud":
             buttons = stream_markup(_, chat_id)
             # Try to get thumbnail from queued URL if it's a SoundCloud URL, otherwise use videoid or fallback
-            thumb_source = queued if ("soundcloud.com" in str(queued) or "on.soundcloud.com" in str(queued)) else (videoid if ("soundcloud.com" in str(videoid) or "on.soundcloud.com" in str(videoid)) else "soundcloud")
+            thumb_source = queued if is_soundcloud_url(queued) else (videoid if is_soundcloud_url(videoid) else "soundcloud")
             img = await get_thumb(thumb_source)
             run = await callback.message.reply_photo(
                 photo=img,

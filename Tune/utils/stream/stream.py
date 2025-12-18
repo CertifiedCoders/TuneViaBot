@@ -7,6 +7,7 @@ from pyrogram.types import InlineKeyboardMarkup
 
 import config
 from Tune import Carbon, SoundCloud, YouTube, app
+from Tune.platforms.Soundcloud import is_soundcloud_url
 from Tune.core.call import StreamController
 from Tune.misc import db, set_current_message
 from Tune.utils.database import add_active_video_chat, is_active_chat
@@ -32,7 +33,7 @@ def _get_file_identifier(vidid: str, file_path: str = None, direct: bool = False
     """
     if file_path and direct:
         return file_path
-    if "soundcloud.com" in vidid or "on.soundcloud.com" in vidid:
+    if is_soundcloud_url(vidid):
         return vidid
     return f"vid_{vidid}"
 
@@ -72,7 +73,7 @@ async def stream(
                 continue
             try:
                 # Check if it's a SoundCloud URL or YouTube URL
-                is_soundcloud = "soundcloud.com" in search or "on.soundcloud.com" in search
+                is_soundcloud = is_soundcloud_url(search)
                 if is_soundcloud:
                     title, duration_min, duration_sec, thumbnail, vidid = await SoundCloud.details(search)
                 else:
@@ -90,7 +91,7 @@ async def stream(
             # If chat is already active, queue all songs
             if is_chat_active:
                 # Use appropriate file format based on source
-                file_identifier = f"vid_{vidid}" if "soundcloud.com" not in vidid and "on.soundcloud.com" not in vidid else vidid
+                file_identifier = vidid if is_soundcloud_url(vidid) else f"vid_{vidid}"
                 await put_queue(
                     chat_id,
                     original_chat_id,
@@ -114,7 +115,7 @@ async def stream(
                 direct = False
                 try:
                     # Check if it's a SoundCloud URL or YouTube URL
-                    is_soundcloud = "soundcloud.com" in vidid or "on.soundcloud.com" in vidid
+                    is_soundcloud = is_soundcloud_url(vidid)
                     if is_soundcloud:
                         result = await SoundCloud.download(vidid)
                         if result is False or not isinstance(result, tuple):
@@ -157,7 +158,7 @@ async def stream(
                 )
                 # Get thumbnail (works for both YouTube and SoundCloud)
                 img = await get_thumb(vidid)
-                info_url = vidid if ("soundcloud.com" in vidid or "on.soundcloud.com" in vidid) else f"https://t.me/{app.username}?start=info_{vidid}"
+                info_url = vidid if is_soundcloud_url(vidid) else f"https://t.me/{app.username}?start=info_{vidid}"
                 button = stream_markup(_, chat_id)
                 run = await app.send_photo(
                     original_chat_id,
