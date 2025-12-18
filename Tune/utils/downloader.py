@@ -72,24 +72,41 @@ def find_cached_file(video_id: str) -> Optional[str]:
     return None
 
 
-def get_ytdlp_base_opts() -> Dict[str, object]:
+def get_ytdlp_base_opts(is_soundcloud: bool = False) -> Dict[str, object]:
+    """
+    Get base yt-dlp options.
+    
+    Args:
+        is_soundcloud: If True, optimize options for SoundCloud downloads
+    """
     opts = {
-        "outtmpl": f"{DOWNLOAD_DIR}/%(id)s.%(ext)s",
         "quiet": True,
         "no_warnings": True,
         "noplaylist": True,
         "overwrites": False,
         "continuedl": True,
         "noprogress": True,
-        "concurrent_fragment_downloads": 16,
-        "http_chunk_size": 1 << 20,
-        "socket_timeout": 15,
-        "retries": 1,
-        "fragment_retries": 1,
         "cachedir": str(CACHE_DIR),
         "ignoreerrors": True,
-        "merge_output_format": "mp4"
     }
+    
+    if is_soundcloud:
+        # SoundCloud-specific optimizations
+        # Use URL hash as output filename for consistent caching
+        opts["outtmpl"] = f"{DOWNLOAD_DIR}/%(id)s.%(ext)s"
+        # SoundCloud doesn't use fragments, so skip concurrent fragment settings
+        opts["socket_timeout"] = 30  # Slightly longer timeout for SoundCloud
+        opts["retries"] = 3  # More retries for SoundCloud (can be flaky)
+        opts["extractor_args"] = {"soundcloud": {"client_id": None}}  # Use default client
+    else:
+        opts["outtmpl"] = f"{DOWNLOAD_DIR}/%(id)s.%(ext)s"
+        opts["concurrent_fragment_downloads"] = 16
+        opts["http_chunk_size"] = 1 << 20
+        opts["socket_timeout"] = 15
+        opts["retries"] = 1
+        opts["fragment_retries"] = 1
+        opts["merge_output_format"] = "mp4"
+    
     if cookiefile := get_cookie_file():
         opts["cookiefile"] = cookiefile
     return opts
@@ -207,15 +224,32 @@ def get_final_path_from_info(info: Dict) -> Optional[str]:
     return matches[0] if matches else None
 
 
-def download_with_ytdlp_sync(link: str, fmt: str) -> Optional[str]:
+def download_with_ytdlp_sync(link: str, fmt: str, is_soundcloud: bool = False, cache_id: Optional[str] = None) -> Optional[str]:
+    """
+    Synchronous yt-dlp download.
+    
+    Args:
+        link: URL to download
+        fmt: Format selector
+        is_soundcloud: Whether this is a SoundCloud URL
+        cache_id: Optional cache ID for SoundCloud (MD5 hash of URL) - used for pre-check only
+    """
     try:
-        opts = get_ytdlp_base_opts()
+        opts = get_ytdlp_base_opts(is_soundcloud=is_soundcloud)
         opts["format"] = fmt
+        
         with YoutubeDL(opts) as ydl:
+            # Extract info first to check if file already exists
             info = ydl.extract_info(link, download=False)
+            
+            # Check if file already exists using yt-dlp's extracted ID
             if path := get_final_path_from_info(info):
                 return path
+            
+            # Download the file
             ydl.download([link])
+            
+            # Return the path to the downloaded file
             return get_final_path_from_info(info)
     except Exception as e:
         # Log the actual error for debugging, but don't raise
@@ -276,27 +310,26 @@ async def race_ytdlp_and_api(yt_task, api_task, title: str, media_type: str):
 
 async def yt_dlp_download(link: str, type: str, title: str = "") -> Optional[str]:
     loop = asyncio.get_running_loop()
-    vid = extract_video_id(link)
-    if cached := find_cached_file(vid):
-        if title:
-            LOGGER.info(f"Track '{title}' - Served from cache")
-        return cached
+    is_soundcloud = bool(SOUNDCLOUD_RE.match(link))
+    
+    # Cache check is handled inside download_with_ytdlp_sync via get_final_path_from_info
+    # which uses yt-dlp's extracted ID (works for both YouTube and SoundCloud)
 
     if type == "audio":
         key = f"audio:{link}"
         
         # Use flexible format for SoundCloud (they may not have webm/opus),
         # but prefer webm/opus for YouTube for better quality
-        is_soundcloud = bool(SOUNDCLOUD_RE.match(link))
         audio_format = "bestaudio/best" if is_soundcloud else "bestaudio[ext=webm][acodec=opus]/bestaudio/best"
 
         async def run():
             ytdlp_task = asyncio.create_task(
                 run_with_semaphore(
-                    loop.run_in_executor(None, download_with_ytdlp_sync, link, audio_format)
+                    loop.run_in_executor(None, download_with_ytdlp_sync, link, audio_format, is_soundcloud, None)
                 )
             )
-            api_task = asyncio.create_task(api_download_audio(link)) if USE_AUDIO_API else None
+            # Skip API for SoundCloud (API only supports YouTube)
+            api_task = asyncio.create_task(api_download_audio(link)) if (USE_AUDIO_API and not is_soundcloud) else None
             if api_task:
                 return await race_ytdlp_and_api(
                     ytdlp_task,

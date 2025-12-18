@@ -11,20 +11,65 @@ from Tune.utils.formatters import seconds_to_min
 
 _SC_RE = re.compile(r"^https?://(?:www\.)?(soundcloud\.com|on\.soundcloud\.com)/.+", re.I)
 
+# Simple cache for extracted info to avoid redundant extractions
+# Key: URL, Value: (info_dict, timestamp)
+_info_cache: Dict[str, Tuple[Dict[str, Any], float]] = {}
+_cache_max_age = 300  # Cache for 5 minutes
+
+
+def _get_cached_info(url: str) -> Optional[Dict[str, Any]]:
+    """Get cached info if still valid."""
+    import time
+    if url in _info_cache:
+        info, timestamp = _info_cache[url]
+        if time.time() - timestamp < _cache_max_age:
+            return info
+        else:
+            del _info_cache[url]
+    return None
+
+
+def _cache_info(url: str, info: Dict[str, Any]) -> None:
+    """Cache extracted info."""
+    import time
+    _info_cache[url] = (info, time.time())
+
 
 class SoundAPI:
     async def valid(self, link: str) -> bool:
         return bool(link and _SC_RE.match(link))
 
     async def is_playlist(self, url: str) -> bool:
-        """Check if the URL is a SoundCloud playlist."""
+        """
+        Check if the URL is a SoundCloud playlist.
+        
+        Uses caching to avoid redundant extractions if called before playlist() or download().
+        """
         try:
-            info = await self._extract_info(url, allow_playlist=True)
+            info = await self._extract_info(url, allow_playlist=True, use_cache=True)
             return info is not None and info.get("_type") == "playlist"
         except Exception:
             return False
 
-    async def _extract_info(self, url: str, allow_playlist: bool = False) -> Optional[Dict[str, Any]]:
+    async def _extract_info(self, url: str, allow_playlist: bool = False, use_cache: bool = True) -> Optional[Dict[str, Any]]:
+        """
+        Extract info from SoundCloud URL using yt-dlp.
+        
+        Args:
+            url: SoundCloud URL
+            allow_playlist: Whether to allow playlist extraction
+            use_cache: Whether to use cached info if available
+        
+        Returns:
+            Extracted info dict or None
+        """
+        # Check cache first
+        if use_cache:
+            if cached := _get_cached_info(url):
+                # If cached info is a playlist and we need playlist, or vice versa, use it
+                if allow_playlist or cached.get("_type") != "playlist":
+                    return cached
+        
         def _run(u: str):
             opts = {
                 "quiet": True,
@@ -51,13 +96,23 @@ class SoundAPI:
                     # If extracting from URL fails, use original info
                     pass
 
+            # Cache the result
+            if use_cache and info:
+                _cache_info(url, info)
+
             return info
         except Exception:
             return None
 
     async def download(self, url: str) -> Union[Tuple[Dict[str, Any], str], bool]:
+        """
+        Download a SoundCloud track.
+        
+        Optimized to use cached info if available, reducing redundant extractions.
+        """
         try:
-            info = await self._extract_info(url)
+            # Try to use cached info first (from previous is_playlist or details calls)
+            info = await self._extract_info(url, allow_playlist=False, use_cache=True)
             if not info:
                 return False
         except Exception:
@@ -79,6 +134,7 @@ class SoundAPI:
             or ""
         )
 
+        # Download the track - yt_dlp_download will use cache if file exists
         out_path: Optional[str] = await yt_dlp_download(url, type="audio", title=title)
         if not out_path:
             return False
