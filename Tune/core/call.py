@@ -59,6 +59,21 @@ def dynamic_media_stream(path: str, video: bool = False, ffmpeg_params: str = No
         ffmpeg_parameters=ffmpeg_params,
     )
 
+def _to_bool(value: Union[bool, str, None]) -> bool:
+    """
+    Safely convert a value to boolean, handling both bool and string types.
+    String values like "false", "0", "no" are treated as False,
+    while "true", "1", "yes" (case-insensitive) are treated as True.
+    """
+    if value is None:
+        return False
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.lower().strip() in ("true", "1", "yes", "on")
+    return bool(value)
+
+
 async def _clear_(chat_id: int) -> None:
     """Clear queue state and clean up downloaded files for a chat."""
     popped = db.pop(chat_id, None)
@@ -191,9 +206,10 @@ class Call:
 
 
     @capture_internal_err
-    async def skip_stream(self, chat_id: int, link: str, video: Union[bool, str] = None, image: Union[bool, str] = None) -> None:
+    async def skip_stream(self, chat_id: int, link: str, video: Union[bool, str] = None) -> None:
+        """Skip to a new stream URL immediately."""
         assistant = await group_assistant(self, chat_id)
-        stream = dynamic_media_stream(path=link, video=bool(video))
+        stream = dynamic_media_stream(path=link, video=_to_bool(video))
         await assistant.play(chat_id, stream)
 
     @capture_internal_err
@@ -286,7 +302,8 @@ class Call:
         assistant = await group_assistant(self, chat_id)
         lang = await get_lang(chat_id)
         _ = get_string(lang)
-        stream = dynamic_media_stream(path=link, video=bool(video))
+        is_video = _to_bool(video)
+        stream = dynamic_media_stream(path=link, video=is_video)
 
         try:
             await assistant.play(chat_id, stream)
@@ -306,7 +323,7 @@ class Call:
         try:
             await add_active_chat(chat_id)
             await music_on(chat_id)
-            if video and bool(video):
+            if is_video:
                 await add_active_video_chat(chat_id)
         except Exception:
             # If database operations fail, we still have the call active
