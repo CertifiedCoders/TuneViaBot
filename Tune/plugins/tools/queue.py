@@ -1,4 +1,4 @@
-﻿# Authored By Certified Coders © 2025
+# Authored By Certified Coders © 2025
 import asyncio
 import os
 
@@ -49,8 +49,8 @@ async def get_queue(client, message: Message, _):
             return await message.reply_text(_["setting_7"])
         try:
             await app.get_chat(chat_id)
-        except:
-            return await message.reply_text(_["cplay_4"])
+        except Exception as e:
+            return await message.reply_text(_["cplay_4"].format(e))
         cplay = True
     else:
         chat_id = message.chat.id

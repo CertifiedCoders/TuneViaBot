@@ -1,4 +1,4 @@
-﻿# Authored By Certified Coders © 2025
+# Authored By Certified Coders © 2025
 from pyrogram.enums import ChatType
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
@@ -57,8 +57,8 @@ def AdminRightsCheck(mystic):
                 return await message.reply_text(_["setting_7"])
             try:
                 await app.get_chat(chat_id)
-            except:
-                return await message.reply_text(_["cplay_4"])
+            except Exception as e:
+                return await message.reply_text(_["cplay_4"].format(e))
         else:
             chat_id = message.chat.id
         if not await is_active_chat(chat_id):

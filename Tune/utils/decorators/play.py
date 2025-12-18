@@ -1,4 +1,4 @@
-﻿# Authored By Certified Coders © 2025
+# Authored By Certified Coders © 2025
 import asyncio
 
 from pyrogram.enums import ChatMemberStatus
@@ -87,8 +87,8 @@ def PlayWrapper(command):
                 return await message.reply_text(_["setting_7"])
             try:
                 chat = await app.get_chat(chat_id)
-            except Exception:
-                return await message.reply_text(_["cplay_4"])
+            except Exception as e:
+                return await message.reply_text(_["cplay_4"].format(e))
             channel = chat.title
         else:
             chat_id = message.chat.id
