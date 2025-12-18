@@ -11,6 +11,7 @@ from Tune.core.call import StreamController
 from Tune.misc import sudo
 from Tune.plugins import ALL_MODULES
 from Tune.utils.database import get_banned_users, get_gbanned, get_spam_blocked_users
+from Tune.plugins.security.antispam_handler import get_spam_blocked_cache
 from Tune.utils.cookie_handler import fetch_and_store_cookies 
 from config import BANNED_USERS
 
@@ -41,11 +42,11 @@ async def init():
         users = await get_banned_users()
         for user_id in users:
             BANNED_USERS.add(user_id)
-        from Tune.plugins.security.antispam_handler import get_spam_blocked_cache
         spam_users = await get_spam_blocked_users()
         cache = get_spam_blocked_cache()
         for user_id in spam_users:
             cache.add(user_id)
+        LOGGER("Tune").info("ᴀɴᴛɪ-sᴘᴀᴍ sʏsᴛᴇᴍ ʟᴏᴀᴅᴇᴅ sᴜᴄᴄᴇssғᴜʟʟʏ ✅")
     except Exception as e:
         LOGGER("Tune").warning(f"ғᴀɪʟᴇᴅ ᴛᴏ ʟᴏᴀᴅ ʙᴀɴɴᴇᴅ ᴜsᴇʀs: {e}")
 
