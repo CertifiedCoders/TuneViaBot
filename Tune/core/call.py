@@ -14,6 +14,7 @@ from pytgcalls.exceptions import NoActiveGroupCall, NoAudioSourceFound, NoVideoS
 from pytgcalls.types import AudioQuality, ChatUpdate, MediaStream, StreamEnded, Update, VideoQuality
 
 import config
+from config import autoclean
 from strings import get_string
 from Tune import LOGGER, SoundCloud, YouTube, app
 from Tune.misc import db, set_current_message
@@ -481,6 +482,25 @@ class Call:
                     return await mystic.edit_text(
                         _["call_6"], disable_web_page_preview=True
                     )
+
+                # Update the queue entry to store the actual file path instead of URL
+                # This ensures auto_clean can properly delete the file later
+                try:
+                    if chat_id in db and db[chat_id] and len(db[chat_id]) > 0:
+                        # Remove the URL from autoclean if it was added
+                        if queued in autoclean:
+                            try:
+                                autoclean.remove(queued)
+                            except (ValueError, AttributeError):
+                                pass
+                        # Update the queue entry with the actual file path
+                        db[chat_id][0]["file"] = file_path
+                        # Add the file path to autoclean for cleanup later
+                        if file_path not in autoclean:
+                            autoclean.append(file_path)
+                except (IndexError, KeyError, AttributeError):
+                    # Queue was modified concurrently; continue anyway
+                    pass
 
                 stream = dynamic_media_stream(path=file_path, video=False)
                 try:
