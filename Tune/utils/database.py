@@ -144,6 +144,7 @@ async def group_assistant(self, chat_id: int) -> int:
             assis = await set_calls_assistant(chat_id)
     
     assis_int = None
+    result = None
     try:
         assis_int = int(assis)
         if assis_int == 1:
@@ -156,11 +157,7 @@ async def group_assistant(self, chat_id: int) -> int:
             result = self.four
         elif assis_int == 5:
             result = self.five
-        else:
-            result = None
-            assis_int = None
     except (ValueError, AttributeError):
-        result = None
         assis_int = None
     
     if result is None:

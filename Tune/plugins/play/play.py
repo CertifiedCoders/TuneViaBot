@@ -47,7 +47,7 @@ def _format_error(e, _):
 
 
 async def _handle_stream_error(_, mystic, e):
-    err = _format_error(e) or _["general_2"].format(type(e).__name__)
+    err = _format_error(e, _) or _["general_2"].format(type(e).__name__)
     return await mystic.edit_text(err)
 
 
