@@ -184,7 +184,7 @@ async def handle_skip_replay(callback: CallbackQuery, _, chat_id: int, command: 
         except Exception:
             image = None
         try:
-            await StreamController.skip_stream(chat_id, new_link, video=status, image=image)
+            await StreamController.skip_stream(chat_id, new_link, video=status)
         except Exception:
             return await callback.message.reply_text(_["call_6"])
         buttons = stream_markup(_, chat_id)
@@ -214,7 +214,7 @@ async def handle_skip_replay(callback: CallbackQuery, _, chat_id: int, command: 
         except Exception:
             image = None
         try:
-            await StreamController.skip_stream(chat_id, file_path, video=status, image=image)
+            await StreamController.skip_stream(chat_id, file_path, video=status)
         except Exception:
             return await mystic.edit_text(_["call_6"])
         buttons = stream_markup(_, chat_id)
@@ -251,7 +251,7 @@ async def handle_skip_replay(callback: CallbackQuery, _, chat_id: int, command: 
             except Exception:
                 image = None
         try:
-            await StreamController.skip_stream(chat_id, queued, video=status, image=image)
+            await StreamController.skip_stream(chat_id, queued, video=status)
         except Exception:
             return await callback.message.reply_text(_["call_6"])
         if videoid == "telegram":
