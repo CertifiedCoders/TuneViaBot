@@ -38,14 +38,22 @@ async def antispam_filter_func(_, __, message: Message):
     return True
 
 
+async def command_antispam_filter_func(_, __, message: Message):
+    if not message.command:
+        return False
+    
+    return await antispam_filter_func(_, __, message)
+
+
 ANTISPAM_FILTER = filters.create(antispam_filter_func)
+COMMAND_ANTISPAM_FILTER = filters.create(command_antispam_filter_func)
 
 
 def get_spam_blocked_cache():
     return _spam_blocked_users_cache
 
 
-@app.on_message(filters.command & ANTISPAM_FILTER, group=-10)
+@app.on_message(COMMAND_ANTISPAM_FILTER, group=-10)
 async def track_command_execution(client, message: Message):
     if not message.from_user:
         return
