@@ -24,6 +24,8 @@ playtypedb = mongodb.playtypedb
 skipdb = mongodb.skipmode
 sudoersdb = mongodb.sudoers
 usersdb = mongodb.tgusersdb
+antispamdb = mongodb.antispam
+antispamblockeddb = mongodb.antispamblocked
 
 
 active = []
@@ -675,3 +677,56 @@ async def remove_banned_user(user_id: int):
     if not is_gbanned:
         return
     return await blockeddb.delete_one({"user_id": user_id})
+
+
+async def is_antispam_enabled() -> bool:
+    config = await antispamdb.find_one({"config": "antispam"})
+    if not config:
+        antispamdb.insert_one({"config": "antispam", "enabled": True})
+        return True
+    return config.get("enabled", True)
+
+
+async def antispam_on():
+    await antispamdb.update_one(
+        {"config": "antispam"}, {"$set": {"enabled": True}}, upsert=True
+    )
+
+
+async def antispam_off():
+    await antispamdb.update_one(
+        {"config": "antispam"}, {"$set": {"enabled": False}}, upsert=True
+    )
+
+
+async def is_spam_blocked(user_id: int) -> bool:
+    user = await antispamblockeddb.find_one({"user_id": user_id})
+    return bool(user)
+
+
+async def add_spam_blocked_user(user_id: int, command_count: int, time_window: int):
+    await antispamblockeddb.update_one(
+        {"user_id": user_id},
+        {
+            "$set": {
+                "user_id": user_id,
+                "command_count": command_count,
+                "time_window": time_window,
+            }
+        },
+        upsert=True,
+    )
+
+
+async def remove_spam_blocked_user(user_id: int):
+    is_blocked = await is_spam_blocked(user_id)
+    if not is_blocked:
+        return
+    return await antispamblockeddb.delete_one({"user_id": user_id})
+
+
+async def get_spam_blocked_users() -> list:
+    results = []
+    async for user in antispamblockeddb.find({"user_id": {"$gt": 0}}):
+        results.append(user["user_id"])
+    return results
