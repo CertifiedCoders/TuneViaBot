@@ -418,6 +418,8 @@ class Call:
         except Exception as e:
             LOGGER(__name__).error(f"YouTube download failed in play: {e}")
             return await mystic.edit_text(_["call_6"], disable_web_page_preview=True)
+        if not file_path:
+            return await mystic.edit_text(_["call_6"], disable_web_page_preview=True)
         stream = dynamic_media_stream(path=file_path, video=video)
         try:
             await client.play(chat_id, stream)
