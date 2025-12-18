@@ -1,4 +1,4 @@
-﻿# Authored By Certified Coders © 2025
+# Authored By Certified Coders © 2025
 import asyncio
 import random
 import urllib.parse
@@ -8,6 +8,7 @@ from typing import Optional
 
 from config import LOGGER_ID
 from Tune import app
+from Tune.utils.database import remove_served_chat
 
 BOT_INFO: Optional[types.User] = None
 BOT_ID: Optional[int] = None
@@ -118,13 +119,17 @@ async def on_left_chat_member(_, message: Message):
 
         remover = message.from_user.mention if message.from_user else "**ᴜɴᴋɴᴏᴡɴ ᴜsᴇʀ**"
         chat = message.chat
+        chat_id = chat.id
+
+        await remove_served_chat(chat_id)
 
         text = (
             "✫ **<u>#ʟᴇғᴛ_ɢʀᴏᴜᴘ</u>** ✫\n\n"
             f"📌 **ᴄʜᴀᴛ ɴᴀᴍᴇ:** `{chat.title}`\n"
-            f"🆔 **ᴄʜᴀᴛ ɪᴅ:** `{chat.id}`\n"
+            f"🆔 **ᴄʜᴀᴛ ɪᴅ:** `{chat_id}`\n"
             f"👤 **ʀᴇᴍᴏᴠᴇᴅ ʙʏ:** {remover}\n"
-            f"🤖 **ʙᴏᴛ:** @{BOT_INFO.username}"
+            f"🤖 **ʙᴏᴛ:** @{BOT_INFO.username}\n"
+            f"🗑️ **ᴄʜᴀᴛ ʀᴇᴍᴏᴠᴇᴅ ғʀᴏᴍ ᴅᴀᴛᴀʙᴀsᴇ**"
         )
 
         max_retries = 3

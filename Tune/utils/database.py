@@ -520,7 +520,12 @@ async def add_served_chat(chat_id: int):
 async def remove_served_chat(chat_id: int):
     if await is_served_chat(chat_id):
         await chatsdb.delete_one({"chat_id": chat_id})
-    
+
+
+async def remove_served_user(user_id: int):
+    if await is_served_user(user_id):
+        await usersdb.delete_one({"user_id": user_id})
+
 
 async def blacklisted_chats() -> list:
     chats_list = []
