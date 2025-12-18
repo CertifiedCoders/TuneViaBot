@@ -207,8 +207,9 @@ async def skip(cli, message: Message, _, chat_id):
             set_current_message(chat_id, run, "tg")
         elif videoid == "soundcloud":
             button = stream_markup(_, chat_id)
-            # Try to get thumbnail from queued URL if it's a SoundCloud URL
-            img = await get_thumb(queued if ("soundcloud.com" in str(queued) or "on.soundcloud.com" in str(queued)) else queued)
+            # Try to get thumbnail from queued URL if it's a SoundCloud URL, otherwise use videoid or fallback
+            thumb_source = queued if ("soundcloud.com" in str(queued) or "on.soundcloud.com" in str(queued)) else (videoid if ("soundcloud.com" in str(videoid) or "on.soundcloud.com" in str(videoid)) else "soundcloud")
+            img = await get_thumb(thumb_source)
             run = await message.reply_photo(
                 photo=img,
                 caption=_["stream_1"].format(
