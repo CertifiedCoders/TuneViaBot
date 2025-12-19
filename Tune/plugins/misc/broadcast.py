@@ -1,5 +1,7 @@
 # Authored By Certified Coders © 2025
 import asyncio
+import os
+from datetime import datetime
 
 from pyrogram import filters
 from pyrogram.enums import ChatMembersFilter
@@ -24,6 +26,7 @@ from Tune.utils.database import (
 from Tune.utils.decorators.language import language
 from Tune.utils.formatters import alpha_to_int
 from Tune.logging import LOGGER
+from Tune.core.dir import LOGS_DIR
 from config import adminlist
 
 IS_BROADCASTING = False
@@ -46,6 +49,17 @@ CLEANUP_KEYWORDS = [
     "chat_id invalid",
     "user_id invalid",
 ]
+
+
+def _write_to_log_file(message: str):
+    try:
+        log_file = os.path.join(LOGS_DIR, "broadcast_actions.txt")
+        timestamp = datetime.now().strftime("[%d-%b-%y %H:%M:%S]")
+        log_entry = f"{timestamp} - {message}\n"
+        with open(log_file, "a", encoding="utf-8") as f:
+            f.write(log_entry)
+    except Exception:
+        pass
 
 
 def _should_cleanup_error(error: Exception) -> bool:
@@ -97,6 +111,19 @@ async def _send_with_retry(target_id: int, is_forward: bool, source_chat: int, m
     return None, None
 
 
+async def _pin_message(result, pin_mode: str):
+    try:
+        if hasattr(result, 'pin'):
+            await result.pin(disable_notification=(pin_mode == "pin"))
+            return True
+        elif isinstance(result, list) and result:
+            await result[0].pin(disable_notification=(pin_mode == "pin"))
+            return True
+    except Exception:
+        pass
+    return False
+
+
 async def _broadcast_to_targets(target_ids: list, is_forward: bool, source_chat: int, msg_id: int, text: str, pin_mode: str = None):
     sent = 0
     pinned = 0
@@ -111,32 +138,97 @@ async def _broadcast_to_targets(target_ids: list, is_forward: bool, source_chat:
         
         if result:
             sent += 1
-            if pin_mode:
-                try:
-                    if hasattr(result, 'pin'):
-                        await result.pin(disable_notification=(pin_mode == "pin"))
-                        pinned += 1
-                    elif isinstance(result, list) and result:
-                        await result[0].pin(disable_notification=(pin_mode == "pin"))
-                        pinned += 1
-                except Exception:
-                    pass
+            if pin_mode and await _pin_message(result, pin_mode):
+                pinned += 1
             await asyncio.sleep(0.2)
         elif error and _should_cleanup_error(error):
             to_remove.append(target_id)
             failed += 1
-            LOGGER(__name__).info(f"Removed invalid target {target_id}: {type(error).__name__}")
+            _write_to_log_file(f"Removed invalid target {target_id}: {type(error).__name__}")
         else:
             failed += 1
             if error:
-                LOGGER(__name__).warning(f"Failed to send to {target_id}: {type(error).__name__}")
+                _write_to_log_file(f"Failed to send to {target_id}: {type(error).__name__}")
     
     return sent, pinned, failed, to_remove
 
 
+async def _broadcast_to_chats(message, is_forward: bool, source_chat: int, msg_id: int, query: str, pin_mode: str, _):
+    chats_data = await get_served_chats()
+    chat_ids = [int(chat["chat_id"]) for chat in chats_data if chat.get("chat_id")]
+    
+    sent, pinned, failed, to_remove = await _broadcast_to_targets(
+        chat_ids, is_forward, source_chat, msg_id, query, pin_mode
+    )
+    
+    for chat_id in to_remove:
+        await remove_served_chat(chat_id)
+    
+    try:
+        await message.reply_text(_["broad_3"].format(sent, pinned))
+        if failed > 0:
+            await message.reply_text(f"⚠️ Failed to send to {failed} chat(s). Invalid entries removed.")
+    except Exception:
+        pass
+
+
+async def _broadcast_to_users(message, is_forward: bool, source_chat: int, msg_id: int, query: str, _):
+    users_data = await get_served_users()
+    user_ids = [int(user["user_id"]) for user in users_data if user.get("user_id")]
+    
+    sent, _, failed, to_remove = await _broadcast_to_targets(
+        user_ids, is_forward, source_chat, msg_id, query, None
+    )
+    
+    for user_id in to_remove:
+        await remove_served_user(user_id)
+    
+    try:
+        await message.reply_text(_["broad_4"].format(sent))
+        if failed > 0:
+            await message.reply_text(f"⚠️ Failed to send to {failed} user(s). Invalid entries removed.")
+    except Exception:
+        pass
+
+
+async def _broadcast_to_assistants(message, is_forward: bool, source_chat: int, msg_id: int, query: str, _):
+    from Tune.core.userbot import assistants
+    
+    aw = await message.reply_text(_["broad_5"])
+    text = _["broad_6"]
+    
+    for num in assistants:
+        sent = 0
+        try:
+            client = await get_client(num)
+            async for dialog in client.get_dialogs():
+                try:
+                    if is_forward:
+                        await client.forward_messages(dialog.chat.id, source_chat, msg_id)
+                    else:
+                        await client.send_message(dialog.chat.id, text=query)
+                    sent += 1
+                    await asyncio.sleep(3)
+                except FloodWait as fw:
+                    wait_time = int(fw.value)
+                    if wait_time <= 200:
+                        await asyncio.sleep(wait_time)
+                except Exception:
+                    continue
+        except Exception as e:
+            _write_to_log_file(f"Assistant {num} broadcast failed: {e}")
+            continue
+        text += _["broad_7"].format(num, sent)
+    
+    try:
+        await aw.edit_text(text)
+    except Exception:
+        pass
+
+
 @app.on_message(filters.command("broadcast") & SUDOERS)
 @language
-async def braodcast_message(client, message, _):
+async def broadcast_message(client, message, _):
     global IS_BROADCASTING
     
     if IS_BROADCASTING:
@@ -153,7 +245,7 @@ async def braodcast_message(client, message, _):
         if not query.strip():
             return await message.reply_text(_["broad_8"])
     else:
-        flags, _ = _parse_broadcast_flags(message.text or "")
+        flags, query = _parse_broadcast_flags(message.text or "")
     
     pin_mode = None
     if "pinloud" in flags:
@@ -166,73 +258,13 @@ async def braodcast_message(client, message, _):
         await message.reply_text(_["broad_1"])
         
         if "nobot" not in flags:
-            chats_data = await get_served_chats()
-            chat_ids = [int(chat["chat_id"]) for chat in chats_data if chat.get("chat_id")]
-            
-            sent, pinned, failed, to_remove = await _broadcast_to_targets(
-                chat_ids, is_forward, source_chat, msg_id, query if not is_forward else "", pin_mode
-            )
-            
-            for chat_id in to_remove:
-                await remove_served_chat(chat_id)
-            
-            try:
-                await message.reply_text(_["broad_3"].format(sent, pinned))
-                if failed > 0:
-                    await message.reply_text(f"⚠️ Failed to send to {failed} chat(s). Invalid entries removed.")
-            except Exception:
-                pass
+            await _broadcast_to_chats(message, is_forward, source_chat, msg_id, query, pin_mode, _)
         
         if "user" in flags:
-            users_data = await get_served_users()
-            user_ids = [int(user["user_id"]) for user in users_data if user.get("user_id")]
-            
-            sent, _, failed, to_remove = await _broadcast_to_targets(
-                user_ids, is_forward, source_chat, msg_id, query if not is_forward else "", None
-            )
-            
-            for user_id in to_remove:
-                await remove_served_user(user_id)
-            
-            try:
-                await message.reply_text(_["broad_4"].format(sent))
-                if failed > 0:
-                    await message.reply_text(f"⚠️ Failed to send to {failed} user(s). Invalid entries removed.")
-            except Exception:
-                pass
+            await _broadcast_to_users(message, is_forward, source_chat, msg_id, query, _)
         
         if "assistant" in flags:
-            aw = await message.reply_text(_["broad_5"])
-            text = _["broad_6"]
-            from Tune.core.userbot import assistants
-            
-            for num in assistants:
-                sent = 0
-                try:
-                    client = await get_client(num)
-                    async for dialog in client.get_dialogs():
-                        try:
-                            if is_forward:
-                                await client.forward_messages(dialog.chat.id, source_chat, msg_id)
-                            else:
-                                await client.send_message(dialog.chat.id, text=query)
-                            sent += 1
-                            await asyncio.sleep(3)
-                        except FloodWait as fw:
-                            wait_time = int(fw.value)
-                            if wait_time <= 200:
-                                await asyncio.sleep(wait_time)
-                        except Exception:
-                            continue
-                except Exception as e:
-                    LOGGER(__name__).warning(f"Assistant {num} broadcast failed: {e}")
-                    continue
-                text += _["broad_7"].format(num, sent)
-            
-            try:
-                await aw.edit_text(text)
-            except Exception:
-                pass
+            await _broadcast_to_assistants(message, is_forward, source_chat, msg_id, query, _)
     finally:
         IS_BROADCASTING = False
 
@@ -263,7 +295,6 @@ async def auto_clean():
 async def periodic_cleanup():
     while not await asyncio.sleep(43200):
         try:
-            LOGGER(__name__).info("Starting periodic database cleanup...")
             cleaned_chats = 0
             cleaned_users = 0
             
@@ -278,7 +309,7 @@ async def periodic_cleanup():
                     if _should_cleanup_error(e):
                         await remove_served_chat(chat_id)
                         cleaned_chats += 1
-                        LOGGER(__name__).info(f"Removed invalid chat {chat_id} during periodic cleanup")
+                        _write_to_log_file(f"Removed invalid chat {chat_id} during periodic cleanup: {type(e).__name__}")
                 await asyncio.sleep(0.1)
             
             served_users = await get_served_users()
@@ -292,14 +323,13 @@ async def periodic_cleanup():
                     if _should_cleanup_error(e):
                         await remove_served_user(user_id)
                         cleaned_users += 1
-                        LOGGER(__name__).info(f"Removed invalid user {user_id} during periodic cleanup")
+                        _write_to_log_file(f"Removed invalid user {user_id} during periodic cleanup: {type(e).__name__}")
                 await asyncio.sleep(0.1)
             
             if cleaned_chats > 0 or cleaned_users > 0:
                 LOGGER(__name__).info(f"Periodic cleanup completed: {cleaned_chats} chats and {cleaned_users} users removed")
         except Exception as e:
             LOGGER(__name__).error(f"Error during periodic cleanup: {e}")
-
 
 asyncio.create_task(auto_clean())
 asyncio.create_task(periodic_cleanup())

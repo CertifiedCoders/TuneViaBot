@@ -1,4 +1,4 @@
-﻿# Authored By Certified Coders © 2025
+# Authored By Certified Coders © 2025
 import os
 from Tune.logging import LOGGER
 
@@ -6,10 +6,12 @@ BASE_DIR = os.getcwd()
 DOWNLOAD_DIR = os.path.join(BASE_DIR, "downloads")
 CACHE_DIR = os.path.join(BASE_DIR, "cache")
 BACKUP_DIR = os.path.join(BASE_DIR, "TuneBackup")
+LOGS_DIR = os.path.join(BASE_DIR, "logs")
 
 def StorageManager():
 
     os.makedirs(DOWNLOAD_DIR, exist_ok=True)
     os.makedirs(CACHE_DIR, exist_ok=True)
     os.makedirs(BACKUP_DIR, exist_ok=True)
+    os.makedirs(LOGS_DIR, exist_ok=True)
     LOGGER(__name__).info("Directories Updated.")
