@@ -1,7 +1,8 @@
 # Authored By Certified Coders © 2025
 import re
 import os
-import glob
+import time
+from datetime import datetime
 from pyrogram import filters
 from pyrogram.types import Message
 
@@ -9,11 +10,23 @@ from Tune import app
 from Tune.utils.antispam import check_spam
 from Tune.utils.database import is_spam_blocked, is_antispam_enabled
 from Tune.misc import SUDOERS
-from config import SUPPORT_CHAT
+from config import SUPPORT_CHAT, OWNER_ID
+from Tune.core.dir import LOGS_DIR
 from Tune.logging import LOGGER
 
 _spam_blocked_users_cache = set()
 _user_notified_cache = set()
+_debug_file_path = os.path.join(LOGS_DIR, "antispam_debug.txt")
+
+
+def _write_debug_log(event_type: str, data: dict):
+    try:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        log_entry = f"[{timestamp}] [{event_type}] {data}\n"
+        with open(_debug_file_path, "a", encoding="utf-8") as f:
+            f.write(log_entry)
+    except Exception:
+        pass
 
 
 def get_spam_blocked_cache():
@@ -34,8 +47,9 @@ async def _notify_user_blocked(user_id: int):
                 f"If you want to be freed, contact support:\n{SUPPORT_CHAT}"
             )
             _user_notified_cache.add(user_id)
-        except Exception:
-            pass
+            _write_debug_log("NOTIFY_USER", {"user_id": user_id, "status": "sent"})
+        except Exception as e:
+            _write_debug_log("NOTIFY_USER", {"user_id": user_id, "status": "failed", "error": str(e)})
 
 
 def _extract_commands_from_source():
@@ -152,48 +166,88 @@ COMMAND_FILTER = filters.create(_is_command_message)
 @app.on_message(COMMAND_FILTER, group=0)
 async def antispam_command_handler(client, message: Message):
     try:
+        _write_debug_log("HANDLER_CALLED", {
+            "message_id": message.id,
+            "chat_id": message.chat.id if message.chat else None,
+            "has_command": bool(message.command),
+            "command": message.command[0] if message.command else None
+        })
+        
         if not message.command:
+            _write_debug_log("HANDLER_EXIT", {"reason": "no_command"})
             return
         
         if not message.from_user:
+            _write_debug_log("HANDLER_EXIT", {"reason": "no_from_user"})
             return
         
         user_id = message.from_user.id
+        command_name = message.command[0].lower() if message.command else None
         
-        try:
-            if user_id in SUDOERS:
-                return
-        except Exception:
-            pass
+        _write_debug_log("USER_CHECK", {
+            "user_id": user_id,
+            "username": message.from_user.username,
+            "command": command_name,
+            "is_owner": user_id == OWNER_ID
+        })
+        
+        if user_id == OWNER_ID:
+            _write_debug_log("HANDLER_EXIT", {"reason": "owner_exempt", "user_id": user_id})
+            return
         
         try:
             bot_me = await app.get_me()
             if user_id == bot_me.id:
+                _write_debug_log("HANDLER_EXIT", {"reason": "bot_self", "user_id": user_id})
                 return
-        except Exception:
-            pass
+        except Exception as e:
+            _write_debug_log("BOT_ME_CHECK_ERROR", {"error": str(e)})
         
         if user_id in _spam_blocked_users_cache:
+            _write_debug_log("ALREADY_BLOCKED", {"user_id": user_id})
             await _notify_user_blocked(user_id)
             await message.stop_propagation()
+            _write_debug_log("PROPAGATION_STOPPED", {"user_id": user_id, "reason": "cached_block"})
             return
         
-        if await is_spam_blocked(user_id):
+        is_blocked_db = await is_spam_blocked(user_id)
+        _write_debug_log("DB_BLOCK_CHECK", {"user_id": user_id, "is_blocked": is_blocked_db})
+        
+        if is_blocked_db:
             _spam_blocked_users_cache.add(user_id)
             await _notify_user_blocked(user_id)
             await message.stop_propagation()
+            _write_debug_log("PROPAGATION_STOPPED", {"user_id": user_id, "reason": "db_block"})
             return
         
+        antispam_enabled = await is_antispam_enabled()
+        _write_debug_log("ANTISPAM_STATUS", {"enabled": antispam_enabled})
+        
         is_spamming, command_count = await check_spam(user_id, track_command=True)
+        
+        _write_debug_log("SPAM_CHECK_RESULT", {
+            "user_id": user_id,
+            "is_spamming": is_spamming,
+            "command_count": command_count,
+            "command": command_name
+        })
         
         if is_spamming:
             _spam_blocked_users_cache.add(user_id)
             await _notify_user_blocked(user_id)
             await message.stop_propagation()
+            _write_debug_log("PROPAGATION_STOPPED", {"user_id": user_id, "reason": "spam_detected", "count": command_count})
             return
+        
+        _write_debug_log("HANDLER_COMPLETE", {
+            "user_id": user_id,
+            "command": command_name,
+            "action": "allowed"
+        })
     except Exception as e:
+        error_msg = str(e)
+        _write_debug_log("HANDLER_ERROR", {"error": error_msg, "type": type(e).__name__})
         LOGGER(__name__).error(f"Error in antispam handler: {e}")
-        return
 
 
 async def log_antispam_status():
@@ -202,6 +256,17 @@ async def log_antispam_status():
         protected_commands = _get_all_protected_commands()
         cmd_count = len(protected_commands)
         status = "enabled" if enabled else "disabled"
+        
+        _write_debug_log("STARTUP_STATUS", {
+            "enabled": enabled,
+            "command_count": cmd_count,
+            "owner_id": OWNER_ID,
+            "rate_limit": 10,
+            "time_window": 20
+        })
+        
+        LOGGER("Tune").info(f"ᴀɴᴛɪ-sᴘᴀᴍ ʜᴀɴᴅʟᴇʀ ʀᴇɢɪsᴛᴇʀᴇᴅ (ɢʀᴏᴜᴘ=0) - ᴏɴʟʏ ᴏᴡɴᴇʀ ({OWNER_ID}) ᴇxᴇᴍᴘᴛ")
+        LOGGER("Tune").info(f"ᴅᴇʙᴜɢ ʟᴏɢ: {_debug_file_path}")
         
         if protected_commands:
             commands_list = ", ".join(protected_commands[:100])
