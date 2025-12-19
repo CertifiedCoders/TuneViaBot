@@ -10,6 +10,10 @@ from pyrogram.errors import (
     PeerIdInvalid,
     ChannelPrivate,
     ChannelInvalid,
+    UserIsBlocked,
+    InputUserDeactivated,
+    UserDeactivated,
+    UserDeactivatedBan,
 )
 
 from Tune import app
@@ -35,6 +39,10 @@ CLEANUP_ERRORS = (
     PeerIdInvalid,
     ChannelPrivate,
     ChannelInvalid,
+    UserIsBlocked,
+    InputUserDeactivated,
+    UserDeactivated,
+    UserDeactivatedBan,
 )
 
 CLEANUP_KEYWORDS = [
@@ -48,6 +56,9 @@ CLEANUP_KEYWORDS = [
     "user is deactivated",
     "chat_id invalid",
     "user_id invalid",
+    "user is blocked",
+    "user blocked",
+    "blocked by user",
 ]
 
 
@@ -124,11 +135,12 @@ async def _pin_message(result, pin_mode: str):
     return False
 
 
-async def _broadcast_to_targets(target_ids: list, is_forward: bool, source_chat: int, msg_id: int, text: str, pin_mode: str = None):
+async def _broadcast_to_targets(target_ids: list, is_forward: bool, source_chat: int, msg_id: int, text: str, pin_mode: str = None, track_failed: bool = False):
     sent = 0
     pinned = 0
     failed = 0
     to_remove = []
+    failed_ids = []
     
     for target_id in target_ids:
         if not isinstance(target_id, int) or target_id == 0:
@@ -149,16 +161,18 @@ async def _broadcast_to_targets(target_ids: list, is_forward: bool, source_chat:
             failed += 1
             if error:
                 _write_to_log_file(f"Failed to send to {target_id}: {type(error).__name__}")
+                if track_failed:
+                    failed_ids.append((target_id, error))
     
-    return sent, pinned, failed, to_remove
+    return sent, pinned, failed, to_remove, failed_ids if track_failed else []
 
 
 async def _broadcast_to_chats(message, is_forward: bool, source_chat: int, msg_id: int, query: str, pin_mode: str, _):
     chats_data = await get_served_chats()
     chat_ids = [int(chat["chat_id"]) for chat in chats_data if chat.get("chat_id")]
     
-    sent, pinned, failed, to_remove = await _broadcast_to_targets(
-        chat_ids, is_forward, source_chat, msg_id, query, pin_mode
+    sent, pinned, failed, to_remove, _ = await _broadcast_to_targets(
+        chat_ids, is_forward, source_chat, msg_id, query, pin_mode, track_failed=False
     )
     
     for chat_id in to_remove:
@@ -174,19 +188,51 @@ async def _broadcast_to_chats(message, is_forward: bool, source_chat: int, msg_i
         _write_to_log_file(f"Failed to send chat broadcast summary: {e}")
 
 
+async def _verify_and_remove_user(user_id: int) -> bool:
+    try:
+        await app.get_users(user_id)
+        return False
+    except Exception as e:
+        if _should_cleanup_error(e):
+            try:
+                await remove_served_user(user_id)
+                return True
+            except Exception as remove_error:
+                _write_to_log_file(f"Failed to remove user {user_id} after verification: {remove_error}")
+                return False
+    return False
+
+
 async def _broadcast_to_users(message, is_forward: bool, source_chat: int, msg_id: int, query: str, _):
     users_data = await get_served_users()
     user_ids = [int(user["user_id"]) for user in users_data if user.get("user_id")]
     
-    sent, _pinned, failed, to_remove = await _broadcast_to_targets(
-        user_ids, is_forward, source_chat, msg_id, query, None
+    sent, _pinned, failed, to_remove, failed_ids = await _broadcast_to_targets(
+        user_ids, is_forward, source_chat, msg_id, query, None, track_failed=True
     )
     
+    removed_count = 0
     for user_id in to_remove:
         try:
             await remove_served_user(user_id)
+            removed_count += 1
         except Exception as e:
             _write_to_log_file(f"Failed to remove user {user_id}: {e}")
+    
+    if failed_ids:
+        verification_removed = 0
+        for user_id, error in failed_ids[:100]:
+            if user_id not in to_remove:
+                if await _verify_and_remove_user(user_id):
+                    verification_removed += 1
+                await asyncio.sleep(0.05)
+        
+        if verification_removed > 0:
+            removed_count += verification_removed
+            _write_to_log_file(f"Removed {verification_removed} additional invalid users after verification")
+    
+    if removed_count > 0:
+        _write_to_log_file(f"Total removed {removed_count} invalid users from database during broadcast")
     
     try:
         summary = _["broad_4"].format(sent, failed)
