@@ -162,14 +162,16 @@ async def _broadcast_to_chats(message, is_forward: bool, source_chat: int, msg_i
     )
     
     for chat_id in to_remove:
-        await remove_served_chat(chat_id)
+        try:
+            await remove_served_chat(chat_id)
+        except Exception as e:
+            _write_to_log_file(f"Failed to remove chat {chat_id}: {e}")
     
     try:
-        await message.reply_text(_["broad_3"].format(sent, pinned))
-        if failed > 0:
-            await message.reply_text(f"⚠️ Failed to send to {failed} chat(s). Invalid entries removed.")
-    except Exception:
-        pass
+        summary = _["broad_3"].format(sent, failed, pinned)
+        await message.reply_text(summary)
+    except Exception as e:
+        _write_to_log_file(f"Failed to send chat broadcast summary: {e}")
 
 
 async def _broadcast_to_users(message, is_forward: bool, source_chat: int, msg_id: int, query: str, _):
@@ -181,14 +183,16 @@ async def _broadcast_to_users(message, is_forward: bool, source_chat: int, msg_i
     )
     
     for user_id in to_remove:
-        await remove_served_user(user_id)
+        try:
+            await remove_served_user(user_id)
+        except Exception as e:
+            _write_to_log_file(f"Failed to remove user {user_id}: {e}")
     
     try:
-        await message.reply_text(_["broad_4"].format(sent))
-        if failed > 0:
-            await message.reply_text(f"⚠️ Failed to send to {failed} user(s). Invalid entries removed.")
-    except Exception:
-        pass
+        summary = _["broad_4"].format(sent, failed)
+        await message.reply_text(summary)
+    except Exception as e:
+        _write_to_log_file(f"Failed to send user broadcast summary: {e}")
 
 
 async def _broadcast_to_assistants(message, is_forward: bool, source_chat: int, msg_id: int, query: str, _):
