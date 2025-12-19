@@ -13,10 +13,16 @@ from Tune.logging import LOGGER
 
 def install_req(cmd: str) -> Tuple[str, str, int, int]:
     try:
-        loop = asyncio.get_event_loop()
+        asyncio.get_running_loop()
+        raise RuntimeError("Cannot use run_until_complete in async context")
     except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                raise RuntimeError("Loop is closed")
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
 
     async def install_requirements():
         args = shlex.split(cmd)

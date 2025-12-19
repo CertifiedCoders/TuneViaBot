@@ -687,7 +687,7 @@ async def remove_banned_user(user_id: int):
 async def is_antispam_enabled() -> bool:
     config = await antispamdb.find_one({"config": "antispam"})
     if not config:
-        antispamdb.insert_one({"config": "antispam", "enabled": True})
+        await antispamdb.insert_one({"config": "antispam", "enabled": True})
         return True
     return config.get("enabled", True)
 
