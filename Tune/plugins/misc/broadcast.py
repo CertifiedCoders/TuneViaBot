@@ -187,7 +187,7 @@ async def _broadcast_to_chats(message, is_forward: bool, source_chat: int, msg_i
     chats_data = await get_served_chats()
     chat_ids = [int(chat["chat_id"]) for chat in chats_data if chat.get("chat_id")]
     
-    sent, pinned, failed, to_remove, _ = await _broadcast_to_targets(
+    sent, pinned, failed, to_remove, _failed_ids = await _broadcast_to_targets(
         chat_ids, is_forward, source_chat, msg_id, query, pin_mode, track_failed=False
     )
     
