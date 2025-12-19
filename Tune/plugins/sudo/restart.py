@@ -26,7 +26,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 def cleanup_storage():
-    folders_to_remove = ["downloads", "raw_files", "cache"]
+    folders_to_remove = ["downloads", "raw_files", "cache", "logs"]
     for folder in folders_to_remove:
         try:
             if os.path.exists(folder):
