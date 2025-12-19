@@ -113,26 +113,6 @@ async def check_spam(user_id: int, track_command: bool = True) -> tuple:
         await add_spam_blocked_user(user_id, command_count, TIME_WINDOW_SECONDS)
         _notified_users.add(user_id)
         
-        try:
-            user_info = await app.get_users(user_id)
-            user_mention = user_info.mention if user_info else f"User {user_id}"
-            
-            spam_details = (
-                f"🚫 <b>Spam Detected</b>\n\n"
-                f"👤 <b>User:</b> {user_mention}\n"
-                f"🆔 <b>ID:</b> <code>{user_id}</code>\n"
-                f"⚡ <b>Commands:</b> {command_count}/{COMMAND_RATE_LIMIT}\n"
-                f"⏱ <b>Window:</b> {TIME_WINDOW_SECONDS}s\n"
-                f"🔒 <b>Action:</b> Silently blocked - all messages ignored"
-            )
-            
-            await app.send_message(LOGGER_ID, spam_details)
-            _write_debug_log("SPAM_NOTIFICATION_SENT", {"user_id": user_id, "logger_id": LOGGER_ID})
-                
-        except Exception as e:
-            _write_debug_log("SPAM_NOTIFICATION_FAILED", {"user_id": user_id, "error": str(e)})
-            LOGGER(__name__).warning(f"Failed to send spam notification: {e}")
-        
         _write_debug_log("CHECK_SPAM_RESULT", {
             "user_id": user_id,
             "is_spamming": True,
