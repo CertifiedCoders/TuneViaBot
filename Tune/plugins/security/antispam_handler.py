@@ -6,7 +6,7 @@ from pyrogram import filters
 from pyrogram.types import Message
 
 from Tune import app
-from Tune.utils.antispam import check_spam
+from Tune.utils.antispam import track_command, reset_user_tracking
 from Tune.utils.database import is_spam_blocked, is_antispam_enabled
 from config import SUPPORT_CHAT, OWNER_ID, LOGGER_ID
 from Tune.core.dir import LOGS_DIR
@@ -14,6 +14,7 @@ from Tune.logging import LOGGER
 
 _spam_blocked_users_cache = set()
 _user_notified_cache = set()
+_support_notified_cache = set()
 _debug_file_path = os.path.join(LOGS_DIR, "antispam_debug.txt")
 
 
@@ -34,40 +35,54 @@ def get_spam_blocked_cache():
 def clear_user_notification(user_id: int):
     if user_id in _user_notified_cache:
         _user_notified_cache.discard(user_id)
+    if user_id in _support_notified_cache:
+        _support_notified_cache.discard(user_id)
 
 
 async def _notify_user_blocked(user_id: int):
-    if user_id not in _user_notified_cache:
-        try:
-            await app.send_message(
-                user_id,
-                f"⚠️ You've been blocked for spamming.\n\n"
-                f"If you want to be freed, contact support:\n{SUPPORT_CHAT}"
-            )
-            _user_notified_cache.add(user_id)
-            _write_debug_log("NOTIFY_USER", {"user_id": user_id, "status": "sent"})
-        except Exception as e:
-            _write_debug_log("NOTIFY_USER", {"user_id": user_id, "status": "failed", "error": str(e)})
-
-
-async def _notify_support_chat(user_id: int, username: str, command: str, chat_type: str, chat_title: str, command_count: int):
+    if user_id in _user_notified_cache:
+        return
+    
     try:
-        user_mention = f"@{username}" if username else f"User {user_id}"
-        location = f"Group: {chat_title}" if chat_type != "private" else "Bot DM"
-        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        await app.send_message(
+            user_id,
+            "⚠️ <b>You've been blocked for spamming</b>\n\n"
+            "You were caught sending too many commands in a short time.\n"
+            "You are now blocked from using this bot.\n\n"
+            f"If you believe this is a mistake, contact support:\n{SUPPORT_CHAT}"
+        )
+        _user_notified_cache.add(user_id)
+        _write_debug_log("NOTIFY_USER", {"user_id": user_id, "status": "sent"})
+    except Exception as e:
+        _write_debug_log("NOTIFY_USER", {"user_id": user_id, "status": "failed", "error": str(e)})
+
+
+async def _notify_support_chat(user_id: int, user_name: str, username: str, chat_info: str, spammed_commands: list, timestamp: str):
+    if user_id in _user_notified_cache:
+        return
+    
+    try:
+        user_display = f"{user_name}" if user_name else f"User {user_id}"
+        if username:
+            user_display += f" (@{username})"
+        
+        commands_list = ", ".join([f"/{cmd}" for cmd in spammed_commands[:20]])
+        if len(spammed_commands) > 20:
+            commands_list += f" ... and {len(spammed_commands) - 20} more"
         
         spam_notification = (
             f"🚫 <b>Spam Detected & Blocked</b>\n\n"
-            f"👤 <b>User:</b> {user_mention}\n"
+            f"👤 <b>User:</b> {user_display}\n"
             f"🆔 <b>ID:</b> <code>{user_id}</code>\n"
-            f"📍 <b>Location:</b> {location}\n"
-            f"⚡ <b>Commands:</b> {command_count}/10\n"
-            f"🔧 <b>Last Command:</b> <code>/{command}</code>\n"
-            f"⏱ <b>Time:</b> {current_time}\n"
+            f"📍 <b>Location:</b> {chat_info}\n"
+            f"⚡ <b>Commands Spammed:</b> {len(spammed_commands)}/10\n"
+            f"🔧 <b>Commands:</b> {commands_list}\n"
+            f"⏱ <b>Time:</b> {timestamp}\n"
             f"🔒 <b>Status:</b> User blocked - all messages ignored"
         )
         
         await app.send_message(LOGGER_ID, spam_notification)
+        _support_notified_cache.add(user_id)
         _write_debug_log("SUPPORT_NOTIFICATION", {"user_id": user_id, "status": "sent"})
     except Exception as e:
         _write_debug_log("SUPPORT_NOTIFICATION", {"user_id": user_id, "status": "failed", "error": str(e)})
@@ -92,8 +107,6 @@ def _extract_commands_from_source():
                             patterns = [
                                 r'filters\.command\(["\']([^"\']+)["\']',
                                 r'filters\.command\(\[([^\]]+)\]\)',
-                                r'@app\.on_message\([^)]*filters\.command\(["\']([^"\']+)["\']',
-                                r'@app\.on_message\([^)]*filters\.command\(\[([^\]]+)\]\)',
                             ]
                             
                             for pattern in patterns:
@@ -155,16 +168,6 @@ def _get_all_protected_commands():
                                 if list_match:
                                     for cmd in re.findall(r'["\']([^"\']+)["\']', list_match.group(1)):
                                         commands_set.add(cmd.lower())
-                    
-                    handler_str = str(handler)
-                    if 'command' in handler_str.lower():
-                        single_cmd = re.search(r'command\(["\']([^"\']+)["\']\)', handler_str, re.IGNORECASE)
-                        if single_cmd:
-                            commands_set.add(single_cmd.group(1).lower())
-                        list_match = re.search(r'command\(\[([^\]]+)\]\)', handler_str, re.IGNORECASE)
-                        if list_match:
-                            for cmd in re.findall(r'["\']([^"\']+)["\']', list_match.group(1)):
-                                commands_set.add(cmd.lower())
                 except Exception:
                     continue
         
@@ -187,10 +190,7 @@ COMMAND_FILTER = filters.create(_is_command_message)
 @app.on_message(COMMAND_FILTER, group=0)
 async def antispam_command_handler(client, message: Message):
     try:
-        if not message.command:
-            return
-        
-        if not message.from_user:
+        if not message.command or not message.from_user:
             return
         
         user_id = message.from_user.id
@@ -206,41 +206,51 @@ async def antispam_command_handler(client, message: Message):
             pass
         
         if user_id in _spam_blocked_users_cache:
-            await _notify_user_blocked(user_id)
             await message.stop_propagation()
             return
         
-        is_blocked_db = await is_spam_blocked(user_id)
-        if is_blocked_db:
+        if await is_spam_blocked(user_id):
             _spam_blocked_users_cache.add(user_id)
-            await _notify_user_blocked(user_id)
             await message.stop_propagation()
             return
         
-        antispam_enabled = await is_antispam_enabled()
-        if not antispam_enabled:
+        if not await is_antispam_enabled():
             return
         
-        command_name = message.command[0].lower() if message.command else None
-        try:
-            chat_type_str = str(message.chat.type)
-            chat_type = "private" if "private" in chat_type_str.lower() else "group"
-        except Exception:
-            chat_type = "group"
+        command_name = message.command[0].lower() if message.command else "unknown"
         
-        try:
-            chat_title = message.chat.title if hasattr(message.chat, 'title') and message.chat.title else "N/A"
-        except Exception:
-            chat_title = "N/A"
-        
-        username = message.from_user.username if message.from_user.username else None
-        
-        is_spamming, command_count = await check_spam(user_id, track_command=True)
+        is_spamming, command_count, spammed_commands = await track_command(user_id, command_name)
         
         if is_spamming:
             _spam_blocked_users_cache.add(user_id)
+            
+            try:
+                user_name = f"{message.from_user.first_name}"
+                if message.from_user.last_name:
+                    user_name += f" {message.from_user.last_name}"
+            except Exception:
+                user_name = None
+            
+            username = message.from_user.username if message.from_user.username else None
+            
+            try:
+                chat_type_str = str(message.chat.type)
+                is_private = "private" in chat_type_str.lower()
+                
+                if is_private:
+                    chat_info = "Bot DM"
+                else:
+                    chat_title = getattr(message.chat, 'title', None) or "N/A"
+                    chat_id = message.chat.id
+                    chat_info = f"Group: {chat_title} (ID: {chat_id})"
+            except Exception:
+                chat_info = "Unknown Location"
+            
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            
             await _notify_user_blocked(user_id)
-            await _notify_support_chat(user_id, username, command_name, chat_type, chat_title, command_count)
+            await _notify_support_chat(user_id, user_name, username, chat_info, spammed_commands, timestamp)
+            
             await message.stop_propagation()
             return
     except Exception as e:
