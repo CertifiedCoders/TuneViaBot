@@ -35,23 +35,62 @@ async def _notify_user_blocked(user_id: int):
             pass
 
 
+def _has_command_filter(filter_obj):
+    if not filter_obj:
+        return False
+    
+    filter_type_name = type(filter_obj).__name__
+    filter_str = str(filter_obj).lower()
+    
+    if 'command' in filter_type_name.lower():
+        return True
+    
+    if 'command' in filter_str:
+        return True
+    
+    if hasattr(filter_obj, '__class__'):
+        class_name = filter_obj.__class__.__name__
+        if 'Command' in class_name:
+            return True
+    
+    if hasattr(filter_obj, 'filters'):
+        if isinstance(filter_obj.filters, (list, tuple)):
+            for sub_filter in filter_obj.filters:
+                if _has_command_filter(sub_filter):
+                    return True
+        elif filter_obj.filters:
+            return _has_command_filter(filter_obj.filters)
+    
+    if hasattr(filter_obj, 'left') and hasattr(filter_obj, 'right'):
+        return _has_command_filter(filter_obj.left) or _has_command_filter(filter_obj.right)
+    
+    return False
+
+
 def _count_command_handlers():
     command_count = 0
     try:
-        for group_id, handlers in app.dispatcher.handlers.items():
+        dispatcher = app.dispatcher
+        handler_groups = getattr(dispatcher, 'groups', None) or getattr(dispatcher, 'handlers', {})
+        
+        for group_id, handlers in handler_groups.items():
             for handler in handlers:
                 if hasattr(handler, 'filters'):
-                    filter_obj = handler.filters
-                    if filter_obj:
-                        filter_str = str(filter_obj)
-                        if 'command' in filter_str.lower() or 'Command' in str(type(filter_obj)):
-                            command_count += 1
+                    if _has_command_filter(handler.filters):
+                        command_count += 1
     except Exception as e:
         LOGGER(__name__).warning(f"Failed to count command handlers: {e}")
     return command_count
 
 
-@app.on_message(filters.command, group=0)
+async def _is_command_message(_, __, message: Message):
+    return bool(message.command)
+
+
+COMMAND_FILTER = filters.create(_is_command_message)
+
+
+@app.on_message(COMMAND_FILTER, group=0)
 async def antispam_command_handler(client, message: Message):
     if not message.command:
         return
