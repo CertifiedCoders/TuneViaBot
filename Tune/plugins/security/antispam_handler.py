@@ -242,7 +242,6 @@ async def antispam_command_handler(client, message: Message):
             "text_preview": message.text[:50] if message.text else None
         })
         
-        LOGGER(__name__).info(f"🔍 Antispam watching: user={user_id}, cmd=/{command_name}, text={message.text[:30] if message.text else 'None'}")
         
         if user_id == OWNER_ID:
             _write_debug_log("HANDLER_EXIT", {"reason": "owner_exempt"})
@@ -258,15 +257,15 @@ async def antispam_command_handler(client, message: Message):
         
         if user_id in _spam_blocked_users_cache:
             _write_debug_log("ALREADY_BLOCKED_CACHE", {"user_id": user_id})
-            await message.stop_propagation()
-            return
+            from pyrogram import StopPropagation
+            raise StopPropagation()
         
         is_blocked_db = await is_spam_blocked(user_id)
         if is_blocked_db:
             _spam_blocked_users_cache.add(user_id)
             _write_debug_log("ALREADY_BLOCKED_DB", {"user_id": user_id})
-            await message.stop_propagation()
-            return
+            from pyrogram import StopPropagation
+            raise StopPropagation()
         
         antispam_enabled = await is_antispam_enabled()
         if not antispam_enabled:
@@ -327,8 +326,8 @@ async def antispam_command_handler(client, message: Message):
             await _notify_support_chat(user_id, user_name, username, chat_info, spammed_commands, timestamp)
             
             _write_debug_log("STOP_PROPAGATION", {"user_id": user_id, "command": command_name})
-            await message.stop_propagation()
-            return
+            from pyrogram import StopPropagation
+            raise StopPropagation()
         
         _write_debug_log("HANDLER_ALLOWED", {
             "user_id": user_id,
@@ -336,6 +335,9 @@ async def antispam_command_handler(client, message: Message):
             "count": command_count
         })
     except Exception as e:
+        from pyrogram import StopPropagation
+        if isinstance(e, StopPropagation):
+            raise
         import traceback
         error_tb = traceback.format_exc()
         _write_debug_log("HANDLER_ERROR", {

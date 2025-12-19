@@ -59,8 +59,7 @@ async def antispam_command(client, message: Message, _):
             return await message.reply_text(f"❌ User {user.mention} is not blocked.")
         
         cache = get_spam_blocked_cache()
-        if user.id in cache:
-            cache.discard(user.id)
+        cache.discard(user.id)
         
         reset_user_tracking(user.id)
         clear_user_notification(user.id)
