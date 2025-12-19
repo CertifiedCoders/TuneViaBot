@@ -83,7 +83,6 @@ def _should_cleanup_error(error: Exception) -> bool:
 def _parse_broadcast_flags(text: str) -> tuple:
     flags = set()
     query = text
-    
     flag_patterns = {
         "-pin": "pin",
         "-pinloud": "pinloud",
@@ -91,12 +90,10 @@ def _parse_broadcast_flags(text: str) -> tuple:
         "-assistant": "assistant",
         "-user": "user",
     }
-    
     for flag, key in flag_patterns.items():
         if flag in query:
             flags.add(key)
             query = query.replace(flag, "").strip()
-    
     return flags, query
 
 
@@ -145,7 +142,7 @@ async def _broadcast_to_targets(target_ids: list, is_forward: bool, source_chat:
     for target_id in target_ids:
         if not isinstance(target_id, int) or target_id == 0:
             continue
-            
+        
         result, error = await _send_with_retry(target_id, is_forward, source_chat, msg_id, text)
         
         if result:
@@ -167,6 +164,25 @@ async def _broadcast_to_targets(target_ids: list, is_forward: bool, source_chat:
     return sent, pinned, failed, to_remove, failed_ids if track_failed else []
 
 
+async def _remove_targets(target_ids: list, remove_func, target_type: str):
+    removed_count = 0
+    for target_id in target_ids:
+        try:
+            await remove_func(target_id)
+            removed_count += 1
+        except Exception as e:
+            _write_to_log_file(f"Failed to remove {target_type} {target_id}: {e}")
+    return removed_count
+
+
+async def _send_summary(message, lang_dict, summary_key: str, *args):
+    try:
+        summary = lang_dict[summary_key].format(*args)
+        await message.reply_text(summary)
+    except Exception as e:
+        _write_to_log_file(f"Failed to send {summary_key} summary: {e}")
+
+
 async def _broadcast_to_chats(message, is_forward: bool, source_chat: int, msg_id: int, query: str, pin_mode: str, _):
     chats_data = await get_served_chats()
     chat_ids = [int(chat["chat_id"]) for chat in chats_data if chat.get("chat_id")]
@@ -175,17 +191,8 @@ async def _broadcast_to_chats(message, is_forward: bool, source_chat: int, msg_i
         chat_ids, is_forward, source_chat, msg_id, query, pin_mode, track_failed=False
     )
     
-    for chat_id in to_remove:
-        try:
-            await remove_served_chat(chat_id)
-        except Exception as e:
-            _write_to_log_file(f"Failed to remove chat {chat_id}: {e}")
-    
-    try:
-        summary = _["broad_3"].format(sent, failed, pinned)
-        await message.reply_text(summary)
-    except Exception as e:
-        _write_to_log_file(f"Failed to send chat broadcast summary: {e}")
+    await _remove_targets(to_remove, remove_served_chat, "chat")
+    await _send_summary(message, _, "broad_3", sent, failed, pinned)
 
 
 async def _verify_and_remove_user(user_id: int) -> bool:
@@ -211,13 +218,7 @@ async def _broadcast_to_users(message, is_forward: bool, source_chat: int, msg_i
         user_ids, is_forward, source_chat, msg_id, query, None, track_failed=True
     )
     
-    removed_count = 0
-    for user_id in to_remove:
-        try:
-            await remove_served_user(user_id)
-            removed_count += 1
-        except Exception as e:
-            _write_to_log_file(f"Failed to remove user {user_id}: {e}")
+    removed_count = await _remove_targets(to_remove, remove_served_user, "user")
     
     if failed_ids:
         verification_removed = 0
@@ -234,11 +235,7 @@ async def _broadcast_to_users(message, is_forward: bool, source_chat: int, msg_i
     if removed_count > 0:
         _write_to_log_file(f"Total removed {removed_count} invalid users from database during broadcast")
     
-    try:
-        summary = _["broad_4"].format(sent, failed)
-        await message.reply_text(summary)
-    except Exception as e:
-        _write_to_log_file(f"Failed to send user broadcast summary: {e}")
+    await _send_summary(message, _, "broad_4", sent, failed)
 
 
 async def _broadcast_to_assistants(message, is_forward: bool, source_chat: int, msg_id: int, query: str, _):
@@ -297,11 +294,7 @@ async def broadcast_message(client, message, _):
     else:
         flags, query = _parse_broadcast_flags(message.text or "")
     
-    pin_mode = None
-    if "pinloud" in flags:
-        pin_mode = "pinloud"
-    elif "pin" in flags:
-        pin_mode = "pin"
+    pin_mode = "pinloud" if "pinloud" in flags else ("pin" if "pin" in flags else None)
     
     IS_BROADCASTING = True
     try:
@@ -342,39 +335,43 @@ async def auto_clean():
             continue
 
 
+async def _cleanup_entities(entities_data: list, get_id_func, validate_func, remove_func, entity_type: str):
+    cleaned = 0
+    for entity in entities_data:
+        entity_id = get_id_func(entity)
+        if not entity_id:
+            continue
+        try:
+            await validate_func(entity_id)
+        except Exception as e:
+            if _should_cleanup_error(e):
+                await remove_func(entity_id)
+                cleaned += 1
+                _write_to_log_file(f"Removed invalid {entity_type} {entity_id} during periodic cleanup: {type(e).__name__}")
+        await asyncio.sleep(0.1)
+    return cleaned
+
+
 async def periodic_cleanup():
     while not await asyncio.sleep(43200):
         try:
-            cleaned_chats = 0
-            cleaned_users = 0
-            
             served_chats = await get_served_chats()
-            for chat in served_chats:
-                chat_id = int(chat.get("chat_id", 0))
-                if chat_id >= 0:
-                    continue
-                try:
-                    await app.get_chat(chat_id)
-                except Exception as e:
-                    if _should_cleanup_error(e):
-                        await remove_served_chat(chat_id)
-                        cleaned_chats += 1
-                        _write_to_log_file(f"Removed invalid chat {chat_id} during periodic cleanup: {type(e).__name__}")
-                await asyncio.sleep(0.1)
+            cleaned_chats = await _cleanup_entities(
+                served_chats,
+                lambda c: int(c.get("chat_id", 0)) if int(c.get("chat_id", 0)) < 0 else None,
+                app.get_chat,
+                remove_served_chat,
+                "chat"
+            )
             
             served_users = await get_served_users()
-            for user in served_users:
-                user_id = int(user.get("user_id", 0))
-                if user_id <= 0:
-                    continue
-                try:
-                    await app.get_users(user_id)
-                except Exception as e:
-                    if _should_cleanup_error(e):
-                        await remove_served_user(user_id)
-                        cleaned_users += 1
-                        _write_to_log_file(f"Removed invalid user {user_id} during periodic cleanup: {type(e).__name__}")
-                await asyncio.sleep(0.1)
+            cleaned_users = await _cleanup_entities(
+                served_users,
+                lambda u: int(u.get("user_id", 0)) if int(u.get("user_id", 0)) > 0 else None,
+                app.get_users,
+                remove_served_user,
+                "user"
+            )
             
             if cleaned_chats > 0 or cleaned_users > 0:
                 LOGGER(__name__).info(f"Periodic cleanup completed: {cleaned_chats} chats and {cleaned_users} users removed")
