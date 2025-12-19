@@ -6,7 +6,7 @@ from pyrogram import filters
 from pyrogram.types import Message
 
 from Tune import app
-from Tune.utils.antispam import track_command, reset_user_tracking
+from Tune.utils.antispam import track_command, reset_user_tracking, get_user_command_count, get_user_command_history
 from Tune.utils.database import is_spam_blocked, is_antispam_enabled
 from config import SUPPORT_CHAT, OWNER_ID, LOGGER_ID
 from Tune.core.dir import LOGS_DIR
@@ -180,43 +180,40 @@ def _get_all_protected_commands():
     return sorted(commands_set) if commands_set else []
 
 
-async def _check_is_command(_, __, message: Message):
-    if not message or not hasattr(message, 'command'):
+def _is_command_message(_, __, message: Message):
+    try:
+        if not message:
+            return False
+        if not hasattr(message, 'command'):
+            return False
+        if not message.command:
+            return False
+        return True
+    except Exception:
         return False
-    return bool(message.command)
 
 
-COMMAND_FILTER = filters.create(_check_is_command)
+COMMAND_FILTER = filters.create(_is_command_message)
 
 
 @app.on_message(COMMAND_FILTER, group=-1)
 async def antispam_command_handler(client, message: Message):
     try:
-        command_name = message.command[0] if message.command else None
-        user_id = message.from_user.id if message.from_user else None
-        
-        _write_debug_log("HANDLER_CALLED", {
-            "message_id": message.id,
-            "chat_id": message.chat.id if message.chat else None,
-            "has_command": bool(message.command),
-            "command": command_name,
-            "user_id": user_id
-        })
-        
-        LOGGER(__name__).debug(f"Antispam handler called: user={user_id}, command={command_name}")
-        
         if not message.command or not message.from_user:
-            _write_debug_log("HANDLER_EXIT", {"reason": "no_command_or_user"})
             return
         
         user_id = message.from_user.id
         command_name = message.command[0].lower() if message.command else "unknown"
         
-        _write_debug_log("USER_CHECK", {
+        _write_debug_log("HANDLER_CALLED", {
+            "message_id": message.id,
+            "chat_id": message.chat.id if message.chat else None,
             "user_id": user_id,
             "command": command_name,
-            "is_owner": user_id == OWNER_ID
+            "text_preview": message.text[:30] if message.text else None
         })
+        
+        LOGGER(__name__).info(f"🔍 Antispam watching: user={user_id}, cmd=/{command_name}")
         
         if user_id == OWNER_ID:
             _write_debug_log("HANDLER_EXIT", {"reason": "owner_exempt"})
@@ -227,8 +224,8 @@ async def antispam_command_handler(client, message: Message):
             if user_id == bot_me.id:
                 _write_debug_log("HANDLER_EXIT", {"reason": "bot_self"})
                 return
-        except Exception as e:
-            _write_debug_log("BOT_ME_ERROR", {"error": str(e)})
+        except Exception:
+            pass
         
         if user_id in _spam_blocked_users_cache:
             _write_debug_log("ALREADY_BLOCKED_CACHE", {"user_id": user_id})
@@ -236,8 +233,6 @@ async def antispam_command_handler(client, message: Message):
             return
         
         is_blocked_db = await is_spam_blocked(user_id)
-        _write_debug_log("DB_BLOCK_CHECK", {"user_id": user_id, "is_blocked": is_blocked_db})
-        
         if is_blocked_db:
             _spam_blocked_users_cache.add(user_id)
             _write_debug_log("ALREADY_BLOCKED_DB", {"user_id": user_id})
@@ -245,20 +240,25 @@ async def antispam_command_handler(client, message: Message):
             return
         
         antispam_enabled = await is_antispam_enabled()
-        _write_debug_log("ANTISPAM_ENABLED", {"enabled": antispam_enabled, "user_id": user_id})
-        
         if not antispam_enabled:
             _write_debug_log("HANDLER_EXIT", {"reason": "antispam_disabled"})
             return
         
-        is_spamming, command_count, spammed_commands = await track_command(user_id, command_name)
-        
-        _write_debug_log("SPAM_CHECK", {
+        current_count = get_user_command_count(user_id)
+        _write_debug_log("BEFORE_TRACK", {
             "user_id": user_id,
             "command": command_name,
-            "is_spamming": is_spamming,
+            "current_count": current_count
+        })
+        
+        is_spamming, command_count, spammed_commands = await track_command(user_id, command_name)
+        
+        _write_debug_log("AFTER_TRACK", {
+            "user_id": user_id,
+            "command": command_name,
             "command_count": command_count,
-            "spammed_commands_count": len(spammed_commands)
+            "is_spamming": is_spamming,
+            "spammed_commands": spammed_commands[:10] if spammed_commands else []
         })
         
         if is_spamming:
@@ -301,7 +301,11 @@ async def antispam_command_handler(client, message: Message):
             await message.stop_propagation()
             return
         
-        _write_debug_log("HANDLER_ALLOWED", {"user_id": user_id, "command": command_name, "count": command_count})
+        _write_debug_log("HANDLER_ALLOWED", {
+            "user_id": user_id,
+            "command": command_name,
+            "count": command_count
+        })
     except Exception as e:
         import traceback
         error_tb = traceback.format_exc()
@@ -323,8 +327,13 @@ async def log_antispam_status():
         _write_debug_log("STARTUP_STATUS", {
             "enabled": enabled,
             "command_count": cmd_count,
-            "owner_id": OWNER_ID
+            "owner_id": OWNER_ID,
+            "handler_registered": True,
+            "handler_group": -1
         })
+        
+        LOGGER("Tune").info(f"🛡️ ᴀɴᴛɪ-sᴘᴀᴍ ʜᴀɴᴅʟᴇʀ ʀᴇɢɪsᴛᴇʀᴇᴅ (ɢʀᴏᴜᴘ=-1) - ᴡᴀᴛᴄʜɪɴɢ ᴀʟʟ ᴄᴏᴍᴍᴀɴᴅs")
+        LOGGER("Tune").info(f"📝 ᴅᴇʙᴜɢ ʟᴏɢ: {_debug_file_path}")
         
         if protected_commands:
             commands_list = ", ".join(protected_commands[:100])

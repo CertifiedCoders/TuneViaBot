@@ -41,6 +41,20 @@ def _cleanup_old_entries(user_id: int, current_time: float, time_window: int):
         _write_debug_log("CLEANUP_OLD", {"user_id": user_id, "removed": removed})
 
 
+def get_user_command_count(user_id: int) -> int:
+    current_time = time.time()
+    user_history = _user_command_history[user_id]
+    _cleanup_old_entries(user_id, current_time, TIME_WINDOW_SECONDS)
+    return len(user_history)
+
+
+def get_user_command_history(user_id: int) -> list:
+    current_time = time.time()
+    user_history = _user_command_history[user_id]
+    _cleanup_old_entries(user_id, current_time, TIME_WINDOW_SECONDS)
+    return [(t, cmd) for t, cmd in user_history]
+
+
 async def track_command(user_id: int, command_name: str) -> Tuple[bool, int, list]:
     _write_debug_log("TRACK_START", {"user_id": user_id, "command": command_name})
     
@@ -77,7 +91,7 @@ async def track_command(user_id: int, command_name: str) -> Tuple[bool, int, lis
         "command_count": command_count,
         "limit": COMMAND_RATE_LIMIT,
         "is_spamming": is_spamming,
-        "history": [(t, cmd) for t, cmd in list(user_history)[-5:]]
+        "history": [(round(t, 2), cmd) for t, cmd in list(user_history)[-5:]]
     })
     
     if is_spamming:
