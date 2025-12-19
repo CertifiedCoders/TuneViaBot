@@ -201,20 +201,6 @@ def _check_command(_, __, message: Message):
 COMMAND_FILTER = filters.create(_check_command)
 
 
-@app.on_message(filters.text & ~filters.edited, group=-2)
-async def _test_all_messages(client, message: Message):
-    try:
-        if message.text and message.text.startswith(("/", "!", ".", "#", "?")):
-            _write_debug_log("TEST_MESSAGE", {
-                "message_id": message.id,
-                "text": message.text[:50],
-                "has_command": hasattr(message, 'command'),
-                "command": message.command if hasattr(message, 'command') else None
-            })
-    except Exception:
-        pass
-
-
 @app.on_message(COMMAND_FILTER, group=-1)
 async def antispam_command_handler(client, message: Message):
     try:
