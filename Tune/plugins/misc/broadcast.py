@@ -178,7 +178,7 @@ async def _broadcast_to_users(message, is_forward: bool, source_chat: int, msg_i
     users_data = await get_served_users()
     user_ids = [int(user["user_id"]) for user in users_data if user.get("user_id")]
     
-    sent, _, failed, to_remove = await _broadcast_to_targets(
+    sent, _pinned, failed, to_remove = await _broadcast_to_targets(
         user_ids, is_forward, source_chat, msg_id, query, None
     )
     
