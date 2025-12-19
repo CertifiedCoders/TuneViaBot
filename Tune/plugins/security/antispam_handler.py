@@ -180,40 +180,83 @@ def _get_all_protected_commands():
     return sorted(commands_set) if commands_set else []
 
 
-def _is_command_message(_, __, message: Message):
+def _check_command(_, __, message: Message):
     try:
         if not message:
             return False
-        if not hasattr(message, 'command'):
-            return False
-        if not message.command:
-            return False
-        return True
+        if hasattr(message, 'command') and message.command:
+            return True
+        if message.text:
+            text = message.text.strip()
+            prefixes = ["/", "!", ".", "#", "?"]
+            if any(text.startswith(prefix) for prefix in prefixes):
+                parts = text.split(maxsplit=1)
+                if len(parts) > 0 and parts[0][1:].strip():
+                    return True
+        return False
     except Exception:
         return False
 
 
-COMMAND_FILTER = filters.create(_is_command_message)
+COMMAND_FILTER = filters.create(_check_command)
+
+
+@app.on_message(filters.text & ~filters.edited, group=-2)
+async def _test_all_messages(client, message: Message):
+    try:
+        if message.text and message.text.startswith(("/", "!", ".", "#", "?")):
+            _write_debug_log("TEST_MESSAGE", {
+                "message_id": message.id,
+                "text": message.text[:50],
+                "has_command": hasattr(message, 'command'),
+                "command": message.command if hasattr(message, 'command') else None
+            })
+    except Exception:
+        pass
 
 
 @app.on_message(COMMAND_FILTER, group=-1)
 async def antispam_command_handler(client, message: Message):
     try:
-        if not message.command or not message.from_user:
+        _write_debug_log("HANDLER_ENTRY", {
+            "message_id": message.id if message else None,
+            "has_text": bool(message.text if message else False),
+            "has_command_attr": hasattr(message, 'command') if message else False,
+            "command_value": message.command if (message and hasattr(message, 'command')) else None
+        })
+        
+        if not message or not message.from_user:
+            _write_debug_log("HANDLER_EXIT", {"reason": "no_message_or_user"})
+            return
+        
+        if not message.text:
+            _write_debug_log("HANDLER_EXIT", {"reason": "no_text"})
             return
         
         user_id = message.from_user.id
-        command_name = message.command[0].lower() if message.command else "unknown"
+        
+        command_name = "unknown"
+        if hasattr(message, 'command') and message.command:
+            command_name = message.command[0].lower()
+        else:
+            text = message.text.strip()
+            prefixes = ["/", "!", ".", "#", "?"]
+            for prefix in prefixes:
+                if text.startswith(prefix):
+                    parts = text[1:].split(maxsplit=1)
+                    if parts and parts[0]:
+                        command_name = parts[0].lower()
+                    break
         
         _write_debug_log("HANDLER_CALLED", {
             "message_id": message.id,
             "chat_id": message.chat.id if message.chat else None,
             "user_id": user_id,
             "command": command_name,
-            "text_preview": message.text[:30] if message.text else None
+            "text_preview": message.text[:50] if message.text else None
         })
         
-        LOGGER(__name__).info(f"🔍 Antispam watching: user={user_id}, cmd=/{command_name}")
+        LOGGER(__name__).info(f"🔍 Antispam watching: user={user_id}, cmd=/{command_name}, text={message.text[:30] if message.text else 'None'}")
         
         if user_id == OWNER_ID:
             _write_debug_log("HANDLER_EXIT", {"reason": "owner_exempt"})
