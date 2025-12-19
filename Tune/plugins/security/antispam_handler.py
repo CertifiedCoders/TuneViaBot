@@ -21,14 +21,16 @@ def clear_user_notification(user_id: int):
         _user_notified_cache.discard(user_id)
 
 
-async def non_sudo_filter_func(_, __, message: Message):
+async def command_non_sudo_filter_func(_, __, message: Message):
+    if not message.command:
+        return False
     if not message.from_user:
         return False
     user_id = message.from_user.id
     return user_id not in SUDOERS
 
 
-NON_SUDO_FILTER = filters.create(non_sudo_filter_func)
+COMMAND_NON_SUDO_FILTER = filters.create(command_non_sudo_filter_func)
 
 
 async def antispam_filter_func(_, __, message: Message):
@@ -74,7 +76,7 @@ ANTISPAM_FILTER = filters.create(antispam_filter_func)
 COMMAND_ANTISPAM_FILTER = filters.create(command_antispam_filter_func)
 
 
-@app.on_message(filters.command & NON_SUDO_FILTER, group=0)
+@app.on_message(COMMAND_NON_SUDO_FILTER, group=0)
 async def antispam_command_handler(client, message: Message):
     if not message.from_user:
         return
