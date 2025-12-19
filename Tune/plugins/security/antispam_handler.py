@@ -4,9 +4,10 @@ from pyrogram.types import Message
 
 from Tune import app
 from Tune.utils.antispam import check_spam
-from Tune.utils.database import is_spam_blocked
+from Tune.utils.database import is_spam_blocked, is_antispam_enabled
 from Tune.misc import SUDOERS
 from config import SUPPORT_CHAT
+from Tune.logging import LOGGER
 
 _spam_blocked_users_cache = set()
 _user_notified_cache = set()
@@ -19,18 +20,6 @@ def get_spam_blocked_cache():
 def clear_user_notification(user_id: int):
     if user_id in _user_notified_cache:
         _user_notified_cache.discard(user_id)
-
-
-async def command_non_sudo_filter_func(_, __, message: Message):
-    if not message.command:
-        return False
-    if not message.from_user:
-        return False
-    user_id = message.from_user.id
-    return user_id not in SUDOERS
-
-
-COMMAND_NON_SUDO_FILTER = filters.create(command_non_sudo_filter_func)
 
 
 async def _notify_user_blocked(user_id: int):
@@ -46,8 +35,27 @@ async def _notify_user_blocked(user_id: int):
             pass
 
 
-@app.on_message(COMMAND_NON_SUDO_FILTER, group=0)
+def _count_command_handlers():
+    command_count = 0
+    try:
+        for group_id, handlers in app.dispatcher.handlers.items():
+            for handler in handlers:
+                if hasattr(handler, 'filters'):
+                    filter_obj = handler.filters
+                    if filter_obj:
+                        filter_str = str(filter_obj)
+                        if 'command' in filter_str.lower() or 'Command' in str(type(filter_obj)):
+                            command_count += 1
+    except Exception as e:
+        LOGGER(__name__).warning(f"Failed to count command handlers: {e}")
+    return command_count
+
+
+@app.on_message(filters.command, group=0)
 async def antispam_command_handler(client, message: Message):
+    if not message.command:
+        return
+    
     if not message.from_user:
         return
     
@@ -81,3 +89,13 @@ async def antispam_command_handler(client, message: Message):
         await _notify_user_blocked(user_id)
         await message.stop_propagation()
         return
+
+
+async def log_antispam_status():
+    try:
+        enabled = await is_antispam_enabled()
+        cmd_count = _count_command_handlers()
+        status = "enabled" if enabled else "disabled"
+        LOGGER("Tune").info(f"ᴀɴᴛɪ-sᴘᴀᴍ {status} ɪɴ ʙᴏᴛ ғᴏʀ {cmd_count} ᴄᴏᴍᴍᴀɴᴅs")
+    except Exception as e:
+        LOGGER("Tune").warning(f"ғᴀɪʟᴇᴅ ᴛᴏ ʟᴏɢ ᴀɴᴛɪ-sᴘᴀᴍ sᴛᴀᴛᴜs: {e}")

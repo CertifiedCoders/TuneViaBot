@@ -11,7 +11,7 @@ from Tune.core.call import StreamController
 from Tune.misc import sudo
 from Tune.plugins import ALL_MODULES
 from Tune.utils.database import get_banned_users, get_gbanned, get_spam_blocked_users
-from Tune.plugins.security.antispam_handler import get_spam_blocked_cache
+from Tune.plugins.security.antispam_handler import get_spam_blocked_cache, log_antispam_status
 from Tune.utils.cookie_handler import fetch_and_store_cookies 
 from config import BANNED_USERS
 
@@ -56,6 +56,7 @@ async def init():
         importlib.import_module("Tune.plugins" + all_module)
 
     LOGGER("Tune.plugins").info("ᴛᴜɴᴇ's ᴍᴏᴅᴜʟᴇs ʟᴏᴀᴅᴇᴅ...")
+    await log_antispam_status()
     await userbot.start()
     await StreamController.start()
 
