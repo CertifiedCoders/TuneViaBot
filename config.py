@@ -58,6 +58,12 @@ AUTO_LEAVE_ASSISTANT_TIME = int(getenv("ASSISTANT_LEAVE_TIME", "3600"))
 # ───── Error Handling ───── #
 DEBUG_IGNORE_LOG =True
 
+# ───── Storage Cleanup Configuration ───── #
+# Set to False to preserve downloaded songs and thumbnails during restart/update
+# When True (default), downloads and cache folders are cleaned on restart/update
+# When False, only raw_files, logs, and __pycache__ are cleaned
+CLEANUP_MEDIA_ON_RESTART = bool(getenv("CLEANUP_MEDIA_ON_RESTART", "True").lower() in ("true", "1", "yes", "on"))
+
 # ───── Spotify Credentials ───── #
 SPOTIFY_CLIENT_ID = getenv("SPOTIFY_CLIENT_ID", "22b6125bfe224587b722d6815002db2b")
 SPOTIFY_CLIENT_SECRET = getenv("SPOTIFY_CLIENT_SECRET", "c9c63c6fbf2f467c8bc68624851e9773")

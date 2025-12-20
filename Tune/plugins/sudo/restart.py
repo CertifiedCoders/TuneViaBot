@@ -27,7 +27,15 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 def cleanup_storage():
-    for folder in ["downloads", "raw_files", "cache", "logs"]:
+    always_clean = ["raw_files", "logs"]
+    
+    if config.CLEANUP_MEDIA_ON_RESTART:
+        folders_to_clean = ["downloads", "cache"] + always_clean
+    else:
+        folders_to_clean = always_clean
+        LOGGER(__name__).info("Media cleanup disabled: preserving downloads and cache folders")
+    
+    for folder in folders_to_clean:
         try:
             if os.path.exists(folder):
                 shutil.rmtree(folder)
