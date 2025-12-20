@@ -15,52 +15,64 @@ from Tune.utils.inline import close_markup
 from config import BANNED_USERS, adminlist
 
 
+def _update_adminlist(chat_id, user_id, add=True):
+    chat_admins = adminlist.get(chat_id)
+    if chat_admins:
+        if add and user_id not in chat_admins:
+            chat_admins.append(user_id)
+        elif not add and user_id in chat_admins:
+            chat_admins.remove(user_id)
+
+
+def _validate_command(message):
+    if not message.reply_to_message and len(message.command) != 2:
+        return False
+    return True
+
+
 @app.on_message(filters.command("auth") & filters.group & ~BANNED_USERS)
 @AdminActual
 async def auth(client, message: Message, _):
-    if not message.reply_to_message:
-        if len(message.command) != 2:
-            return await message.reply_text(_["general_1"])
+    if not _validate_command(message):
+        return await message.reply_text(_["general_1"])
+
     user = await extract_user(message)
     token = await int_to_alpha(user.id)
-    _check = await get_authuser_names(message.chat.id)
-    count = len(_check)
-    if int(count) == 25:
+    auth_names = await get_authuser_names(message.chat.id)
+
+    if len(auth_names) >= 25:
         return await message.reply_text(_["auth_1"])
-    if token not in _check:
-        assis = {
-            "auth_user_id": user.id,
-            "auth_name": user.first_name,
-            "admin_id": message.from_user.id,
-            "admin_name": message.from_user.first_name,
-        }
-        get = adminlist.get(message.chat.id)
-        if get:
-            if user.id not in get:
-                get.append(user.id)
-        await save_authuser(message.chat.id, token, assis)
-        return await message.reply_text(_["auth_2"].format(user.mention))
-    else:
+
+    if token in auth_names:
         return await message.reply_text(_["auth_3"].format(user.mention))
+
+    auth_data = {
+        "auth_user_id": user.id,
+        "auth_name": user.first_name,
+        "admin_id": message.from_user.id,
+        "admin_name": message.from_user.first_name,
+    }
+
+    _update_adminlist(message.chat.id, user.id, add=True)
+    await save_authuser(message.chat.id, token, auth_data)
+    return await message.reply_text(_["auth_2"].format(user.mention))
 
 
 @app.on_message(filters.command("unauth") & filters.group & ~BANNED_USERS)
 @AdminActual
 async def unauthusers(client, message: Message, _):
-    if not message.reply_to_message:
-        if len(message.command) != 2:
-            return await message.reply_text(_["general_1"])
+    if not _validate_command(message):
+        return await message.reply_text(_["general_1"])
+
     user = await extract_user(message)
     token = await int_to_alpha(user.id)
     deleted = await delete_authuser(message.chat.id, token)
-    get = adminlist.get(message.chat.id)
-    if get:
-        if user.id in get:
-            get.remove(user.id)
+
+    _update_adminlist(message.chat.id, user.id, add=False)
+
     if deleted:
         return await message.reply_text(_["auth_4"].format(user.mention))
-    else:
-        return await message.reply_text(_["auth_5"].format(user.mention))
+    return await message.reply_text(_["auth_5"].format(user.mention))
 
 
 @app.on_message(
@@ -68,24 +80,27 @@ async def unauthusers(client, message: Message, _):
 )
 @language
 async def authusers(client, message: Message, _):
-    _wtf = await get_authuser_names(message.chat.id)
-    if not _wtf:
+    auth_tokens = await get_authuser_names(message.chat.id)
+    if not auth_tokens:
         return await message.reply_text(_["setting_4"])
-    else:
-        j = 0
-        mystic = await message.reply_text(_["auth_6"])
-        text = _["auth_7"].format(message.chat.title)
-        for umm in _wtf:
-            _umm = await get_authuser(message.chat.id, umm)
-            user_id = _umm["auth_user_id"]
-            admin_id = _umm["admin_id"]
-            admin_name = _umm["admin_name"]
-            try:
-                user = (await app.get_users(user_id)).first_name
-                j += 1
-            except:
-                continue
-            text += f"{j}➤ {user}[<code>{user_id}</code>]\n"
-            text += f"   {_['auth_8']} {admin_name}[<code>{admin_id}</code>]\n\n"
-        await mystic.edit_text(text, reply_markup=close_markup(_))
-    
+
+    mystic = await message.reply_text(_["auth_6"])
+    text = _["auth_7"].format(message.chat.title)
+    counter = 0
+
+    for token in auth_tokens:
+        auth_data = await get_authuser(message.chat.id, token)
+        user_id = auth_data["auth_user_id"]
+        admin_id = auth_data["admin_id"]
+        admin_name = auth_data["admin_name"]
+
+        try:
+            user_name = (await app.get_users(user_id)).first_name
+            counter += 1
+        except:
+            continue
+
+        text += f"{counter}➤ {user_name}[<code>{user_id}</code>]\n"
+        text += f"   {_['auth_8']} {admin_name}[<code>{admin_id}</code>]\n\n"
+
+    await mystic.edit_text(text, reply_markup=close_markup(_))

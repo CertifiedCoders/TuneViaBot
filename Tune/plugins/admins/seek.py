@@ -19,57 +19,63 @@ from config import BANNED_USERS
 async def seek_comm(cli, message: Message, _, chat_id):
     if len(message.command) == 1:
         return await message.reply_text(_["admin_20"])
+    
     query = message.text.split(None, 1)[1].strip()
     if not query.isnumeric():
         return await message.reply_text(_["admin_21"])
+    
     playing = db.get(chat_id)
     if not playing:
         return await message.reply_text(_["queue_2"])
-    duration_seconds = int(playing[0]["seconds"])
+    
+    track = playing[0]
+    duration_seconds = int(track["seconds"])
     if duration_seconds == 0:
         return await message.reply_text(_["admin_22"])
-    file_path = playing[0]["file"]
-    duration_played = int(playing[0]["played"])
+    
+    duration_played = int(track["played"])
     duration_to_skip = int(query)
-    duration = playing[0]["dur"]
-    if message.command[0][-2] == "c":
-        if (duration_played - duration_to_skip) <= 10:
-            return await message.reply_text(
-                text=_["admin_23"].format(seconds_to_min(duration_played), duration),
-                reply_markup=close_markup(_),
-            )
-        to_seek = duration_played - duration_to_skip + 1
+    is_backward = message.command[0][-2] == "c"
+    
+    if is_backward:
+        new_position = duration_played - duration_to_skip
+        remaining = new_position
     else:
-        if (duration_seconds - (duration_played + duration_to_skip)) <= 10:
-            return await message.reply_text(
-                text=_["admin_23"].format(seconds_to_min(duration_played), duration),
-                reply_markup=close_markup(_),
-            )
-        to_seek = duration_played + duration_to_skip + 1
+        new_position = duration_played + duration_to_skip
+        remaining = duration_seconds - new_position
+    
+    if remaining <= 10:
+        return await message.reply_text(
+            text=_["admin_23"].format(seconds_to_min(duration_played), track["dur"]),
+            reply_markup=close_markup(_),
+        )
+    
+    to_seek = new_position + 1
     mystic = await message.reply_text(_["admin_24"])
+    
+    file_path = track["file"]
     if "vid_" in file_path:
-        n, file_path = await YouTube.video(playing[0]["vidid"], True)
+        n, file_path = await YouTube.video(track["vidid"], True)
         if n == 0:
             return await message.reply_text(_["admin_22"])
-    check = (playing[0]).get("speed_path")
-    if check:
-        file_path = check
-    if "index_" in file_path:
-        file_path = playing[0]["vidid"]
+    
+    if track.get("speed_path"):
+        file_path = track["speed_path"]
+    elif "index_" in file_path:
+        file_path = track["vidid"]
+    
     try:
         await StreamController.seek_stream(
             chat_id,
             file_path,
             seconds_to_min(to_seek),
-            duration,
-            playing[0]["streamtype"],
+            track["dur"],
+            track["streamtype"],
         )
     except:
         return await mystic.edit_text(_["admin_26"], reply_markup=close_markup(_))
-    if message.command[0][-2] == "c":
-        db[chat_id][0]["played"] -= duration_to_skip
-    else:
-        db[chat_id][0]["played"] += duration_to_skip
+    
+    db[chat_id][0]["played"] = new_position
     await mystic.edit_text(
         text=_["admin_25"].format(seconds_to_min(to_seek), message.from_user.mention),
         reply_markup=close_markup(_),

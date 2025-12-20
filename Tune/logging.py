@@ -23,7 +23,7 @@ for lib, level in [
     ("pyrogram", logging.ERROR),
     ("pytgcalls", logging.ERROR),
     ("pymongo", logging.ERROR),
-    ("ntgcalls", logging.CRITICAL),
+    ("ntgcalls", logging.ERROR),
 ]:
     logging.getLogger(lib).setLevel(level)
 

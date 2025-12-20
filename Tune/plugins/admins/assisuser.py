@@ -19,13 +19,20 @@ from Tune.utils.database import get_assistant, get_lang
 from Tune.utils.decorators.language import language_no_delete
 from strings import get_string
 
-
 ACTIVE_STATUSES = {
     ChatMemberStatus.OWNER,
     ChatMemberStatus.ADMINISTRATOR,
     ChatMemberStatus.MEMBER,
     ChatMemberStatus.RESTRICTED,
 }
+
+
+async def _get_lang_strings(chat_id):
+    try:
+        language = await get_lang(chat_id)
+        return get_string(language)
+    except:
+        return get_string("en")
 
 
 async def _is_participant(client, chat_id, user_id) -> bool:
@@ -38,13 +45,17 @@ async def _is_participant(client, chat_id, user_id) -> bool:
         return False
 
 
+async def _handle_flood_wait(func, *args, **kwargs):
+    try:
+        return await func(*args, **kwargs)
+    except FloodWait as e:
+        await asyncio.sleep(e.value)
+        return await func(*args, **kwargs)
+
+
 async def join_userbot(app, chat_id, chat_username=None, _=None):
     if _ is None:
-        try:
-            language = await get_lang(chat_id)
-            _ = get_string(language)
-        except:
-            _ = get_string("en")
+        _ = await _get_lang_strings(chat_id)
     
     userbot = await get_assistant(chat_id)
 
@@ -62,7 +73,6 @@ async def join_userbot(app, chat_id, chat_username=None, _=None):
     except PeerIdInvalid:
         return _["assistant_3"]
 
-    invite = None
     if chat_username:
         invite = chat_username if chat_username.startswith("@") else f"@{chat_username}"
     else:
@@ -93,27 +103,19 @@ async def approve_join_request(client, chat_join_request: ChatJoinRequest):
     userbot = await get_assistant(chat_join_request.chat.id)
     if chat_join_request.from_user.id != userbot.id:
         return
+    
     chat_id = chat_join_request.chat.id
-
-    try:
-        language = await get_lang(chat_id)
-        _ = get_string(language)
-    except:
-        _ = get_string("en")
+    _ = await _get_lang_strings(chat_id)
 
     try:
         if await _is_participant(client, chat_id, userbot.id):
             return
+        
         try:
-            await client.approve_chat_join_request(chat_id, userbot.id)
+            await _handle_flood_wait(client.approve_chat_join_request, chat_id, userbot.id)
         except UserAlreadyParticipant:
             return
-        except FloodWait as e:
-            await asyncio.sleep(e.value)
-            try:
-                await client.approve_chat_join_request(chat_id, userbot.id)
-            except UserAlreadyParticipant:
-                return
+        
         try:
             await client.send_message(chat_id, _["assistant_9"])
         except ChatWriteForbidden:
@@ -167,11 +169,10 @@ async def leave_one(app, message, _):
         userbot = await get_assistant(chat_id)
         try:
             member = await userbot.get_chat_member(chat_id, userbot.id)
+            if member.status in [ChatMemberStatus.LEFT, ChatMemberStatus.BANNED]:
+                await message.reply(_["assistant_14"])
+                return
         except UserNotParticipant:
-            await message.reply(_["assistant_14"])
-            return
-
-        if member.status in [ChatMemberStatus.LEFT, ChatMemberStatus.BANNED]:
             await message.reply(_["assistant_14"])
             return
 
@@ -203,16 +204,10 @@ async def leave_all(app, message, _):
         async for dialog in userbot.get_dialogs():
             if dialog.chat.id == -1002014167331:
                 continue
+            
             try:
-                await userbot.leave_chat(dialog.chat.id)
+                await _handle_flood_wait(userbot.leave_chat, dialog.chat.id)
                 left += 1
-            except FloodWait as e:
-                await asyncio.sleep(e.value)
-                try:
-                    await userbot.leave_chat(dialog.chat.id)
-                    left += 1
-                except Exception:
-                    failed += 1
             except Exception:
                 failed += 1
 
@@ -225,9 +220,6 @@ async def leave_all(app, message, _):
         await asyncio.sleep(e.value)
     finally:
         try:
-            await app.send_message(
-                message.chat.id,
-                _["assistant_21"].format(left, failed),
-            )
+            await app.send_message(message.chat.id, _["assistant_21"].format(left, failed))
         except ChatWriteForbidden:
             pass

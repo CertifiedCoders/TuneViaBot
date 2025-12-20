@@ -43,6 +43,35 @@ def parse_chat_info(chat_info: str):
     return int(chat_info), None
 
 
+async def _send_stream_message(message, _, chat_id, videoid, title, duration, user, streamtype, msg_type, queued=None):
+    if videoid == "telegram":
+        photo = TELEGRAM_AUDIO_URL if str(streamtype) == "audio" else TELEGRAM_VIDEO_URL
+        caption = _["stream_1"].format(SUPPORT_CHAT, title[:23], duration, user)
+        msg_key = "tg"
+    elif videoid == "soundcloud" or is_soundcloud_url(videoid):
+        thumb_source = queued if queued and is_soundcloud_url(queued) else (videoid if is_soundcloud_url(videoid) else "soundcloud")
+        photo = await get_thumb(thumb_source)
+        caption = _["stream_1"].format(SUPPORT_CHAT, title[:23], duration, user)
+        msg_key = "tg"
+    elif videoid:
+        photo = await get_thumb(videoid)
+        caption = _["stream_1"].format(f"https://t.me/{app.username}?start=info_{videoid}", title[:23], duration, user)
+        msg_key = msg_type
+    else:
+        photo = STREAM_IMG_URL
+        caption = _["stream_2"].format(user)
+        msg_key = "tg"
+    
+    buttons = stream_markup(_, chat_id)
+    run = await message.reply_photo(
+        photo=photo,
+        caption=caption,
+        reply_markup=InlineKeyboardMarkup(buttons)
+    )
+    set_current_message(chat_id, run, msg_key)
+    return run
+
+
 @app.on_callback_query(filters.regex("unban_assistant"))
 async def unban_assistant(_, callback: CallbackQuery):
     chat_id = callback.message.chat.id
@@ -116,15 +145,13 @@ async def manage_callback(client, callback: CallbackQuery, _):
 
     elif command in ["Skip", "Replay"]:
         await handle_skip_replay(callback, _, chat_id, command, user_mention)
-
     else:
         await handle_seek(callback, _, chat_id, command, user_mention)
 
 
 async def handle_skip_replay(callback: CallbackQuery, _, chat_id: int, command: str, user_mention: str):
     playlist = db.get(chat_id)
-
-    if not playlist or len(playlist) == 0:
+    if not playlist:
         return await callback.answer(_["queue_2"], show_alert=True)
 
     text_msg = f"➻ sᴛʀᴇᴀᴍ sᴋɪᴩᴩᴇᴅ 🎄\n│ \n└ʙʏ : {user_mention} 🥀"
@@ -134,14 +161,9 @@ async def handle_skip_replay(callback: CallbackQuery, _, chat_id: int, command: 
             popped = playlist.pop(0)
             if popped:
                 await auto_clean(popped)
-            if not playlist:
-                await callback.edit_message_text(text_msg)
-                await callback.message.reply_text(
-                    _["admin_6"].format(user_mention, callback.message.chat.title),
-                    reply_markup=close_markup(_)
-                )
-                return await StreamController.stop_stream(chat_id)
         except Exception:
+            pass
+        if not playlist:
             await callback.edit_message_text(text_msg)
             await callback.message.reply_text(
                 _["admin_6"].format(user_mention, callback.message.chat.title),
@@ -151,7 +173,7 @@ async def handle_skip_replay(callback: CallbackQuery, _, chat_id: int, command: 
 
     await callback.answer()
 
-    if len(playlist) == 0:
+    if not playlist:
         return await callback.answer(_["queue_2"], show_alert=True)
 
     current_track = playlist[0]
@@ -170,130 +192,76 @@ async def handle_skip_replay(callback: CallbackQuery, _, chat_id: int, command: 
         db[chat_id][0]["speed_path"] = None
         db[chat_id][0]["speed"] = 1.0
 
-    if "live_" in queued:
-        n, new_link = await YouTube.video(videoid, True)
-        if n == 0:
-            return await callback.message.reply_text(
-                _["admin_7"].format(title),
-                reply_markup=close_markup(_)
-            )
-        try:
+    try:
+        if "live_" in queued:
+            n, new_link = await YouTube.video(videoid, True)
+            if n == 0:
+                return await callback.message.reply_text(
+                    _["admin_7"].format(title),
+                    reply_markup=close_markup(_)
+                )
             await StreamController.skip_stream(chat_id, new_link, video=status)
-        except Exception:
-            return await callback.message.reply_text(_["call_6"])
-        img = await get_thumb(videoid)
-        caption = _["stream_1"].format(f"https://t.me/{app.username}?start=info_{videoid}", title[:23], duration, user)
-        buttons = stream_markup(_, chat_id)
-        run = await callback.message.reply_photo(
-            photo=img,
-            caption=caption,
-            reply_markup=InlineKeyboardMarkup(buttons)
-        )
-        set_current_message(chat_id, run, "tg")
-        await callback.edit_message_text(text_msg, reply_markup=close_markup(_))
+            await _send_stream_message(callback.message, _, chat_id, videoid, title, duration, user, streamtype, "tg")
+            await callback.edit_message_text(text_msg, reply_markup=close_markup(_))
 
-    elif "vid_" in queued:
-        mystic = await callback.message.reply_text(_["call_7"], disable_web_page_preview=True)
-        try:
-            file_path, direct = await YouTube.download(
-                videoid,
-                mystic,
-                videoid=True,
-                video=status,
-                title=title,
-            )
-            if not file_path:
+        elif "vid_" in queued:
+            mystic = await callback.message.reply_text(_["call_7"], disable_web_page_preview=True)
+            try:
+                file_path, direct = await YouTube.download(
+                    videoid,
+                    mystic,
+                    videoid=True,
+                    video=status,
+                    title=title,
+                )
+                if not file_path:
+                    return await mystic.edit_text(_["call_6"])
+                await StreamController.skip_stream(chat_id, file_path, video=status)
+                await _send_stream_message(callback.message, _, chat_id, videoid, title, duration, user, streamtype, "stream")
+                await callback.edit_message_text(text_msg, reply_markup=close_markup(_))
+                await mystic.delete()
+            except Exception:
                 return await mystic.edit_text(_["call_6"])
-        except Exception:
-            return await mystic.edit_text(_["call_6"])
-        try:
-            await StreamController.skip_stream(chat_id, file_path, video=status)
-        except Exception:
-            return await mystic.edit_text(_["call_6"])
-        img = await get_thumb(videoid)
-        caption = _["stream_1"].format(f"https://t.me/{app.username}?start=info_{videoid}", title[:23], duration, user)
-        buttons = stream_markup(_, chat_id)
-        run = await callback.message.reply_photo(
-            photo=img,
-            caption=caption,
-            reply_markup=InlineKeyboardMarkup(buttons)
-        )
-        set_current_message(chat_id, run, "stream")
-        await callback.edit_message_text(text_msg, reply_markup=close_markup(_))
-        await mystic.delete()
 
-    elif "index_" in queued:
-        try:
+        elif "index_" in queued:
             await StreamController.skip_stream(chat_id, videoid, video=status)
-        except Exception:
-            return await callback.message.reply_text(_["call_6"])
-        buttons = stream_markup(_, chat_id)
-        run = await callback.message.reply_photo(
-            photo=STREAM_IMG_URL,
-            caption=_["stream_2"].format(user),
-            reply_markup=InlineKeyboardMarkup(buttons)
-        )
-        set_current_message(chat_id, run, "tg")
-        await callback.edit_message_text(text_msg, reply_markup=close_markup(_))
+            await _send_stream_message(callback.message, _, chat_id, None, title, duration, user, streamtype, "tg")
+            await callback.edit_message_text(text_msg, reply_markup=close_markup(_))
 
-    else:
-        try:
-            await StreamController.skip_stream(chat_id, queued, video=status)
-        except Exception:
-            return await callback.message.reply_text(_["call_6"])
-        if videoid == "telegram":
-            photo = TELEGRAM_AUDIO_URL if str(streamtype) == "audio" else TELEGRAM_VIDEO_URL
-            caption = _["stream_1"].format(SUPPORT_CHAT, title[:23], duration, user)
-            buttons = stream_markup(_, chat_id)
-            run = await callback.message.reply_photo(
-                photo=photo,
-                caption=caption,
-                reply_markup=InlineKeyboardMarkup(buttons)
-            )
-            set_current_message(chat_id, run, "tg")
-        elif videoid == "soundcloud" or is_soundcloud_url(videoid):
-            thumb_source = queued if is_soundcloud_url(queued) else (videoid if is_soundcloud_url(videoid) else "soundcloud")
-            img = await get_thumb(thumb_source)
-            caption = _["stream_1"].format(SUPPORT_CHAT, title[:23], duration, user)
-            buttons = stream_markup(_, chat_id)
-            run = await callback.message.reply_photo(
-                photo=img,
-                caption=caption,
-                reply_markup=InlineKeyboardMarkup(buttons)
-            )
-            set_current_message(chat_id, run, "tg")
         else:
-            img = await get_thumb(videoid)
-            caption = _["stream_1"].format(f"https://t.me/{app.username}?start=info_{videoid}", title[:23], duration, user)
-            buttons = stream_markup(_, chat_id)
-            run = await callback.message.reply_photo(
-                photo=img,
-                caption=caption,
-                reply_markup=InlineKeyboardMarkup(buttons)
-            )
-            set_current_message(chat_id, run, "stream")
-        await callback.edit_message_text(text_msg, reply_markup=close_markup(_))
+            await StreamController.skip_stream(chat_id, queued, video=status)
+            msg_type = "stream" if videoid and videoid not in ["telegram", "soundcloud"] and not is_soundcloud_url(videoid) else "tg"
+            await _send_stream_message(callback.message, _, chat_id, videoid, title, duration, user, streamtype, msg_type, queued)
+            await callback.edit_message_text(text_msg, reply_markup=close_markup(_))
+    except Exception:
+        return await callback.message.reply_text(_["call_6"])
 
 
 async def handle_seek(callback: CallbackQuery, _, chat_id: int, command: str, user_mention: str):
     playing = db.get(chat_id)
-    if not playing or len(playing) == 0:
+    if not playing:
         return await callback.answer(_["queue_2"], show_alert=True)
+    
     duration_seconds = int(playing[0]["seconds"])
     if duration_seconds == 0:
         return await callback.answer(_["admin_22"], show_alert=True)
+    
     file_path = playing[0]["file"]
     if "index_" in file_path or "live_" in file_path:
         return await callback.answer(_["admin_22"], show_alert=True)
+    
     duration_played = int(playing[0]["played"])
     duration_to_skip = 10 if int(command) in [1, 2] else 30
     duration = playing[0]["dur"]
+    is_backward = int(command) in [1, 3]
+    
     bet = seconds_to_min(duration_played)
     error_msg = (
         f"» ʙᴏᴛ ɪs ᴜɴᴀʙʟᴇ ᴛᴏ sᴇᴇᴋ ʙᴇᴄᴀᴜsᴇ ᴛʜᴇ ᴅᴜʀᴀᴛɪᴏɴ ᴇxᴄᴇᴇᴅs.\n\n"
         f"ᴄᴜʀʀᴇɴᴛʟʏ ᴩʟᴀʏᴇᴅ :** {bet}** ᴍɪɴᴜᴛᴇs ᴏᴜᴛ ᴏғ **{duration}** ᴍɪɴᴜᴛᴇs."
     )
-    if int(command) in [1, 3]:
+    
+    if is_backward:
         if (duration_played - duration_to_skip) <= 10:
             return await callback.answer(error_msg, show_alert=True)
         to_seek = duration_played - duration_to_skip + 1
@@ -301,12 +269,15 @@ async def handle_seek(callback: CallbackQuery, _, chat_id: int, command: str, us
         if (duration_seconds - (duration_played + duration_to_skip)) <= 10:
             return await callback.answer(error_msg, show_alert=True)
         to_seek = duration_played + duration_to_skip + 1
+    
     await callback.answer()
     mystic = await callback.message.reply_text(_["admin_24"])
+    
     if "vid_" in file_path:
         n, file_path = await YouTube.video(playing[0]["vidid"], True)
         if n == 0:
             return await mystic.edit_text(_["admin_22"])
+    
     try:
         await StreamController.seek_stream(
             chat_id,
@@ -317,10 +288,8 @@ async def handle_seek(callback: CallbackQuery, _, chat_id: int, command: str, us
         )
     except Exception:
         return await mystic.edit_text(_["admin_26"])
-    if int(command) in [1, 3]:
-        db[chat_id][0]["played"] -= duration_to_skip
-    else:
-        db[chat_id][0]["played"] += duration_to_skip
+    
+    db[chat_id][0]["played"] = db[chat_id][0]["played"] - duration_to_skip if is_backward else db[chat_id][0]["played"] + duration_to_skip
     seek_message = _["admin_25"].format(seconds_to_min(to_seek))
     await mystic.edit_text(f"{seek_message}\n\nᴄʜᴀɴɢᴇs ᴅᴏɴᴇ ʙʏ : {user_mention} !")
 
