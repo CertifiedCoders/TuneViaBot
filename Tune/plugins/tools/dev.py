@@ -27,12 +27,6 @@ async def edit_or_reply(msg: Message, **kwargs):
     await func(**kwargs)
 
 
-@app.on_edited_message(
-    filters.command("eval")
-    & filters.user(OWNER_ID)
-    & ~filters.forwarded
-    & ~filters.via_bot
-)
 @app.on_message(
     filters.command("eval")
     & filters.user(OWNER_ID)
@@ -135,12 +129,6 @@ async def forceclose_command(_, CallbackQuery):
         return
 
 
-@app.on_edited_message(
-    filters.command("sh")
-    & filters.user(OWNER_ID)
-    & ~filters.forwarded
-    & ~filters.via_bot
-)
 @app.on_message(
     filters.command("sh")
     & filters.user(OWNER_ID)
