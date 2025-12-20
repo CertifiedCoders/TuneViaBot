@@ -48,6 +48,7 @@ from Tune.utils.formatters import check_duration, seconds_to_min, speed_converte
 from Tune.utils.inline.play import stream_markup
 from Tune.utils.stream.autoclear import auto_clean
 from Tune.utils.thumbnails import get_thumb
+from Tune.utils.tuning import FFMPEG_AUDIO_FILTERS, AUDIO_SAMPLE_RATE, AUDIO_CHANNELS, AUDIO_BITRATE
 
 autoend = {}
 counter = {}
@@ -56,6 +57,11 @@ counter = {}
 def dynamic_media_stream(
     path: str, video: bool = False, ffmpeg_params: str = None
 ) -> MediaStream:
+    
+    if ffmpeg_params is None:
+        audio_filters = FFMPEG_AUDIO_FILTERS
+        ffmpeg_params = f"-af {audio_filters} -ar {AUDIO_SAMPLE_RATE} -ac {AUDIO_CHANNELS} -b:a {AUDIO_BITRATE} -bufsize 512k -maxrate 192k"
+    
     if video:
         return MediaStream(
             media_path=path,

@@ -84,12 +84,14 @@ def get_ytdlp_base_opts(is_soundcloud: bool = False) -> Dict[str, object]:
         opts["retries"] = 3
         opts["extractor_args"] = {"soundcloud": {"client_id": None}}
     else:
-        opts["concurrent_fragment_downloads"] = 16
-        opts["http_chunk_size"] = 1 << 20
-        opts["socket_timeout"] = 15
-        opts["retries"] = 1
-        opts["fragment_retries"] = 1
+        opts["concurrent_fragment_downloads"] = 32
+        opts["http_chunk_size"] = 2 << 20
+        opts["socket_timeout"] = 10
+        opts["retries"] = 2
+        opts["fragment_retries"] = 2
         opts["merge_output_format"] = "mp4"
+        opts["external_downloader"] = "aria2c"
+        opts["external_downloader_args"] = ["-x", "16", "-s", "16", "-j", "16", "-k", "1M"]
     
     if cookiefile := get_cookie_file():
         opts["cookiefile"] = cookiefile
@@ -103,9 +105,20 @@ async def get_http_session() -> aiohttp.ClientSession:
     async with _session_lock:
         if _session and not _session.closed:
             return _session
-        timeout = aiohttp.ClientTimeout(total=600, sock_connect=20, sock_read=60)
-        connector = TCPConnector(limit=0, ttl_dns_cache=300, enable_cleanup_closed=True)
-        _session = aiohttp.ClientSession(timeout=timeout, connector=connector)
+        timeout = aiohttp.ClientTimeout(total=600, sock_connect=10, sock_read=30)
+        connector = TCPConnector(
+            limit=200,
+            limit_per_host=50,
+            ttl_dns_cache=600,
+            enable_cleanup_closed=True,
+            keepalive_timeout=60,
+            force_close=False
+        )
+        _session = aiohttp.ClientSession(
+            timeout=timeout,
+            connector=connector,
+            headers={"User-Agent": "Mozilla/5.0"}
+        )
         return _session
 
 
@@ -297,10 +310,10 @@ async def yt_dlp_download(link: str, type: str, title: str = "") -> Optional[str
     is_soundcloud = bool(SOUNDCLOUD_RE.match(link))
     
     if type == "audio":
-        fmt = "bestaudio/best" if is_soundcloud else "bestaudio[ext=webm][acodec=opus]/bestaudio/best"
+        fmt = "bestaudio/best" if is_soundcloud else "bestaudio[ext=webm][acodec=opus]/bestaudio[ext=m4a][acodec=aac]/bestaudio/best"
         return await _download_media(link, fmt, api_download_audio, title, is_soundcloud, "audio")
     elif type == "video":
-        fmt = "(bestvideo[height<=?720][width<=?1280][ext=mp4])+(bestaudio)"
+        fmt = "(bestvideo[height<=?720][width<=?1280][ext=mp4][fps<=?30])+(bestaudio[acodec=opus]/bestaudio[acodec=aac]/bestaudio)"
         return await _download_media(link, fmt, api_download_video, title, is_soundcloud, "video")
     
     return None

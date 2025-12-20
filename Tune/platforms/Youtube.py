@@ -65,7 +65,7 @@ async def _exec_proc(*args: str) -> Tuple[bytes, bytes]:
 
 @capture_internal_err
 async def cached_youtube_search(query: str) -> List[Dict]:
-    key = f"q:{query}"
+    key = f"q:{query.lower().strip()}"
     now = time.time()
 
     async with _cache_lock:
@@ -74,8 +74,9 @@ async def cached_youtube_search(query: str) -> List[Dict]:
             if now - ts < YOUTUBE_META_TTL:
                 return val
             _cache.pop(key, None)
-        if len(_cache) > YOUTUBE_META_MAX:
-            _cache.clear()
+        if len(_cache) >= YOUTUBE_META_MAX:
+            oldest_key = min(_cache.keys(), key=lambda k: _cache[k][0])
+            _cache.pop(oldest_key, None)
 
     try:
         data = await VideosSearch(query, limit=1).next()
@@ -374,11 +375,11 @@ class YouTubeAPI:
                     return stream_url, None
                 return None, None
 
-            final_title = title or await self.title(link)
+            final_title = title if title else await self.title(link)
             p = await yt_dlp_download(link, type="video", title=final_title)
             return (p, True) if p else (None, None)
 
-        final_title = title or await self.title(link)
+        final_title = title if title else await self.title(link)
         p = await yt_dlp_download(link, type="audio", title=final_title)
         return (p, True) if p else (None, None)
 

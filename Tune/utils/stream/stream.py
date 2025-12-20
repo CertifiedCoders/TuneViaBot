@@ -1,5 +1,6 @@
 # Authored By Certified Coders © 2025
 
+import asyncio
 import os
 from random import randint
 from typing import Union
@@ -18,6 +19,7 @@ from Tune.utils.pastebin import TuneBin
 from Tune.utils.stream.queue import put_queue, put_queue_index
 from Tune.utils.thumbnails import get_thumb
 from Tune.utils.errors import capture_internal_err
+from Tune.utils.tuning import get_chat_semaphore
 
 
 def _get_file_identifier(vidid: str, file_path: str = None, direct: bool = False) -> str:
@@ -28,19 +30,21 @@ def _get_file_identifier(vidid: str, file_path: str = None, direct: bool = False
     return f"vid_{vidid}"
 
 
-async def _download_track(_, vidid: str, mystic, is_video: bool, title: str):
+async def _download_track(_, vidid: str, mystic, is_video: bool, title: str, chat_id: int = None):
     is_soundcloud = is_soundcloud_url(vidid)
-    if is_soundcloud:
-        result = await SoundCloud.download(vidid)
-        if result is False or not isinstance(result, tuple):
-            raise AssistantErr(_["play_14"])
-        details_dict, file_path = result
-        return file_path, True
-    else:
-        file_path, direct = await YouTube.download(vidid, mystic, video=is_video, videoid=vidid, title=title)
-        if not file_path:
-            raise AssistantErr(_["play_14"])
-        return file_path, direct
+    sem = await get_chat_semaphore(chat_id) if chat_id else None
+    async with sem if sem else asyncio.Lock():
+        if is_soundcloud:
+            result = await SoundCloud.download(vidid)
+            if result is False or not isinstance(result, tuple):
+                raise AssistantErr(_["play_14"])
+            details_dict, file_path = result
+            return file_path, True
+        else:
+            file_path, direct = await YouTube.download(vidid, mystic, video=is_video, videoid=vidid, title=title)
+            if not file_path:
+                raise AssistantErr(_["play_14"])
+            return file_path, direct
 
 
 async def _queue_and_notify(_, chat_id, original_chat_id, file_identifier, title, duration_min, user_name, vidid, user_id, stream_type):
@@ -125,7 +129,7 @@ async def stream(
                 if not forceplay:
                     db[chat_id] = []
                 try:
-                    file_path, direct = await _download_track(_, vidid, mystic, is_video, title)
+                    file_path, direct = await _download_track(_, vidid, mystic, is_video, title, chat_id)
                 except AssistantErr:
                     raise
                 except Exception:
