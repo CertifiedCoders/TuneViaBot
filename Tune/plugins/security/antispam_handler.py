@@ -9,10 +9,11 @@ from pyrogram.types import Message
 
 from Tune import app
 from Tune.utils.antispam import track_command, reset_user_tracking, get_user_command_count
-from Tune.utils.database import is_spam_blocked, is_antispam_enabled
+from Tune.utils.database import is_spam_blocked, is_antispam_enabled, get_lang
 from config import SUPPORT_CHAT, OWNER_ID, LOGGER_ID
 from Tune.core.dir import LOGS_DIR
 from Tune.logging import LOGGER
+from strings import get_string
 
 _spam_blocked_users_cache = set()
 _user_notified_cache = set()
@@ -53,12 +54,15 @@ async def _notify_user_blocked(user_id: int):
         return
     
     try:
+        try:
+            lang_code = await get_lang(user_id)
+            _ = get_string(lang_code)
+        except:
+            _ = get_string("en")
+        
         await app.send_message(
             user_id,
-            "⚠️ <b>ʏᴏᴜ'ᴠᴇ ʙᴇᴇɴ ʙʟᴏᴄᴋᴇᴅ ғᴏʀ sᴘᴀᴍᴍɪɴɢ</b>\n\n"
-            "ʏᴏᴜ ᴡᴇʀᴇ ᴄᴀᴜɢʜᴛ sᴇɴᴅɪɴɢ ᴛᴏᴏ ᴍᴀɴʏ ᴄᴏᴍᴍᴀɴᴅs ɪɴ ᴀ sʜᴏʀᴛ ᴛɪᴍᴇ.\n"
-            "ʏᴏᴜ ᴀʀᴇ ɴᴏᴡ ʙʟᴏᴄᴋᴇᴅ ғʀᴏᴍ ᴜsɪɴɢ ᴛʜɪs ʙᴏᴛ.\n\n"
-            f"ɪғ ʏᴏᴜ ʙᴇʟɪᴇᴠᴇ ᴛʜɪs ɪs ᴀ ᴍɪsᴛᴀᴋᴇ, ᴄᴏɴᴛᴀᴄᴛ sᴜᴘᴘᴏʀᴛ:\n<a href={SUPPORT_CHAT}>sᴜᴘᴘᴏʀᴛ ᴄʜᴀᴛ</a>"
+            _["antispam_1"].format(SUPPORT_CHAT)
         )
         _user_notified_cache.add(user_id)
         _write_debug_log("NOTIFY_USER", {"user_id": user_id, "status": "sent"})
@@ -71,21 +75,20 @@ async def _notify_support_chat(user_id: int, user_name: str, username: str, chat
         return
     
     try:
-        user_display = user_name or f"ᴜsᴇʀ {user_id}"
+        _ = get_string("en")
+        user_display = user_name or _["antispam_22"].format(user_id)
         if username:
             user_display += f" (@{username})"
         
         most_used_command = _get_most_frequent_command(spammed_commands)
         
-        spam_notification = (
-            f"🚫 <b>sᴘᴀᴍ ᴅᴇᴛᴇᴄᴛᴇᴅ & ʙʟᴏᴄᴋᴇᴅ</b>\n\n"
-            f"👤 <b>ᴜsᴇʀ:</b> {user_display}\n"
-            f"🆔 <b>ɪᴅ:</b> <code>{user_id}</code>\n"
-            f"📍 <b>ʟᴏᴄᴀᴛɪᴏɴ:</b> {chat_info}\n"
-            f"⚡ <b>ᴄᴏᴍᴍᴀɴᴅs sᴘᴀᴍᴍᴇᴅ:</b> {len(spammed_commands)}/10\n"
-            f"🔧 <b>ᴄᴏᴍᴍᴀɴᴅs:</b> {most_used_command}\n"
-            f"⏱ <b>ᴛɪᴍᴇ:</b> {timestamp}\n"
-            f"🔒 <b>sᴛᴀᴛᴜs:</b> ᴜsᴇʀ ʙʟᴏᴄᴋᴇᴅ - ᴀʟʟ ᴍᴇssᴀɢᴇs ɪɢɴᴏʀᴇᴅ"
+        spam_notification = _["antispam_2"].format(
+            user_display,
+            user_id,
+            chat_info,
+            len(spammed_commands),
+            most_used_command,
+            timestamp
         )
         
         await app.send_message(LOGGER_ID, spam_notification)
@@ -230,13 +233,15 @@ def _get_user_info(message: Message):
 
 def _get_chat_info(message: Message) -> str:
     try:
+        _ = get_string("en")
         chat_type_str = str(message.chat.type).lower()
         if "private" in chat_type_str:
-            return "ʙᴏᴛ ᴅᴍ"
+            return _["antispam_19"]
         chat_title = getattr(message.chat, 'title', None) or "ɴ/ᴀ"
-        return f"ɢʀᴏᴜᴘ: {chat_title} (ɪᴅ: {message.chat.id})"
+        return _["antispam_20"].format(chat_title, message.chat.id)
     except Exception:
-        return "ᴜɴᴋɴᴏᴡɴ ʟᴏᴄᴀᴛɪᴏɴ"
+        _ = get_string("en")
+        return _["antispam_21"]
 
 
 COMMAND_FILTER = filters.create(_check_command)
