@@ -10,6 +10,7 @@ from Tune import LOGGER, app, userbot
 from Tune.core.call import StreamController
 from Tune.misc import sudo
 from Tune.plugins import ALL_MODULES
+from Tune.core.userbot import get_session_count
 from Tune.utils.database import get_banned_users, get_gbanned, get_spam_blocked_users
 from Tune.plugins.security.antispam_handler import get_spam_blocked_cache, log_antispam_status
 from Tune.utils.cookie_handler import fetch_and_store_cookies 
@@ -17,13 +18,8 @@ from config import BANNED_USERS
 
 
 async def init():
-    if (
-        not config.STRING1
-        and not config.STRING2
-        and not config.STRING3
-        and not config.STRING4
-        and not config.STRING5
-    ):
+    session_count = get_session_count()
+    if session_count == 0:
         LOGGER(__name__).error("ᴀssɪsᴛᴀɴᴛ sᴇssɪᴏɴ ɴᴏᴛ ғɪʟʟᴇᴅ, ᴘʟᴇᴀsᴇ ғɪʟʟ ᴀ ᴘʏʀᴏɢʀᴀᴍ sᴇssɪᴏɴ...")
         exit()
 

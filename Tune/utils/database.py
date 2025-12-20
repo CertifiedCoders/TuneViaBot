@@ -50,16 +50,15 @@ async def get_assistant_number(chat_id: int) -> str:
 
 
 async def get_client(assistant: int):
-    if int(assistant) == 1:
-        return userbot.one
-    elif int(assistant) == 2:
-        return userbot.two
-    elif int(assistant) == 3:
-        return userbot.three
-    elif int(assistant) == 4:
-        return userbot.four
-    elif int(assistant) == 5:
-        return userbot.five
+    """Get assistant client by index (1-based)."""
+    assistant_index = int(assistant)
+    client = userbot.get_assistant(assistant_index)
+    if client is None:
+        # Fallback to first available assistant
+        assistants_list = userbot.get_assistants_list()
+        if assistants_list:
+            return assistants_list[0]
+    return client
 
 
 async def set_assistant_new(chat_id, number):
@@ -125,7 +124,7 @@ async def set_calls_assistant(chat_id):
     return ran_assistant
 
 
-async def group_assistant(self, chat_id: int) -> int:
+async def group_assistant(self, chat_id: int):
     from Tune.core.userbot import assistants
 
     assistant = assistantdict.get(chat_id)
@@ -145,31 +144,41 @@ async def group_assistant(self, chat_id: int) -> int:
         else:
             assis = await set_calls_assistant(chat_id)
     
-    assis_int = None
+    # Dynamically get assistant from available list (self is Call instance)
     result = None
     try:
         assis_int = int(assis)
-        if assis_int == 1:
-            result = self.one
-        elif assis_int == 2:
-            result = self.two
-        elif assis_int == 3:
-            result = self.three
-        elif assis_int == 4:
-            result = self.four
-        elif assis_int == 5:
-            result = self.five
-    except (ValueError, AttributeError):
-        assis_int = None
+        # Access assistants from the Call instance's dynamic list
+        # Note: assistants_list maintains original positions (0=STRING1, 1=STRING2, etc.)
+        if hasattr(self, 'assistants_list') and self.assistants_list:
+            idx = assis_int - 1  # Convert to 0-based index
+            if 0 <= idx < len(self.assistants_list):
+                candidate = self.assistants_list[idx]
+                if candidate is not None:
+                    result = candidate
+    except (ValueError, AttributeError, IndexError):
+        pass
     
     if result is None:
-        if assis_int is None:
-            fallback = self.one or self.two or self.three or self.four or self.five
-            if fallback is None:
-                raise AssistantErr("No active assistant available.")
-            return fallback
+        # Fallback to first available assistant
+        if hasattr(self, 'assistants_list') and self.assistants_list:
+            available = [a for a in self.assistants_list if a is not None]
+            if available:
+                result = available[0]
+            else:
+                # Last resort: try to get any available assistant from named attributes
+                available = [a for a in [self.one, self.two, self.three, self.four, self.five] if a]
+                if available:
+                    result = available[0]
+                else:
+                    raise AssistantErr("No active assistant available.")
         else:
-            raise AssistantErr(f"Requested assistant {assis_int} is not available.")
+            # Last resort: try to get any available assistant from named attributes
+            available = [a for a in [self.one, self.two, self.three, self.four, self.five] if a]
+            if available:
+                result = available[0]
+            else:
+                raise AssistantErr("No active assistant available.")
     
     return result
 

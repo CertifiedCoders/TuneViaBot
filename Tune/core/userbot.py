@@ -17,54 +17,85 @@ GROUPS_TO_JOIN = [
 ]
 
 
+def get_available_sessions():
+    """
+    Centralized function to get all available STRING sessions.
+    Returns a list of tuples: (index, session_string) for each available session.
+    Index is 1-based (1, 2, 3, etc.)
+    """
+    sessions = [
+        config.STRING1,
+        config.STRING2,
+        config.STRING3,
+        config.STRING4,
+        config.STRING5,
+    ]
+    available = []
+    for idx, session in enumerate(sessions, start=1):
+        if session:
+            available.append((idx, session))
+    return available
+
+
+def get_session_count():
+    """
+    Get the count of available STRING sessions.
+    This is the single source of truth for how many assistants should be initialized.
+    """
+    return len(get_available_sessions())
+
+
 # Initialize userbots
 class Userbot:
     def __init__(self):
-        self.one = Client(
-            "TuneAssis1",
-            config.API_ID,
-            config.API_HASH,
-            session_string=str(config.STRING1),
-            no_updates=True,
-        )
-        self.two = Client(
-            "TuneAssis2",
-            config.API_ID,
-            config.API_HASH,
-            session_string=str(config.STRING2),
-            no_updates=True,
-        )
-        self.three = Client(
-            "TuneAssis3",
-            config.API_ID,
-            config.API_HASH,
-            session_string=str(config.STRING3),
-            no_updates=True,
-        )
-        self.four = Client(
-            "TuneAssis4",
-            config.API_ID,
-            config.API_HASH,
-            session_string=str(config.STRING4),
-            no_updates=True,
-        )
-        self.five = Client(
-            "TuneAssis5",
-            config.API_ID,
-            config.API_HASH,
-            session_string=str(config.STRING5),
-            no_updates=True,
-        )
+        # Use centralized function to get available sessions
+        available_sessions = get_available_sessions()
+        self.session_count = len(available_sessions)
+        
+        # Dynamically initialize assistants from available STRING sessions
+        self.assistants = []
+        self.string_sessions = [s for _, s in available_sessions]
+        
+        # Initialize only assistants with valid session strings
+        for idx, session_string in available_sessions:
+            client = Client(
+                f"TuneAssis{idx}",
+                config.API_ID,
+                config.API_HASH,
+                session_string=str(session_string),
+                no_updates=True,
+            )
+            self.assistants.append((idx, client))
+        
+        # Maintain backward compatibility with named attributes for first 5 assistants
+        # This allows gradual migration of code that references self.one, self.two, etc.
+        assistant_names = ["one", "two", "three", "four", "five"]
+        for idx, client in self.assistants[:5]:
+            setattr(self, assistant_names[idx - 1], client)
+        
+        # Set remaining attributes to None if not initialized (max 5 for compatibility)
+        for i in range(len(self.assistants), 5):
+            setattr(self, assistant_names[i], None)
+    
+    def get_assistant(self, index: int):
+        """Get assistant client by index (1-based)."""
+        for idx, client in self.assistants:
+            if idx == index:
+                return client
+        return None
+    
+    def get_assistants_list(self):
+        """Get list of all assistant clients."""
+        return [client for _, client in self.assistants]
+    
+    def get_assistant_indices(self):
+        """Get list of all active assistant indices."""
+        return [idx for idx, _ in self.assistants]
 
     async def start_assistant(self, client: Client, index: int):
-        string_attr = [
-            config.STRING1,
-            config.STRING2,
-            config.STRING3,
-            config.STRING4,
-            config.STRING5,
-        ][index - 1]
-        if not string_attr:
+        # Verify the assistant exists in our list
+        assistant_exists = any(idx == index for idx, _ in self.assistants)
+        if not assistant_exists:
             return
 
         try:
@@ -97,25 +128,17 @@ class Userbot:
             LOGGER(__name__).error(f"Failed to start Assistant {index}: {e}")
 
     async def start(self):
-        LOGGER(__name__).info("Starting Tune's Assistants...")
-        await self.start_assistant(self.one, 1)
-        await self.start_assistant(self.two, 2)
-        await self.start_assistant(self.three, 3)
-        await self.start_assistant(self.four, 4)
-        await self.start_assistant(self.five, 5)
+        LOGGER(__name__).info(f"Starting Tune's Assistants... (Found {self.session_count} active assistant{'s' if self.session_count != 1 else ''})")
+        for idx, client in self.assistants:
+            await self.start_assistant(client, idx)
 
     async def stop(self):
         LOGGER(__name__).info("Stopping Assistants...")
         try:
-            if config.STRING1:
-                await self.one.stop()
-            if config.STRING2:
-                await self.two.stop()
-            if config.STRING3:
-                await self.three.stop()
-            if config.STRING4:
-                await self.four.stop()
-            if config.STRING5:
-                await self.five.stop()
+            for idx, client in self.assistants:
+                try:
+                    await client.stop()
+                except Exception as e:
+                    LOGGER(__name__).error(f"Error stopping Assistant {idx}: {e}")
         except Exception as e:
             LOGGER(__name__).error(f"Error while stopping assistants: {e}")

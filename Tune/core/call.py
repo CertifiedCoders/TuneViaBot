@@ -103,29 +103,38 @@ async def _clear_(chat_id: int) -> None:
 
 class Call:
     def __init__(self):
-        assistants_config = [
-            (config.STRING1, "TuneXAssis1"),
-            (config.STRING2, "TuneXAssis2"),
-            (config.STRING3, "TuneXAssis3"),
-            (config.STRING4, "TuneXAssis4"),
-            (config.STRING5, "TuneXAssis5"),
-        ]
-        assistants = []
-        for string, name in assistants_config:
-            userbot = (
-                Client(name, config.API_ID, config.API_HASH, session_string=string)
-                if string
-                else None
+        from Tune.core.userbot import get_available_sessions
+        
+        available_sessions = get_available_sessions()
+        self.session_count = len(available_sessions)
+        
+        self.userbots = []
+        self.assistants_list = []
+        
+        # Create a mapping for all possible positions (max 5 for compatibility)
+        max_sessions = 5
+        self.userbots = [None] * max_sessions
+        self.assistants_list = [None] * max_sessions
+        
+        # Initialize only assistants with valid session strings
+        for idx, session_string in available_sessions:
+            name = f"TuneXAssis{idx}"
+            userbot = Client(
+                name, config.API_ID, config.API_HASH, session_string=session_string
             )
-            assistant = PyTgCalls(userbot) if userbot else None
-            assistants.append((userbot, assistant))
-        (
-            (self.userbot1, self.one),
-            (self.userbot2, self.two),
-            (self.userbot3, self.three),
-            (self.userbot4, self.four),
-            (self.userbot5, self.five),
-        ) = assistants
+            assistant = PyTgCalls(userbot)
+            # Store at position idx-1 (0-based index)
+            self.userbots[idx - 1] = userbot
+            self.assistants_list[idx - 1] = assistant
+        
+        # Maintain backward compatibility with named attributes for first 5 assistants
+        # This allows gradual migration of code that references self.one, self.two, etc.
+        assistant_names = ["one", "two", "three", "four", "five"]
+        userbot_names = ["userbot1", "userbot2", "userbot3", "userbot4", "userbot5"]
+        for i in range(max_sessions):
+            setattr(self, userbot_names[i], self.userbots[i])
+            setattr(self, assistant_names[i], self.assistants_list[i])
+        
         self.active_calls: set[int] = set()
 
     async def _cleanup_and_leave(self, chat_id: int, client) -> None:
@@ -643,36 +652,21 @@ class Call:
             )
 
     async def start(self) -> None:
-        LOGGER(__name__).info("Starting PyTgCalls Clients...")
-        assistants = [self.one, self.two, self.three, self.four, self.five]
-        strings = [
-            config.STRING1,
-            config.STRING2,
-            config.STRING3,
-            config.STRING4,
-            config.STRING5,
-        ]
+        active_count = len([a for a in self.assistants_list if a])
+        LOGGER(__name__).info(f"Starting PyTgCalls Clients... (Found {active_count} active assistant{'s' if active_count != 1 else ''})")
         try:
-            for assistant, string in zip(assistants, strings):
-                if string and assistant:
+            for assistant in self.assistants_list:
+                if assistant:
                     await assistant.start()
         except Exception as e:
             LOGGER(__name__).error(f"Error starting PyTgCalls clients: {e}")
 
     @capture_internal_err
     async def ping(self) -> str:
-        assistants = [self.one, self.two, self.three, self.four, self.five]
-        strings = [
-            config.STRING1,
-            config.STRING2,
-            config.STRING3,
-            config.STRING4,
-            config.STRING5,
-        ]
         pings = []
         try:
-            for assistant, string in zip(assistants, strings):
-                if string and assistant:
+            for assistant in self.assistants_list:
+                if assistant:
                     pings.append(assistant.ping)
         except Exception:
             pass
@@ -680,9 +674,7 @@ class Call:
 
     @capture_internal_err
     async def decorators(self) -> None:
-        assistants = list(
-            filter(None, [self.one, self.two, self.three, self.four, self.five])
-        )
+        assistants = list(filter(None, self.assistants_list))
         CRITICAL = (
             ChatUpdate.Status.KICKED
             | ChatUpdate.Status.LEFT_GROUP
