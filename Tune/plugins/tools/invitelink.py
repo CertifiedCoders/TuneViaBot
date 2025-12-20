@@ -5,23 +5,24 @@ from pyrogram.types import Message
 from pyrogram.errors import FloodWait, ChannelInvalid, ChannelPrivate
 from Tune import app
 from Tune.misc import SUDOERS
+from Tune.utils.decorators.language import language_no_delete
 
 
 @app.on_message(filters.command("givelink"))
-async def give_link_command(client: Client, message: Message):
+@language_no_delete
+async def give_link_command(client: Client, message: Message, _):
     try:
         link = await app.export_chat_invite_link(message.chat.id)
-        await message.reply_text(
-            f"🔗 **ɪɴᴠɪᴛᴇ ʟɪɴᴋ ғᴏʀ** `{message.chat.title}`:\n{link}"
-        )
+        await message.reply_text(_["invitelink_1"].format(message.chat.title, link))
     except Exception as e:
-        await message.reply_text(f"❌ ᴇʀʀᴏʀ ɢᴇɴᴇʀᴀᴛɪɴɢ ʟɪɴᴋ:\n`{e}`")
+        await message.reply_text(_["invitelink_2"].format(str(e)))
 
 
 @app.on_message(filters.command(["link", "invitelink"], prefixes=["/", "!", ".", "#", "?"]) & SUDOERS)
-async def link_command_handler(client: Client, message: Message):
+@language_no_delete
+async def link_command_handler(client: Client, message: Message, _):
     if len(message.command) != 2:
-        return await message.reply("**ᴜsᴀɢᴇ:** `/link <group_id>`")
+        return await message.reply(_["invitelink_3"])
 
     group_id = message.command[1]
     file_name = f"group_info_{group_id}.txt"
@@ -29,14 +30,14 @@ async def link_command_handler(client: Client, message: Message):
     try:
         chat = await client.get_chat(int(group_id))
         if not chat:
-            return await message.reply("⚠️ **ᴄᴏᴜʟᴅ ɴᴏᴛ ғᴇᴛᴄʜ ɢʀᴏᴜᴘ ɪɴғᴏ.**")
+            return await message.reply(_["invitelink_4"])
 
         try:
             invite_link = await client.export_chat_invite_link(chat.id)
         except (ChannelInvalid, ChannelPrivate):
-            return await message.reply("🚫 **ɪ ᴅᴏɴ'ᴛ ʜᴀᴠᴇ ᴀᴄᴄᴇss ᴛᴏ ᴛʜɪs ɢʀᴏᴜᴘ/ᴄʜᴀɴɴᴇʟ.**")
+            return await message.reply(_["invitelink_5"])
         except FloodWait as e:
-            return await message.reply(f"⏳ ʀᴀᴛᴇ ʟɪᴍɪᴛ: ᴡᴀɪᴛ `{e.value}` seconds.")
+            return await message.reply(_["invitelink_6"].format(e.value))
 
         group_data = {
             "id": chat.id,
@@ -61,17 +62,13 @@ async def link_command_handler(client: Client, message: Message):
         await client.send_document(
             chat_id=message.chat.id,
             document=file_name,
-            caption=(
-                f"📂 **ɢʀᴏᴜᴘ ɪɴғᴏ ꜰᴏʀ** `{chat.title}`\n"
-                f"📌 **sᴄʀᴀᴘᴇᴅ ʙʏ:** @{app.username}"
-            ),
+            caption=_["invitelink_7"].format(chat.title, app.username),
         )
 
-    except (ValueError):
-        await message.reply("❌ **ɪɴᴠᴀʟɪᴅ ɢʀᴏᴜᴘ ɪᴅ. ᴘʟᴇᴀsᴇ ᴘʀᴏᴠɪᴅᴇ ᴀ ᴠᴀʟɪᴅ ɢʀᴏᴜᴘ ɪᴅ.**")
+    except ValueError:
+        await message.reply(_["invitelink_8"])
     except Exception as e:
-        await message.reply_text(f"❌ ᴇʀʀᴏʀ:\n`{str(e)}`")
-
+        await message.reply_text(_["invitelink_9"].format(str(e)))
     finally:
         if os.path.exists(file_name):
             os.remove(file_name)

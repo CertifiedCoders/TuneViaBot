@@ -27,17 +27,14 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 def cleanup_storage():
-    folders_to_remove = ["downloads", "raw_files", "cache", "logs"]
-    for folder in folders_to_remove:
+    for folder in ["downloads", "raw_files", "cache", "logs"]:
         try:
             if os.path.exists(folder):
                 shutil.rmtree(folder)
-        except FileNotFoundError:
-            pass
         except (OSError, PermissionError, shutil.Error) as e:
             LOGGER(__name__).warning(f"Failed to delete {folder}: {e}")
 
-    for root, dirs, files in os.walk("."):
+    for root, dirs, _ in os.walk("."):
         for d in dirs:
             if d == "__pycache__":
                 try:
@@ -49,6 +46,23 @@ def cleanup_storage():
 def _ordinal(n: int) -> str:
     suffix = "tsnrhtdd"[(n // 10 % 10 != 1) * (n % 10 < 4) * n % 10 :: 4]
     return f"{n}{suffix}"
+
+
+async def notify_active_chats(_):
+    try:
+        active_chats = await get_active_chats()
+        for chat_id in active_chats:
+            try:
+                await app.send_message(
+                    chat_id=int(chat_id),
+                    text=_["server_8"].format(app.mention),
+                )
+                await remove_active_chat(chat_id)
+                await remove_active_video_chat(chat_id)
+            except Exception as e:
+                LOGGER(__name__).warning(f"Failed to notify chat {chat_id}: {e}")
+    except Exception as e:
+        LOGGER(__name__).error(f"Failed to get active chats: {e}")
 
 
 @app.on_message(filters.command(["getlog", "logs", "getlogs"]) & SUDOERS)
@@ -67,17 +81,15 @@ async def log_(client, message, _):
 @app.on_message(filters.command(["update", "gitpull"]) & SUDOERS)
 @language_no_delete
 async def update_(client, message, _):
-    if is_heroku():
-        if HAPP is None:
-            return await message.reply_text(_["server_2"])
+    if is_heroku() and HAPP is None:
+        return await message.reply_text(_["server_2"])
 
     response = await message.reply_text(_["server_3"])
+
     try:
         repo = Repo()
-    except GitCommandError:
+    except (GitCommandError, InvalidGitRepositoryError):
         return await response.edit(_["server_4"])
-    except InvalidGitRepositoryError:
-        return await response.edit(_["server_5"])
     except Exception as e:
         LOGGER(__name__).error(f"Unexpected error accessing repository: {e}")
         return await response.edit(_["server_4"])
@@ -96,50 +108,47 @@ async def update_(client, message, _):
 
     await asyncio.sleep(2)
 
-    verification = ""
     try:
-        REPO_ = repo.remotes.origin.url.split(".git")[0]
-        for checks in repo.iter_commits(f"HEAD..origin/{config.UPSTREAM_BRANCH}"):
-            verification = str(checks.count())
-            break
+        repo_url = repo.remotes.origin.url.split(".git")[0]
+        commits = list(repo.iter_commits(f"HEAD..origin/{config.UPSTREAM_BRANCH}"))
+        if not commits:
+            return await response.edit(_["server_6"])
     except Exception as e:
         LOGGER(__name__).error(f"Failed to check for updates: {e}")
         return await response.edit(_["server_4"])
 
-    if not verification:
-        return await response.edit(_["server_6"])
-
     updates = ""
     try:
-        for info in repo.iter_commits(f"HEAD..origin/{config.UPSTREAM_BRANCH}"):
-            commit_date = datetime.fromtimestamp(info.committed_date)
+        for commit in commits:
+            commit_date = datetime.fromtimestamp(commit.committed_date)
             day_ordinal = _ordinal(int(commit_date.strftime("%d")))
             updates += (
-                f"<b>\u2793 #{info.count()}: <a href={REPO_}/commit/{info}>{info.summary}</a> ʙʏ -> {info.author}</b>\n"
-                f"\t\t\t\t<b>\u279e ᴄᴏᴍᴍɪᴛᴇᴅ ᴏɴ :</b> {day_ordinal} "
+                f"<b>\u2793 #{commit.count()}: <a href={repo_url}/commit/{commit}>{commit.summary}</a> {_['server_22']} {commit.author}</b>\n"
+                f"\t\t\t\t<b>\u279e {_['server_23']}</b> {day_ordinal} "
                 f"{commit_date.strftime('%b')}, {commit_date.strftime('%Y')}\n\n"
             )
     except Exception as e:
         LOGGER(__name__).error(f"Failed to parse commit information: {e}")
         return await response.edit(_["server_4"])
 
-    _update_response_ = (
-        "<b>ᴀ ɴᴇᴡ ᴜᴩᴅᴀᴛᴇ ɪs ᴀᴠᴀɪʟᴀʙʟᴇ ғᴏʀ ᴛʜᴇ ʙᴏᴛ !</b>\n\n"
-        "\u2793 ᴩᴜsʜɪɴɢ ᴜᴩᴅᴀᴛᴇs ɴᴏᴡ\n\n"
-        "<b><u>ᴜᴩᴅᴀᴛᴇs:</u></b>\n\n"
+    update_header = (
+        f"<b>{_['server_18']}</b>\n\n"
+        f"\u2793 {_['server_19']}\n\n"
+        f"<b><u>{_['server_20']}</u></b>\n\n"
     )
-    _final_updates_ = _update_response_ + updates
+    final_message = update_header + updates
 
     try:
-        if len(_final_updates_) > 4096:
+        if len(final_message) > 4096:
             url = await TuneBin(updates)
             nrs = await response.edit(
-                f"<b>ᴀ ɴᴇᴡ ᴜᴩᴅᴀᴛᴇ ɪs ᴀᴠᴀɪʟᴀʙʟᴇ ғᴏʀ ᴛʜᴇ ʙᴏᴛ !</b>\n\n"
-                f"\u2793 ᴩᴜsʜɪɴɢ ᴜᴩᴅᴀᴛᴇs ɴᴏᴡ\n\n"
-                f"<u><b>ᴜᴩᴅᴀᴛᴇs :</b></u>\n\n<a href={url}>ᴄʜᴇᴄᴋ ᴜᴩᴅᴀᴛᴇs</a>"
+                f"<b>{_['server_18']}</b>\n\n"
+                f"\u2793 {_['server_19']}\n\n"
+                f"<u><b>{_['server_20']}</b></u>\n\n"
+                f"<a href={url}>{_['server_21']}</a>"
             )
         else:
-            nrs = await response.edit(_final_updates_, disable_web_page_preview=True)
+            nrs = await response.edit(final_message, disable_web_page_preview=True)
     except Exception as e:
         LOGGER(__name__).error(f"Failed to send update message: {e}")
         nrs = response
@@ -156,20 +165,12 @@ async def update_(client, message, _):
     except Exception as e:
         LOGGER(__name__).error(f"Git pull failed: {e}")
 
+    await notify_active_chats(_)
+
     try:
-        served_chats = await get_active_chats()
-        for x in served_chats:
-            try:
-                await app.send_message(
-                    chat_id=int(x), text=_["server_8"].format(app.mention)
-                )
-                await remove_active_chat(x)
-                await remove_active_video_chat(x)
-            except Exception as e:
-                LOGGER(__name__).warning(f"Failed to notify chat {x}: {e}")
         await response.edit(f"{nrs.text}\n\n{_['server_7']}")
-    except Exception as e:
-        LOGGER(__name__).error(f"Failed to notify active chats: {e}")
+    except Exception:
+        pass
 
     cleanup_storage()
 
@@ -194,8 +195,8 @@ async def update_(client, message, _):
             except Exception:
                 pass
             return
-    else:
-        os.execv(sys.executable, [sys.executable, "-m", "Tune"])
+
+    os.execv(sys.executable, [sys.executable, "-m", "Tune"])
 
 
 @app.on_message(filters.command(["restart"]) & SUDOERS)
@@ -204,25 +205,11 @@ async def restart_(_, message):
         from Tune.utils.database import get_lang
         language = await get_lang(message.chat.id)
         _ = get_string(language)
-    except:
+    except Exception:
         _ = get_string("en")
-    
-    response = await message.reply_text(_["server_16"])
-    try:
-        ac_chats = await get_active_chats()
-        for x in ac_chats:
-            try:
-                await app.send_message(
-                    chat_id=int(x),
-                    text=_["server_8"].format(app.mention),
-                )
-                await remove_active_chat(x)
-                await remove_active_video_chat(x)
-            except Exception as e:
-                LOGGER(__name__).warning(f"Failed to notify chat {x} during restart: {e}")
-    except Exception as e:
-        LOGGER(__name__).error(f"Failed to get active chats during restart: {e}")
 
+    response = await message.reply_text(_["server_16"])
+    await notify_active_chats(_)
     cleanup_storage()
 
     try:

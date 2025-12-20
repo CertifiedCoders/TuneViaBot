@@ -57,7 +57,7 @@ async def init():
     LOGGER("Tune.plugins").info("ᴛᴜɴᴇ's ᴍᴏᴅᴜʟᴇs ʟᴏᴀᴅᴇᴅ...")
     enabled, cmd_count = await log_antispam_status()
     if enabled:
-        LOGGER("Tune").info(f"Aɴᴛɪsᴘᴀᴍ ᴘʀᴏᴛᴇᴄᴛɪᴏɴ ᴇɴᴀʙʟᴇᴅ ɪɴsɪᴅᴇ {cmd_count} ᴄᴏᴍᴍᴀɴᴅs ☑️")
+        LOGGER("Tune").info(f"Aɴᴛɪsᴘᴀᴍ ᴘʀᴏᴛᴇᴄᴛɪᴏɴ ᴇɴᴀʙʟᴇᴅ ɪɴsɪᴅᴇ {cmd_count} ᴄᴏᴍᴍᴀɴᴅs ✅")
     await userbot.start()
     await StreamController.start()
 

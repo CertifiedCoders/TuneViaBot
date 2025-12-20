@@ -1,6 +1,5 @@
 # Authored By Certified Coders © 2025
 import asyncio
-import random
 import urllib.parse
 from pyrogram import filters, errors, types
 from pyrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup
@@ -8,12 +7,13 @@ from typing import Optional
 
 from config import LOGGER_ID
 from Tune import app
-from Tune.utils.database import remove_served_chat
+from Tune.utils.database import remove_served_chat, get_lang
+from strings import get_string
 
 BOT_INFO: Optional[types.User] = None
 BOT_ID: Optional[int] = None
 
-img = "https://files.catbox.moe/iq5t4i.jpg"
+IMG_URL = "https://files.catbox.moe/iq5t4i.jpg"
 
 def _is_valid_url(url: Optional[str]) -> bool:
     if not url:
@@ -30,10 +30,17 @@ async def _ensure_bot_info() -> None:
         try:
             BOT_INFO = await app.get_me()
             BOT_ID = BOT_INFO.id
-        except Exception as e:
-            print(f"Failed to get bot info: {e}")
+        except Exception:
+            pass
 
-async def safe_send_photo(chat_id, photo, caption, reply_markup=None, max_retries=3):
+async def _get_language(chat_id: int):
+    try:
+        lang = await get_lang(chat_id)
+        return get_string(lang)
+    except Exception:
+        return get_string("en")
+
+async def _safe_send_photo(chat_id: int, photo: str, caption: str, reply_markup=None, max_retries=3):
     for attempt in range(max_retries):
         try:
             return await app.send_photo(
@@ -50,7 +57,19 @@ async def safe_send_photo(chat_id, photo, caption, reply_markup=None, max_retrie
                 photo=photo,
                 caption=caption
             )
-        except Exception as e:
+        except Exception:
+            if attempt == max_retries - 1:
+                raise
+            await asyncio.sleep(1)
+
+async def _safe_send_message(chat_id: int, text: str, max_retries=3):
+    for attempt in range(max_retries):
+        try:
+            await app.send_message(chat_id, text)
+            break
+        except errors.FloodWait as e:
+            await asyncio.sleep(e.value + 1)
+        except Exception:
             if attempt == max_retries - 1:
                 raise
             await asyncio.sleep(1)
@@ -63,10 +82,11 @@ async def join_watcher(_, message: Message):
             return
 
         chat = message.chat
+        invite_link = None
         try:
             invite_link = await app.export_chat_invite_link(chat.id)
         except Exception:
-            invite_link = None
+            pass
 
         for member in message.new_chat_members:
             if member.id != BOT_ID:
@@ -81,32 +101,37 @@ async def join_watcher(_, message: Message):
             except Exception:
                 pass
 
+            _ = await _get_language(chat.id)
+            username = chat.username if chat.username else _["chatlog_10"]
+            added_by = message.from_user.mention if message.from_user else _["chatlog_11"]
+            link = invite_link or "https://t.me/"
+
             caption = (
-                "📝 **ᴍᴜsɪᴄ ʙᴏᴛ ᴀᴅᴅᴇᴅ ɪɴ ᴀ ɴᴇᴡ ɢʀᴏᴜᴘ**\n\n"
-                "❅─────✧❅✦❅✧─────❅\n\n"
-                f"📌 **ᴄʜᴀᴛ ɴᴀᴍᴇ:** `{chat.title}`\n"
-                f"🍂 **ᴄʜᴀᴛ ɪᴅ:** `{chat.id}`\n"
-                f"🔐 **ᴄʜᴀᴛ ᴜsᴇʀɴᴀᴍᴇ:** @{chat.username if chat.username else 'Private'}\n"
-                f"🛰 **ᴄʜᴀᴛ ʟɪɴᴋ:** [ᴄʟɪᴄᴋ ʜᴇʀᴇ]({invite_link or 'https://t.me/'})\n"
-                f"📈 **ɢʀᴏᴜᴘ ᴍᴇᴍʙᴇʀs:** `{member_count}`\n"
-                f"🤔 **ᴀᴅᴅᴇᴅ ʙʏ:** {message.from_user.mention if message.from_user else 'Unknown'}"
+                _["chatlog_1"] +
+                _["chatlog_2"] +
+                _["chatlog_3"].format(chat.title) +
+                _["chatlog_4"].format(chat.id) +
+                _["chatlog_5"].format(username) +
+                _["chatlog_6"].format(link) +
+                _["chatlog_7"].format(member_count) +
+                _["chatlog_8"].format(added_by)
             )
 
             reply_markup = None
             if _is_valid_url(invite_link):
                 reply_markup = InlineKeyboardMarkup(
-                    [[InlineKeyboardButton("sᴇᴇ ɢʀᴏᴜᴘ 👀", url=invite_link.strip())]]
+                    [[InlineKeyboardButton(_["chatlog_9"], url=invite_link.strip())]]
                 )
 
-            await safe_send_photo(
+            await _safe_send_photo(
                 LOGGER_ID,
-                photo=img,
+                photo=IMG_URL,
                 caption=caption,
                 reply_markup=reply_markup
             )
-    except Exception as e:
+    except Exception:
         pass
-    
+
 @app.on_message(filters.left_chat_member)
 async def on_left_chat_member(_, message: Message):
     try:
@@ -117,30 +142,21 @@ async def on_left_chat_member(_, message: Message):
         if message.left_chat_member.id != BOT_ID:
             return
 
-        remover = message.from_user.mention if message.from_user else "**ᴜɴᴋɴᴏᴡɴ ᴜsᴇʀ**"
         chat = message.chat
-        chat_id = chat.id
+        _ = await _get_language(chat.id)
+        remover = message.from_user.mention if message.from_user else _["chatlog_17"]
 
-        await remove_served_chat(chat_id)
+        await remove_served_chat(chat.id)
 
         text = (
-            "✫ **<u>#ʟᴇғᴛ_ɢʀᴏᴜᴘ</u>** ✫\n\n"
-            f"📌 **ᴄʜᴀᴛ ɴᴀᴍᴇ:** `{chat.title}`\n"
-            f"🆔 **ᴄʜᴀᴛ ɪᴅ:** `{chat_id}`\n"
-            f"👤 **ʀᴇᴍᴏᴠᴇᴅ ʙʏ:** {remover}\n"
-            f"🤖 **ʙᴏᴛ:** @{BOT_INFO.username}\n"
-            f"🗑️ **ᴄʜᴀᴛ ʀᴇᴍᴏᴠᴇᴅ ғʀᴏᴍ ᴅᴀᴛᴀʙᴀsᴇ**"
+            _["chatlog_12"] +
+            _["chatlog_3"].format(chat.title) +
+            _["chatlog_13"].format(chat.id) +
+            _["chatlog_14"].format(remover) +
+            _["chatlog_15"].format(BOT_INFO.username) +
+            _["chatlog_16"]
         )
 
-        max_retries = 3
-        for attempt in range(max_retries):
-            try:
-                await app.send_message(LOGGER_ID, text)
-                break
-            except errors.FloodWait as e:
-                await asyncio.sleep(e.value + 1)
-            except Exception as e:
-                if attempt == max_retries - 1:
-                    print(f"Failed to send left chat message after {max_retries} attempts: {e}")
-    except Exception as e:
+        await _safe_send_message(LOGGER_ID, text)
+    except Exception:
         pass

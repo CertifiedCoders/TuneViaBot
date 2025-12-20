@@ -4,53 +4,42 @@ from pyrogram.enums import ParseMode
 from pyrogram.types import Message
 
 from Tune import app
+from Tune.utils.decorators.language import language_no_delete
 
 
 @app.on_message(filters.command("id"))
-async def get_id(client, message: Message):
+@language_no_delete
+async def get_id(client, message: Message, _):
     chat, user, reply = message.chat, message.from_user, message.reply_to_message
     out = []
 
-    if message.link:
-        out.append(f"**[ᴍᴇssᴀɢᴇ ɪᴅ:]({message.link})** `{message.id}`")
-    else:
-        out.append(f"**ᴍᴇssᴀɢᴇ ɪᴅ:** `{message.id}`")
-
-    out.append(f"**[ʏᴏᴜʀ ɪᴅ:](tg://user?id={user.id})** `{user.id}`")
+    out.append(_["id_1"].format(message.link, message.id) if message.link else _["id_2"].format(message.id))
+    out.append(_["id_3"].format(user.id))
 
     if len(message.command) == 2:
         try:
             target = message.text.split(maxsplit=1)[1]
             tgt_user = await client.get_users(target)
-            out.append(f"**[ᴜsᴇʀ ɪᴅ:](tg://user?id={tgt_user.id})** `{tgt_user.id}`")
+            out.append(_["id_5"].format(tgt_user.id))
         except Exception:
-            return await message.reply_text("**ᴛʜɪs ᴜsᴇʀ ᴅᴏᴇsɴ'ᴛ ᴇxɪsᴛ.**", quote=True)
+            return await message.reply_text(_["id_4"], quote=True)
 
     if chat.username and chat.type != "private":
-        out.append(f"**[ᴄʜᴀᴛ ɪᴅ:](https://t.me/{chat.username})** `{chat.id}`")
+        out.append(_["id_6"].format(chat.username, chat.id))
     else:
-        out.append(f"**ᴄʜᴀᴛ ɪᴅ:** `{chat.id}`")
+        out.append(_["id_7"].format(chat.id))
 
     if reply:
-        if reply.link:
-            out.append(f"**[ʀᴇᴘʟɪᴇᴅ ᴍᴇssᴀɢᴇ ɪᴅ:]({reply.link})** `{reply.id}`")
-        else:
-            out.append(f"**ʀᴇᴘʟɪᴇᴅ ᴍᴇssᴀɢᴇ ɪᴅ:** `{reply.id}`")
+        out.append(_["id_8"].format(reply.link, reply.id) if reply.link else _["id_9"].format(reply.id))
 
         if reply.from_user:
-            out.append(
-                f"**[ʀᴇᴘʟɪᴇᴅ ᴜsᴇʀ ɪᴅ:](tg://user?id={reply.from_user.id})** "
-                f"`{reply.from_user.id}`"
-            )
+            out.append(_["id_10"].format(reply.from_user.id))
 
         if reply.forward_from_chat:
-            out.append(
-                f"ᴛʜᴇ ғᴏʀᴡᴀʀᴅᴇᴅ ᴄʜᴀɴɴᴇʟ **{reply.forward_from_chat.title}** "
-                f"ʜᴀs ɪᴅ `{reply.forward_from_chat.id}`"
-            )
+            out.append(_["id_11"].format(reply.forward_from_chat.title, reply.forward_from_chat.id))
 
         if reply.sender_chat:
-            out.append(f"ɪᴅ ᴏғ ᴛʜᴇ ʀᴇᴘʟɪᴇᴅ ᴄʜᴀᴛ/ᴄʜᴀɴɴᴇʟ: `{reply.sender_chat.id}`")
+            out.append(_["id_12"].format(reply.sender_chat.id))
 
     await message.reply_text(
         "\n".join(out),

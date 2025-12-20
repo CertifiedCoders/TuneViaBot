@@ -6,11 +6,19 @@ from config import BANNED_USERS, OWNER_ID
 from Tune import app
 from Tune.misc import SUDOERS
 from Tune.utils.database import add_sudo, remove_sudo
-from Tune.utils.decorators.language import language_no_delete, languageCB
+from Tune.utils.decorators.language import language_no_delete
 from Tune.utils.extraction import extract_user
 from strings import get_string
 
-# ─── Add Sudo ─────────────────────────────────────────────
+
+async def get_language_string(chat_id):
+    try:
+        from Tune.utils.database import get_lang
+        language = await get_lang(chat_id)
+        return get_string(language)
+    except:
+        return get_string("en")
+
 
 @app.on_message(filters.command(["addsudo"], prefixes=["/", "!", "."]) & filters.user(OWNER_ID))
 @language_no_delete
@@ -23,13 +31,11 @@ async def add_sudo_user(client, message: Message, _):
         return await message.reply_text(_["sudo_1"].format(user.mention))
 
     if await add_sudo(user.id):
-        if user.id not in SUDOERS:
-            SUDOERS.add(user.id)
+        SUDOERS.add(user.id)
         return await message.reply_text(_["sudo_2"].format(user.mention))
 
     await message.reply_text(_["sudo_8"])
 
-# ─── Remove Sudo ───────────────────────────────────────────
 
 @app.on_message(filters.command(["delsudo", "rmsudo"], prefixes=["/", "!", "."]) & filters.user(OWNER_ID))
 @language_no_delete
@@ -42,23 +48,15 @@ async def remove_sudo_user(client, message: Message, _):
         return await message.reply_text(_["sudo_3"].format(user.mention))
 
     if await remove_sudo(user.id):
-        if user.id in SUDOERS:
-            SUDOERS.remove(user.id)
+        SUDOERS.remove(user.id)
         return await message.reply_text(_["sudo_4"].format(user.mention))
 
     await message.reply_text(_["sudo_8"])
 
-# ─── Sudo List Entry ───────────────────────────────────────
 
 @app.on_message(filters.command(["sudolist", "listsudo", "sudoers"], prefixes=["/", "!", "."]) & ~BANNED_USERS)
 async def sudoers_list(client, message: Message):
-    try:
-        from Tune.utils.database import get_lang
-        language = await get_lang(message.chat.id)
-        _ = get_string(language)
-    except:
-        _ = get_string("en")
-    
+    _ = await get_language_string(message.chat.id)
     keyboard = [[InlineKeyboardButton("๏ ᴠɪᴇᴡ sᴜᴅᴏʟɪsᴛ ๏", callback_data="sudo_list_view")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -68,16 +66,10 @@ async def sudoers_list(client, message: Message):
         reply_markup=reply_markup
     )
 
-# ─── Callback: View Sudo List ──────────────────────────────
 
 @app.on_callback_query(filters.regex("^sudo_list_view$"))
 async def view_sudo_list_callback(client, callback_query: CallbackQuery):
-    try:
-        from Tune.utils.database import get_lang
-        language = await get_lang(callback_query.message.chat.id)
-        _ = get_string(language)
-    except:
-        _ = get_string("en")
+    _ = await get_language_string(callback_query.message.chat.id)
     
     if callback_query.from_user.id not in SUDOERS:
         return await callback_query.answer(_["sudo_10"], show_alert=True)
@@ -106,17 +98,10 @@ async def view_sudo_list_callback(client, callback_query: CallbackQuery):
     keyboard.append([InlineKeyboardButton("๏ ʙᴀᴄᴋ ๏", callback_data="sudo_list_back")])
     await callback_query.message.edit_caption(caption=caption, reply_markup=InlineKeyboardMarkup(keyboard))
 
-# ─── Callback: Back to List Menu ────────────────────────────
 
 @app.on_callback_query(filters.regex("^sudo_list_back$"))
 async def back_to_sudo_list_menu(client, callback_query: CallbackQuery):
-    try:
-        from Tune.utils.database import get_lang
-        language = await get_lang(callback_query.message.chat.id)
-        _ = get_string(language)
-    except:
-        _ = get_string("en")
-    
+    _ = await get_language_string(callback_query.message.chat.id)
     keyboard = [[InlineKeyboardButton("๏ ᴠɪᴇᴡ sᴜᴅᴏʟɪsᴛ ๏", callback_data="sudo_list_view")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await callback_query.message.edit_caption(
@@ -124,7 +109,6 @@ async def back_to_sudo_list_menu(client, callback_query: CallbackQuery):
         reply_markup=reply_markup
     )
 
-# ─── Delete All Sudo ───────────────────────────────────────
 
 @app.on_message(filters.command("delallsudo", prefixes=["/", "!", "%", ",", ".", "@", "#"]) & filters.user(OWNER_ID))
 @language_no_delete
@@ -133,7 +117,6 @@ async def remove_all_sudo_users(client, message: Message, _):
     for user_id in list(SUDOERS):
         if user_id != OWNER_ID:
             if await remove_sudo(user_id):
-                if user_id in SUDOERS:
-                    SUDOERS.remove(user_id)
+                SUDOERS.remove(user_id)
                 removed_count += 1
     await message.reply_text(_["sudo_14"].format(removed_count))

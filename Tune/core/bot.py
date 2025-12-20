@@ -52,4 +52,4 @@ class MusicBotClient(Client):
             LOGGER(__name__).error(f"❌ Could not check admin status: {e}")
             sys.exit()
 
-        LOGGER(__name__).info(f"✅ Music Bot started as {self.name} (@{self.username})")
+        LOGGER(__name__).info(f"Music Bot started as {self.name} (@{self.username})")

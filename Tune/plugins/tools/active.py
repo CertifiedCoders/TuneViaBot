@@ -11,60 +11,59 @@ from Tune.utils.database import (
     remove_active_chat,
     remove_active_video_chat,
 )
+from Tune.utils.decorators.language import language_no_delete
+
+
+async def _format_active_chats(chat_ids, remove_func, include_id=False):
+    text = ""
+    for idx, chat_id in enumerate(chat_ids, 1):
+        try:
+            chat = await app.get_chat(chat_id)
+            title = unidecode(chat.title).upper()
+            link = f"<a href=https://t.me/{chat.username}>{title}</a>" if chat.username else title
+            suffix = f" [<code>{chat_id}</code>]" if include_id else ""
+            text += f"<b>{idx}.</b> {link}{suffix}\n"
+        except:
+            await remove_func(chat_id)
+    return text
+
 
 @app.on_message(filters.command(["activevc", "activevoice", "vc"]) & SUDOERS)
-async def activevc(_, message: Message):
-    mystic = await message.reply_text("» ɢᴇᴛᴛɪɴɢ ᴀᴄᴛɪᴠᴇ ᴠᴏɪᴄᴇ ᴄʜᴀᴛs ʟɪsᴛ...")
-    served_chats = await get_active_chats()
-    text = ""
-    j = 0
-    for x in served_chats:
-        try:
-            chat = await app.get_chat(x)
-            title = unidecode(chat.title).upper()
-            link = f"<a href=https://t.me/{chat.username}>{title}</a>" if chat.username else title
-            text += f"<b>{j + 1}.</b> {link}\n"
-            j += 1
-        except:
-            await remove_active_chat(x)
+@language_no_delete
+async def activevc(client: Client, message: Message, _):
+    mystic = await message.reply_text(_["active_1"])
+    text = await _format_active_chats(await get_active_chats(), remove_active_chat)
     if not text:
-        await mystic.edit_text(f"» ɴᴏ ᴀᴄᴛɪᴠᴇ ᴠᴏɪᴄᴇ ᴄʜᴀᴛs ᴏɴ {app.mention}.")
+        await mystic.edit_text(_["active_2"].format(app.mention))
     else:
         await mystic.edit_text(
-            f"<b>» ʟɪsᴛ ᴏғ ᴄᴜʀʀᴇɴᴛʟʏ ᴀᴄᴛɪᴠᴇ ᴠᴏɪᴄᴇ ᴄʜᴀᴛs :</b>\n\n{text}",
+            f"<b>{_['active_3']}</b>\n\n{text}",
             disable_web_page_preview=True,
         )
+
 
 @app.on_message(filters.command(["activev", "activevideo", "avc"]) & SUDOERS)
-async def activevi_(_, message: Message):
-    mystic = await message.reply_text("» ɢᴇᴛᴛɪɴɢ ᴀᴄᴛɪᴠᴇ ᴠɪᴅᴇᴏ ᴄʜᴀᴛs ʟɪsᴛ...")
-    served_chats = await get_active_video_chats()
-    text = ""
-    j = 0
-    for x in served_chats:
-        try:
-            chat = await app.get_chat(x)
-            title = unidecode(chat.title).upper()
-            link = f"<a href=https://t.me/{chat.username}>{title}</a>" if chat.username else title
-            text += f"<b>{j + 1}.</b> {link} [<code>{x}</code>]\n"
-            j += 1
-        except:
-            await remove_active_video_chat(x)
+@language_no_delete
+async def activevi_(client: Client, message: Message, _):
+    mystic = await message.reply_text(_["active_4"])
+    text = await _format_active_chats(await get_active_video_chats(), remove_active_video_chat, include_id=True)
     if not text:
-        await mystic.edit_text(f"» ɴᴏ ᴀᴄᴛɪᴠᴇ ᴠɪᴅᴇᴏ ᴄʜᴀᴛs ᴏɴ {app.mention}.")
+        await mystic.edit_text(_["active_5"].format(app.mention))
     else:
         await mystic.edit_text(
-            f"<b>» ʟɪsᴛ ᴏғ ᴄᴜʀʀᴇɴᴛʟʏ ᴀᴄᴛɪᴠᴇ ᴠɪᴅᴇᴏ ᴄʜᴀᴛs :</b>\n\n{text}",
+            f"<b>{_['active_6']}</b>\n\n{text}",
             disable_web_page_preview=True,
         )
 
+
 @app.on_message(filters.command(["ac", "av"]) & SUDOERS)
-async def active_count(client: Client, message: Message):
+@language_no_delete
+async def active_count(client: Client, message: Message, _):
     ac_audio = str(len(await get_active_chats()))
     ac_video = str(len(await get_active_video_chats()))
     await message.reply_text(
-        f"✫ <b><u>ᴀᴄᴛɪᴠᴇ ᴄʜᴀᴛs ɪɴғᴏ</u></b> :\n\nᴠᴏɪᴄᴇ : {ac_audio}\nᴠɪᴅᴇᴏ  : {ac_video}",
+        _["active_7"].format(ac_audio=ac_audio, ac_video=ac_video),
         reply_markup=InlineKeyboardMarkup(
-            [[InlineKeyboardButton("✯ ᴄʟᴏsᴇ ✯", callback_data="close")]]
+            [[InlineKeyboardButton(_["active_8"], callback_data="close")]]
         )
     )
