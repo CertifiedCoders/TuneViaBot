@@ -618,7 +618,7 @@ class Call:
             await self._handle_vid_stream(
                 client, chat_id, videoid, video, streamtype, title, original_chat_id, _, current
             )
-        elif videoid and is_soundcloud_url(videoid):
+        elif videoid and (videoid == "soundcloud" or is_soundcloud_url(videoid)):
             await self._handle_soundcloud_stream(
                 client, chat_id, videoid, queued, original_chat_id, _, current
             )

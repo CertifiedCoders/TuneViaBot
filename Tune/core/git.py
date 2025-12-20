@@ -11,11 +11,20 @@ import config
 from Tune.logging import LOGGER
 
 
+class _AsyncContextError(RuntimeError):
+    """Custom exception to indicate we're in an async context"""
+    pass
+
+
 def install_req(cmd: str) -> Tuple[str, str, int, int]:
     try:
         asyncio.get_running_loop()
-        raise RuntimeError("Cannot use run_until_complete in async context")
+        raise _AsyncContextError("Cannot use run_until_complete in async context")
+    except _AsyncContextError:
+        # We're in an async context, cannot use run_until_complete
+        raise RuntimeError("install_req cannot be called from an async context")
     except RuntimeError:
+        # No running loop, safe to proceed
         try:
             loop = asyncio.get_event_loop()
             if loop.is_closed():
