@@ -217,6 +217,17 @@ class Call:
         return [p.user_id for p in participants if not p.is_muted]
 
     @capture_internal_err
+    async def change_volume_call(self, chat_id: int, volume: int) -> None:
+        """
+        Change the volume of the voice call.
+        Volume range: 0-200 (where 100 = 50%, 200 = 100%)
+        """
+        if not (0 <= volume <= 200):
+            raise AssistantErr("Volume must be between 0 and 200.")
+        assistant = await group_assistant(self, chat_id)
+        await assistant.change_volume_call(chat_id, volume)
+
+    @capture_internal_err
     async def seek_stream(
         self,
         chat_id: int,

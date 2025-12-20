@@ -20,6 +20,9 @@ async def vc_info(client, message: Message):
             return await message.reply_text("❌ No users found in the voice chat.")
 
         msg_lines = ["🎧 <b>VC Members Info:</b>\n"]
+        muted_count = 0
+        unmuted_count = 0
+        
         for p in participants:
             try:
                 user = await app.get_users(p.user_id)
@@ -27,16 +30,37 @@ async def vc_info(client, message: Message):
             except Exception:
                 name = f"<code>{p.user_id}</code>"
 
-            mute_status = "🔇" if p.muted else "👤"
-            screen_status = "🖥️" if getattr(p, "screen_sharing", False) else ""
-            volume_level = getattr(p, "volume", "N/A")
+            # Check mute status - PyTgCalls participant object has 'is_muted' attribute
+            is_muted = getattr(p, "is_muted", False) or getattr(p, "muted", False)
+            if is_muted:
+                muted_count += 1
+                mute_status = "🔇"
+            else:
+                unmuted_count += 1
+                mute_status = "🔊"
+            
+            # Check for screen sharing
+            screen_status = "🖥️" if getattr(p, "screen_sharing", False) or getattr(p, "video", False) else ""
+            
+            # Get volume level (typically 0-200, where 100 = 50%)
+            volume_level = getattr(p, "volume", None)
+            if volume_level is not None:
+                # Convert to percentage (0-200 -> 0-100%)
+                volume_percent = round(volume_level / 2, 1) if volume_level <= 200 else "N/A"
+                volume_display = f"{volume_percent}%"
+            else:
+                volume_display = "N/A"
 
-            info = f"{mute_status} {name} | 🎚️ {volume_level}"
+            info = f"{mute_status} {name} | 🎚️ {volume_display}"
             if screen_status:
                 info += f" | {screen_status}"
             msg_lines.append(info)
 
-        msg_lines.append(f"\n👥 Total: <b>{len(participants)}</b>")
+        msg_lines.append(f"\n📊 <b>Statistics:</b>")
+        msg_lines.append(f"👥 Total: <b>{len(participants)}</b>")
+        msg_lines.append(f"🔊 Unmuted: <b>{unmuted_count}</b>")
+        msg_lines.append(f"🔇 Muted: <b>{muted_count}</b>")
+        
         await message.reply_text("\n".join(msg_lines))
     except Exception as e:
         await message.reply_text(f"❌ Failed to fetch VC info.\n<b>Error:</b> {e}")
