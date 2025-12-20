@@ -20,6 +20,7 @@ _user_notified_cache = set()
 _support_notified_cache = set()
 _debug_file_path = os.path.join(LOGS_DIR, "antispam_debug.txt")
 _COMMAND_PREFIXES = ["/", "!", ".", "#", "?"]
+_loaded_commands_cache = set()  # Cache of all loaded bot commands
 
 
 def _write_debug_log(event_type: str, data: dict):
@@ -113,16 +114,27 @@ def _extract_command_from_text(text: str) -> str:
 
 
 def _extract_commands_from_source():
+    """Extract all command names from source code files."""
     commands_set = set()
     try:
-        plugins_dir = os.path.join(os.getcwd(), "Tune", "plugins")
-        if not os.path.exists(plugins_dir):
+        # Try multiple possible plugin directory paths
+        possible_dirs = [
+            os.path.join(os.getcwd(), "Tune", "plugins"),
+            os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "plugins"),
+        ]
+        
+        plugins_dir = None
+        for dir_path in possible_dirs:
+            if os.path.exists(dir_path):
+                plugins_dir = dir_path
+                break
+        
+        if not plugins_dir:
+            _write_debug_log("EXTRACT_COMMANDS_ERROR", {"error": "plugins directory not found"})
             return commands_set
         
-        patterns = [
-            r'filters\.command\(["\']([^"\']+)["\']',
-            r'filters\.command\(\[([^\]]+)\]\)',
-        ]
+        # Pattern to match filters.command(["cmd1", "cmd2"]) or filters.command("cmd")
+        command_pattern = r'filters\.command\s*\(\s*(\[[^\]]+\]|["\'][^"\']+["\'])\s*\)'
         
         for root, dirs, files in os.walk(plugins_dir):
             for file in files:
@@ -130,24 +142,31 @@ def _extract_commands_from_source():
                     continue
                 
                 try:
-                    with open(os.path.join(root, file), "r", encoding="utf-8", errors="ignore") as f:
+                    file_path = os.path.join(root, file)
+                    with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
                         content = f.read()
-                        for pattern in patterns:
-                            matches = re.findall(pattern, content, re.IGNORECASE | re.MULTILINE)
-                            for match in matches:
-                                if isinstance(match, str):
-                                    if match and not match.startswith('['):
-                                        commands_set.add(match.lower())
-                                elif isinstance(match, tuple):
-                                    for cmd in match:
-                                        if cmd and not cmd.startswith('['):
-                                            commands_set.add(cmd.lower())
                         
-                        list_matches = re.findall(r'filters\.command\(\[([^\]]+)\]\)', content, re.IGNORECASE | re.MULTILINE)
-                        for match in list_matches:
-                            for cmd in re.findall(r'["\']([^"\']+)["\']', match):
-                                commands_set.add(cmd.lower())
-                except Exception:
+                        # Find all command filter patterns
+                        matches = re.finditer(command_pattern, content, re.IGNORECASE | re.MULTILINE)
+                        for match in matches:
+                            cmd_arg = match.group(1).strip()
+                            
+                            # Check if it's a list of commands: ["cmd1", "cmd2"]
+                            if cmd_arg.startswith('[') and cmd_arg.endswith(']'):
+                                # Extract all commands from the list
+                                list_content = cmd_arg[1:-1]
+                                cmd_matches = re.findall(r'["\']([^"\']+)["\']', list_content)
+                                for cmd in cmd_matches:
+                                    if cmd and cmd.strip():
+                                        commands_set.add(cmd.strip().lower())
+                            # Single command: "cmd" or 'cmd'
+                            elif (cmd_arg.startswith('"') and cmd_arg.endswith('"')) or \
+                                 (cmd_arg.startswith("'") and cmd_arg.endswith("'")):
+                                cmd = cmd_arg[1:-1].strip()
+                                if cmd:
+                                    commands_set.add(cmd.lower())
+                except Exception as e:
+                    _write_debug_log("EXTRACT_FILE_ERROR", {"file": file, "error": str(e)})
                     continue
     except Exception as e:
         _write_debug_log("EXTRACT_COMMANDS_ERROR", {"error": str(e)})
@@ -156,53 +175,90 @@ def _extract_commands_from_source():
 
 
 def _get_all_protected_commands():
+    """Get all registered bot commands from Pyrogram dispatcher and source files."""
     commands_set = set()
     try:
+        # Try to get commands from Pyrogram dispatcher (most reliable)
         dispatcher = app.dispatcher
-        handler_groups = getattr(dispatcher, 'groups', None) or getattr(dispatcher, 'handlers', {})
+        handler_groups = getattr(dispatcher, 'groups', None)
         
-        if not handler_groups or not isinstance(handler_groups, dict):
-            handler_groups = {}
-            for attr_name in dir(dispatcher):
-                if 'handler' in attr_name.lower() and not attr_name.startswith('_'):
+        if handler_groups and isinstance(handler_groups, dict):
+            for group_id, handlers in handler_groups.items():
+                if not isinstance(handlers, (list, tuple)):
+                    continue
+                for handler in handlers:
                     try:
-                        attr_value = getattr(dispatcher, attr_name, None)
-                        if isinstance(attr_value, dict):
-                            handler_groups.update(attr_value)
+                        filter_obj = getattr(handler, 'filters', None)
+                        if not filter_obj:
+                            continue
+                        
+                        # Check if filter is a command filter
+                        filter_str = str(filter_obj)
+                        
+                        # Try to extract command from filter
+                        # Pattern for single command: filters.command("cmd")
+                        single_cmd = re.search(r'command\(["\']([^"\']+)["\']\)', filter_str, re.IGNORECASE)
+                        if single_cmd:
+                            commands_set.add(single_cmd.group(1).lower())
+                        
+                        # Pattern for multiple commands: filters.command(["cmd1", "cmd2"])
+                        list_match = re.search(r'command\(\[([^\]]+)\]\)', filter_str, re.IGNORECASE)
+                        if list_match:
+                            for cmd in re.findall(r'["\']([^"\']+)["\']', list_match.group(1)):
+                                commands_set.add(cmd.lower().strip())
                     except Exception:
                         continue
         
-        for group_id, handlers in handler_groups.items():
-            if not isinstance(handlers, (list, tuple)):
-                continue
-            for handler in handlers:
-                try:
-                    filter_obj = getattr(handler, 'filters', None)
-                    if not filter_obj:
-                        continue
-                    
-                    filter_str = str(filter_obj).lower()
-                    if 'command' not in filter_str:
-                        continue
-                    
-                    single_cmd = re.search(r'command\(["\']([^"\']+)["\']\)', filter_str, re.IGNORECASE)
-                    if single_cmd:
-                        commands_set.add(single_cmd.group(1).lower())
-                    
-                    list_match = re.search(r'command\(\[([^\]]+)\]\)', filter_str, re.IGNORECASE)
-                    if list_match:
-                        for cmd in re.findall(r'["\']([^"\']+)["\']', list_match.group(1)):
-                            commands_set.add(cmd.lower())
-                except Exception:
-                    continue
-        
+        # If dispatcher method didn't work, fall back to source code extraction
         if not commands_set:
             commands_set = _extract_commands_from_source()
     except Exception as e:
         _write_debug_log("GET_COMMANDS_ERROR", {"error": str(e)})
+        # Fall back to source code extraction
         commands_set = _extract_commands_from_source()
     
     return sorted(commands_set) if commands_set else []
+
+
+def _load_and_cache_commands():
+    """Load all bot commands and cache them for fast lookup."""
+    global _loaded_commands_cache
+    try:
+        commands_list = _get_all_protected_commands()
+        _loaded_commands_cache = set(commands_list)
+        
+        # Write all loaded commands to debug file
+        try:
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            with open(_debug_file_path, "a", encoding="utf-8") as f:
+                f.write(f"\n{'='*60}\n")
+                f.write(f"[{timestamp}] LOADED_BOT_COMMANDS\n")
+                f.write(f"{'='*60}\n")
+                f.write(f"Total Commands: {len(commands_list)}\n")
+                f.write(f"Commands List:\n")
+                for cmd in commands_list:
+                    f.write(f"  - /{cmd}\n")
+                f.write(f"{'='*60}\n\n")
+        except Exception as e:
+            _write_debug_log("WRITE_COMMANDS_ERROR", {"error": str(e)})
+        
+        _write_debug_log("COMMANDS_CACHED", {
+            "command_count": len(_loaded_commands_cache),
+            "commands": list(_loaded_commands_cache)[:20]  # First 20 for debug
+        })
+        
+        return _loaded_commands_cache
+    except Exception as e:
+        _write_debug_log("LOAD_COMMANDS_ERROR", {"error": str(e)})
+        return set()
+
+
+def _is_bot_command(command_name: str) -> bool:
+    """Check if a command is actually loaded in the bot."""
+    if not _loaded_commands_cache:
+        # If cache is empty, try to load commands
+        _load_and_cache_commands()
+    return command_name.lower() in _loaded_commands_cache
 
 
 def _check_command(_, __, message: Message):
@@ -294,6 +350,15 @@ async def antispam_command_handler(client, message: Message):
             _write_debug_log("HANDLER_EXIT", {"reason": "antispam_disabled"})
             return
         
+        # Check if this is actually a bot command (not just any text starting with /)
+        if not _is_bot_command(command_name):
+            _write_debug_log("HANDLER_EXIT", {
+                "reason": "not_bot_command",
+                "command": command_name,
+                "loaded_commands_count": len(_loaded_commands_cache)
+            })
+            return  # Don't track commands that aren't in the bot
+        
         _write_debug_log("BEFORE_TRACK", {
             "user_id": user_id,
             "command": command_name,
@@ -347,17 +412,20 @@ async def antispam_command_handler(client, message: Message):
 
 
 async def log_antispam_status():
+    """Log antispam status and load/cache all bot commands."""
     try:
         enabled = await is_antispam_enabled()
-        protected_commands = _get_all_protected_commands()
-        cmd_count = len(protected_commands)
+        # Load and cache all commands on startup
+        loaded_commands = _load_and_cache_commands()
+        cmd_count = len(loaded_commands)
         
         _write_debug_log("STARTUP_STATUS", {
             "enabled": enabled,
             "command_count": cmd_count,
             "owner_id": OWNER_ID,
             "handler_registered": True,
-            "handler_group": -1
+            "handler_group": -1,
+            "commands_cached": True
         })
         
         return enabled, cmd_count
