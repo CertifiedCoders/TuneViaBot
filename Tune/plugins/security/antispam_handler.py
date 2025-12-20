@@ -2,6 +2,7 @@
 import re
 import os
 import traceback
+from collections import Counter
 from datetime import datetime
 from pyrogram import filters, StopPropagation
 from pyrogram.types import Message
@@ -39,6 +40,14 @@ def clear_user_notification(user_id: int):
     _support_notified_cache.discard(user_id)
 
 
+def _get_most_frequent_command(commands: list) -> str:
+    if not commands:
+        return "unknown"
+    counter = Counter(commands)
+    most_common = counter.most_common(1)[0]
+    return f"/{most_common[0]}"
+
+
 async def _notify_user_blocked(user_id: int):
     if user_id in _user_notified_cache:
         return
@@ -46,10 +55,10 @@ async def _notify_user_blocked(user_id: int):
     try:
         await app.send_message(
             user_id,
-            "⚠️ <b>You've been blocked for spamming</b>\n\n"
-            "You were caught sending too many commands in a short time.\n"
-            "You are now blocked from using this bot.\n\n"
-            f"If you believe this is a mistake, contact support:\n{SUPPORT_CHAT}"
+            "⚠️ <b>ʏᴏᴜ'ᴠᴇ ʙᴇᴇɴ ʙʟᴏᴄᴋᴇᴅ ғᴏʀ sᴘᴀᴍᴍɪɴɢ</b>\n\n"
+            "ʏᴏᴜ ᴡᴇʀᴇ ᴄᴀᴜɢʜᴛ sᴇɴᴅɪɴɢ ᴛᴏᴏ ᴍᴀɴʏ ᴄᴏᴍᴍᴀɴᴅs ɪɴ ᴀ sʜᴏʀᴛ ᴛɪᴍᴇ.\n"
+            "ʏᴏᴜ ᴀʀᴇ ɴᴏᴡ ʙʟᴏᴄᴋᴇᴅ ғʀᴏᴍ ᴜsɪɴɢ ᴛʜɪs ʙᴏᴛ.\n\n"
+            f"ɪғ ʏᴏᴜ ʙᴇʟɪᴇᴠᴇ ᴛʜɪs ɪs ᴀ ᴍɪsᴛᴀᴋᴇ, ᴄᴏɴᴛᴀᴄᴛ sᴜᴘᴘᴏʀᴛ:\n<a href={SUPPORT_CHAT}>sᴜᴘᴘᴏʀᴛ ᴄʜᴀᴛ</a>"
         )
         _user_notified_cache.add(user_id)
         _write_debug_log("NOTIFY_USER", {"user_id": user_id, "status": "sent"})
@@ -62,23 +71,21 @@ async def _notify_support_chat(user_id: int, user_name: str, username: str, chat
         return
     
     try:
-        user_display = user_name or f"User {user_id}"
+        user_display = user_name or f"ᴜsᴇʀ {user_id}"
         if username:
             user_display += f" (@{username})"
         
-        commands_list = ", ".join([f"/{cmd}" for cmd in spammed_commands[:20]])
-        if len(spammed_commands) > 20:
-            commands_list += f" ... and {len(spammed_commands) - 20} more"
+        most_used_command = _get_most_frequent_command(spammed_commands)
         
         spam_notification = (
-            f"🚫 <b>Spam Detected & Blocked</b>\n\n"
-            f"👤 <b>User:</b> {user_display}\n"
-            f"🆔 <b>ID:</b> <code>{user_id}</code>\n"
-            f"📍 <b>Location:</b> {chat_info}\n"
-            f"⚡ <b>Commands Spammed:</b> {len(spammed_commands)}/10\n"
-            f"🔧 <b>Commands:</b> {commands_list}\n"
-            f"⏱ <b>Time:</b> {timestamp}\n"
-            f"🔒 <b>Status:</b> User blocked - all messages ignored"
+            f"🚫 <b>sᴘᴀᴍ ᴅᴇᴛᴇᴄᴛᴇᴅ & ʙʟᴏᴄᴋᴇᴅ</b>\n\n"
+            f"👤 <b>ᴜsᴇʀ:</b> {user_display}\n"
+            f"🆔 <b>ɪᴅ:</b> <code>{user_id}</code>\n"
+            f"📍 <b>ʟᴏᴄᴀᴛɪᴏɴ:</b> {chat_info}\n"
+            f"⚡ <b>ᴄᴏᴍᴍᴀɴᴅs sᴘᴀᴍᴍᴇᴅ:</b> {len(spammed_commands)}/10\n"
+            f"🔧 <b>ᴄᴏᴍᴍᴀɴᴅs:</b> {most_used_command}\n"
+            f"⏱ <b>ᴛɪᴍᴇ:</b> {timestamp}\n"
+            f"🔒 <b>sᴛᴀᴛᴜs:</b> ᴜsᴇʀ ʙʟᴏᴄᴋᴇᴅ - ᴀʟʟ ᴍᴇssᴀɢᴇs ɪɢɴᴏʀᴇᴅ"
         )
         
         await app.send_message(LOGGER_ID, spam_notification)
@@ -225,11 +232,11 @@ def _get_chat_info(message: Message) -> str:
     try:
         chat_type_str = str(message.chat.type).lower()
         if "private" in chat_type_str:
-            return "Bot DM"
-        chat_title = getattr(message.chat, 'title', None) or "N/A"
-        return f"Group: {chat_title} (ID: {message.chat.id})"
+            return "ʙᴏᴛ ᴅᴍ"
+        chat_title = getattr(message.chat, 'title', None) or "ɴ/ᴀ"
+        return f"ɢʀᴏᴜᴘ: {chat_title} (ɪᴅ: {message.chat.id})"
     except Exception:
-        return "Unknown Location"
+        return "ᴜɴᴋɴᴏᴡɴ ʟᴏᴄᴀᴛɪᴏɴ"
 
 
 COMMAND_FILTER = filters.create(_check_command)
