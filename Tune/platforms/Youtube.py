@@ -32,7 +32,7 @@ def _extract_video_id_from_url(url: str) -> Optional[str]:
     url = url.strip()
     if "youtu.be" in url:
         vid = url.split("/")[-1].split("?")[0].split("&")[0]
-        if YOUTUBE_ID_RE.match(vid):
+        if vid:
             return vid
     match = _VIDEO_ID_PATTERN.search(url)
     if match:
@@ -166,7 +166,7 @@ class YouTubeAPI:
         if is_url:
             video_id = _extract_video_id_from_url(original_query)
             if video_id:
-                search_query = self.base_url + video_id
+                search_query = video_id
             else:
                 search_query = self._prepare_link(original_query)
         else:
