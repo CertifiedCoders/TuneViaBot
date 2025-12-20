@@ -18,11 +18,6 @@ GROUPS_TO_JOIN = [
 
 
 def get_available_sessions():
-    """
-    Centralized function to get all available STRING sessions.
-    Returns a list of tuples: (index, session_string) for each available session.
-    Index is 1-based (1, 2, 3, etc.)
-    """
     sessions = [
         config.STRING1,
         config.STRING2,
@@ -30,33 +25,21 @@ def get_available_sessions():
         config.STRING4,
         config.STRING5,
     ]
-    available = []
-    for idx, session in enumerate(sessions, start=1):
-        if session:
-            available.append((idx, session))
-    return available
+    return [(idx, session) for idx, session in enumerate(sessions, start=1) if session]
 
 
 def get_session_count():
-    """
-    Get the count of available STRING sessions.
-    This is the single source of truth for how many assistants should be initialized.
-    """
     return len(get_available_sessions())
 
 
-# Initialize userbots
 class Userbot:
     def __init__(self):
-        # Use centralized function to get available sessions
         available_sessions = get_available_sessions()
         self.session_count = len(available_sessions)
-        
-        # Dynamically initialize assistants from available STRING sessions
         self.assistants = []
         self.string_sessions = [s for _, s in available_sessions]
+        self._assistant_dict = {}
         
-        # Initialize only assistants with valid session strings
         for idx, session_string in available_sessions:
             client = Client(
                 f"TuneAssis{idx}",
@@ -66,36 +49,25 @@ class Userbot:
                 no_updates=True,
             )
             self.assistants.append((idx, client))
+            self._assistant_dict[idx] = client
         
-        # Maintain backward compatibility with named attributes for first 5 assistants
-        # This allows gradual migration of code that references self.one, self.two, etc.
         assistant_names = ["one", "two", "three", "four", "five"]
         for idx, client in self.assistants[:5]:
             setattr(self, assistant_names[idx - 1], client)
-        
-        # Set remaining attributes to None if not initialized (max 5 for compatibility)
         for i in range(len(self.assistants), 5):
             setattr(self, assistant_names[i], None)
     
     def get_assistant(self, index: int):
-        """Get assistant client by index (1-based)."""
-        for idx, client in self.assistants:
-            if idx == index:
-                return client
-        return None
+        return self._assistant_dict.get(index)
     
     def get_assistants_list(self):
-        """Get list of all assistant clients."""
         return [client for _, client in self.assistants]
     
     def get_assistant_indices(self):
-        """Get list of all active assistant indices."""
         return [idx for idx, _ in self.assistants]
 
     async def start_assistant(self, client: Client, index: int):
-        # Verify the assistant exists in our list
-        assistant_exists = any(idx == index for idx, _ in self.assistants)
-        if not assistant_exists:
+        if index not in self._assistant_dict:
             return
 
         try:
@@ -128,17 +100,16 @@ class Userbot:
             LOGGER(__name__).error(f"Failed to start Assistant {index}: {e}")
 
     async def start(self):
-        LOGGER(__name__).info(f"Starting Tune's Assistants... (Found {self.session_count} active assistant{'s' if self.session_count != 1 else ''})")
+        LOGGER(__name__).info(
+            f"Starting Tune's Assistants... (Found {self.session_count} active assistant{'s' if self.session_count != 1 else ''})"
+        )
         for idx, client in self.assistants:
             await self.start_assistant(client, idx)
 
     async def stop(self):
         LOGGER(__name__).info("Stopping Assistants...")
-        try:
-            for idx, client in self.assistants:
-                try:
-                    await client.stop()
-                except Exception as e:
-                    LOGGER(__name__).error(f"Error stopping Assistant {idx}: {e}")
-        except Exception as e:
-            LOGGER(__name__).error(f"Error while stopping assistants: {e}")
+        for idx, client in self.assistants:
+            try:
+                await client.stop()
+            except Exception as e:
+                LOGGER(__name__).error(f"Error stopping Assistant {idx}: {e}")

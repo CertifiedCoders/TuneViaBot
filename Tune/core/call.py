@@ -107,28 +107,17 @@ class Call:
         
         available_sessions = get_available_sessions()
         self.session_count = len(available_sessions)
-        
-        self.userbots = []
-        self.assistants_list = []
-        
-        # Create a mapping for all possible positions (max 5 for compatibility)
         max_sessions = 5
         self.userbots = [None] * max_sessions
         self.assistants_list = [None] * max_sessions
         
-        # Initialize only assistants with valid session strings
         for idx, session_string in available_sessions:
             name = f"TuneXAssis{idx}"
-            userbot = Client(
-                name, config.API_ID, config.API_HASH, session_string=session_string
-            )
+            userbot = Client(name, config.API_ID, config.API_HASH, session_string=session_string)
             assistant = PyTgCalls(userbot)
-            # Store at position idx-1 (0-based index)
             self.userbots[idx - 1] = userbot
             self.assistants_list[idx - 1] = assistant
         
-        # Maintain backward compatibility with named attributes for first 5 assistants
-        # This allows gradual migration of code that references self.one, self.two, etc.
         assistant_names = ["one", "two", "three", "four", "five"]
         userbot_names = ["userbot1", "userbot2", "userbot3", "userbot4", "userbot5"]
         for i in range(max_sessions):
@@ -146,6 +135,15 @@ class Call:
             try:
                 await client.leave_call(chat_id)
             except (NoActiveGroupCall, Exception):
+                pass
+            finally:
+                self.active_calls.discard(chat_id)
+
+    async def _leave_call(self, chat_id: int, client) -> None:
+        if chat_id in self.active_calls:
+            try:
+                await client.leave_call(chat_id)
+            except Exception:
                 pass
             finally:
                 self.active_calls.discard(chat_id)
@@ -174,14 +172,7 @@ class Call:
     async def stop_stream(self, chat_id: int) -> None:
         assistant = await group_assistant(self, chat_id)
         await _clear_(chat_id)
-        if chat_id not in self.active_calls:
-            return
-        try:
-            await assistant.leave_call(chat_id)
-        except Exception:
-            pass
-        finally:
-            self.active_calls.discard(chat_id)
+        await self._leave_call(chat_id, assistant)
 
     @capture_internal_err
     async def force_stop_stream(self, chat_id: int) -> None:
@@ -197,13 +188,7 @@ class Call:
                         pass
         except (IndexError, KeyError, AttributeError):
             pass
-        if chat_id in self.active_calls:
-            try:
-                await assistant.leave_call(chat_id)
-            except Exception:
-                pass
-            finally:
-                self.active_calls.discard(chat_id)
+        await self._leave_call(chat_id, assistant)
         try:
             await remove_active_video_chat(chat_id)
             await remove_active_chat(chat_id)
@@ -212,9 +197,7 @@ class Call:
         await _clear_(chat_id)
 
     @capture_internal_err
-    async def skip_stream(
-        self, chat_id: int, link: str, video: Union[bool, str] = None
-    ) -> None:
+    async def skip_stream(self, chat_id: int, link: str, video: Union[bool, str] = None) -> None:
         assistant = await group_assistant(self, chat_id)
         stream = dynamic_media_stream(path=link, video=_to_bool(video))
         await assistant.play(chat_id, stream)
@@ -227,55 +210,37 @@ class Call:
 
     @capture_internal_err
     async def change_volume_call(self, chat_id: int, volume: int) -> None:
-        """
-        Change the volume of the voice call.
-        Volume range: 0-200 (where 100 = 50%, 200 = 100%)
-        """
         if not (0 <= volume <= 200):
             raise AssistantErr("Volume must be between 0 and 200.")
         assistant = await group_assistant(self, chat_id)
         await assistant.change_volume_call(chat_id, volume)
 
     @capture_internal_err
-    async def seek_stream(
-        self,
-        chat_id: int,
-        file_path: str,
-        to_seek: str,
-        duration: str,
-        mode: str,
-    ) -> None:
+    async def seek_stream(self, chat_id: int, file_path: str, to_seek: str, duration: str, mode: str) -> None:
         assistant = await group_assistant(self, chat_id)
         ffmpeg_params = f"-ss {to_seek} -to {duration}"
-        stream = dynamic_media_stream(
-            path=file_path, video=(mode == "video"), ffmpeg_params=ffmpeg_params
-        )
+        stream = dynamic_media_stream(path=file_path, video=(mode == "video"), ffmpeg_params=ffmpeg_params)
         await assistant.play(chat_id, stream)
 
     @capture_internal_err
-    async def speedup_stream(
-        self, chat_id: int, file_path: str, speed: float, playing: list
-    ) -> None:
-        if not isinstance(playing, list) or not playing or not isinstance(
-            playing[0], dict
-        ):
+    async def speedup_stream(self, chat_id: int, file_path: str, speed: float, playing: list) -> None:
+        if not isinstance(playing, list) or not playing or not isinstance(playing[0], dict):
             raise AssistantErr("Invalid stream info for speedup.")
+        
         assistant = await group_assistant(self, chat_id)
         base = os.path.basename(file_path)
         chatdir = os.path.join("playback", str(speed))
         os.makedirs(chatdir, exist_ok=True)
         out = os.path.join(chatdir, base)
+        
         if not os.path.exists(out):
             vs = str(2.0 / float(speed))
             cmd = f'ffmpeg -i "{file_path}" -filter:v "setpts={vs}*PTS" -filter:a atempo={speed} -y "{out}"'
-            proc = await asyncio.create_subprocess_shell(
-                cmd,
-                stdin=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
+            proc = await asyncio.create_subprocess_shell(cmd, stdin=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
             await proc.communicate()
             if proc.returncode != 0:
                 raise AssistantErr("Failed to process speed change with ffmpeg.")
+        
         loop = asyncio.get_running_loop()
         dur = int(await loop.run_in_executor(None, check_duration, out))
         played, con_seconds = speed_converter(playing[0]["played"], speed)
@@ -286,30 +251,24 @@ class Call:
             video=(str(playing[0].get("streamtype", "")) == "video"),
             ffmpeg_params=ffmpeg_params,
         )
+        
         try:
             queue_check = db.get(chat_id)
-            if (
-                not queue_check
-                or not queue_check[0]
-                or queue_check[0].get("file") != file_path
-            ):
-                raise AssistantErr(
-                    "Stream mismatch during speedup. Queue may have changed."
-                )
+            if not queue_check or not queue_check[0] or queue_check[0].get("file") != file_path:
+                raise AssistantErr("Stream mismatch during speedup. Queue may have changed.")
+            
             await assistant.play(chat_id, stream)
             old_dur = queue_check[0].get("dur")
             old_second = queue_check[0].get("seconds")
-            queue_check[0].update(
-                {
-                    "played": con_seconds,
-                    "dur": duration_min,
-                    "seconds": dur,
-                    "speed_path": out,
-                    "speed": speed,
-                    "old_dur": old_dur,
-                    "old_second": old_second,
-                }
-            )
+            queue_check[0].update({
+                "played": con_seconds,
+                "dur": duration_min,
+                "seconds": dur,
+                "speed_path": out,
+                "speed": speed,
+                "old_dur": old_dur,
+                "old_second": old_second,
+            })
         except (IndexError, KeyError, AttributeError) as e:
             raise AssistantErr(f"Stream mismatch during speedup: {str(e)}")
 
@@ -339,6 +298,7 @@ class Call:
         _ = get_string(lang)
         is_video = _to_bool(video)
         stream = dynamic_media_stream(path=link, video=is_video)
+        
         try:
             await assistant.play(chat_id, stream)
         except (NoActiveGroupCall, ChatAdminRequired):
@@ -350,9 +310,8 @@ class Call:
         except NoVideoSourceFound:
             raise AssistantErr(_["call_12"])
         except Exception as e:
-            raise AssistantErr(
-                f"ᴜɴᴀʙʟᴇ ᴛᴏ ᴊᴏɪɴ ᴛʜᴇ ɢʀᴏᴜᴘ ᴄᴀʟʟ.\nRᴇᴀsᴏɴ: {e}"
-            )
+            raise AssistantErr(f"ᴜɴᴀʙʟᴇ ᴛᴏ ᴊᴏɪɴ ᴛʜᴇ ɢʀᴏᴜᴘ ᴄᴀʟʟ.\nRᴇᴀsᴏɴ: {e}")
+        
         self.active_calls.add(chat_id)
         try:
             await add_active_chat(chat_id)
@@ -361,6 +320,7 @@ class Call:
                 await add_active_video_chat(chat_id)
         except Exception:
             pass
+        
         if await is_autoend():
             counter[chat_id] = {}
             users = len(await assistant.get_participants(chat_id))
@@ -398,18 +358,27 @@ class Call:
         )
         set_current_message(chat_id, run, markup)
 
-    async def _handle_live_stream(
-        self, client, chat_id: int, videoid: str, video: bool, original_chat_id: int, _: dict, current: dict
-    ) -> None:
+    async def _play_with_error_handling(self, client, chat_id: int, stream: MediaStream, original_chat_id: int, error_msg: str) -> bool:
+        try:
+            await client.play(chat_id, stream)
+            return True
+        except Exception as e:
+            LOGGER(__name__).error(f"{error_msg}: {e}")
+            await app.send_message(original_chat_id, text=error_msg)
+            return False
+
+    async def _handle_live_stream(self, client, chat_id: int, videoid: str, video: bool, original_chat_id: int, _: dict, current: dict) -> None:
         try:
             n, link = await YouTube.video(videoid, True)
             if n == 0 or not link:
                 return await app.send_message(original_chat_id, text=_["call_6"])
             stream = dynamic_media_stream(path=link, video=video)
-            await client.play(chat_id, stream)
+            if not await self._play_with_error_handling(client, chat_id, stream, original_chat_id, _["call_6"]):
+                return
         except Exception as e:
             LOGGER(__name__).error(f"Live stream play failed: {e}")
             return await app.send_message(original_chat_id, text=_["call_6"])
+        
         img = await get_thumb(videoid)
         title = (current["title"]).title()
         user = current["by"]
@@ -419,13 +388,9 @@ class Call:
             current["dur"],
             user,
         )
-        await self._send_playback_message(
-            original_chat_id, img, caption, chat_id, _, "tg"
-        )
+        await self._send_playback_message(original_chat_id, img, caption, chat_id, _, "tg")
 
-    async def _handle_vid_stream(
-        self, client, chat_id: int, videoid: str, video: bool, streamtype: str, title: str, original_chat_id: int, _: dict, current: dict
-    ) -> None:
+    async def _handle_vid_stream(self, client, chat_id: int, videoid: str, video: bool, streamtype: str, title: str, original_chat_id: int, _: dict, current: dict) -> None:
         mystic = await app.send_message(original_chat_id, _["call_7"])
         try:
             file_path, direct = await YouTube.download(
@@ -438,14 +403,14 @@ class Call:
         except Exception as e:
             LOGGER(__name__).error(f"YouTube download failed in play: {e}")
             return await mystic.edit_text(_["call_6"], disable_web_page_preview=True)
+        
         if not file_path:
             return await mystic.edit_text(_["call_6"], disable_web_page_preview=True)
+        
         stream = dynamic_media_stream(path=file_path, video=video)
-        try:
-            await client.play(chat_id, stream)
-        except Exception as e:
-            LOGGER(__name__).error(f"YouTube stream play failed: {e}")
-            return await app.send_message(original_chat_id, text=_["call_6"])
+        if not await self._play_with_error_handling(client, chat_id, stream, original_chat_id, _["call_6"]):
+            return
+        
         img = await get_thumb(videoid)
         user = current["by"]
         await mystic.delete()
@@ -455,13 +420,9 @@ class Call:
             current["dur"],
             user,
         )
-        await self._send_playback_message(
-            original_chat_id, img, caption, chat_id, _, "stream"
-        )
+        await self._send_playback_message(original_chat_id, img, caption, chat_id, _, "stream")
 
-    async def _handle_soundcloud_stream(
-        self, client, chat_id: int, videoid: str, queued: str, original_chat_id: int, _: dict, current: dict
-    ) -> None:
+    async def _handle_soundcloud_stream(self, client, chat_id: int, videoid: str, queued: str, original_chat_id: int, _: dict, current: dict) -> None:
         if not is_soundcloud_url(queued) and os.path.exists(str(queued)):
             file_path = queued
         else:
@@ -469,15 +430,12 @@ class Call:
             try:
                 result = await SoundCloud.download(videoid)
                 if result is False or not isinstance(result, tuple):
-                    return await mystic.edit_text(
-                        _["call_6"], disable_web_page_preview=True
-                    )
+                    return await mystic.edit_text(_["call_6"], disable_web_page_preview=True)
                 details_dict, file_path = result
             except Exception as e:
                 LOGGER(__name__).error(f"SoundCloud download failed in play: {e}")
-                return await mystic.edit_text(
-                    _["call_6"], disable_web_page_preview=True
-                )
+                return await mystic.edit_text(_["call_6"], disable_web_page_preview=True)
+            
             try:
                 if chat_id in db and db[chat_id] and len(db[chat_id]) > 0:
                     if queued in autoclean:
@@ -491,32 +449,26 @@ class Call:
             except (IndexError, KeyError, AttributeError):
                 pass
             await mystic.delete()
+        
         stream = dynamic_media_stream(path=file_path, video=False)
-        try:
-            await client.play(chat_id, stream)
-        except Exception as e:
-            LOGGER(__name__).error(f"SoundCloud play failed: {e}")
-            return await app.send_message(original_chat_id, text=_["call_6"])
+        if not await self._play_with_error_handling(client, chat_id, stream, original_chat_id, _["call_6"]):
+            return
+        
         img = await get_thumb(videoid)
         title = (current["title"]).title()
         user = current["by"]
         link = config.SUPPORT_CHAT if videoid == "soundcloud" else videoid
         caption = _["stream_1"].format(link, title[:23], current["dur"], user)
-        await self._send_playback_message(
-            original_chat_id, img, caption, chat_id, _, "tg"
-        )
+        await self._send_playback_message(original_chat_id, img, caption, chat_id, _, "tg")
 
-    async def _handle_index_stream(
-        self, client, chat_id: int, videoid: str, video: bool, original_chat_id: int, _: dict, current: dict
-    ) -> None:
+    async def _handle_index_stream(self, client, chat_id: int, videoid: str, video: bool, original_chat_id: int, _: dict, current: dict) -> None:
         if not videoid:
             return await app.send_message(original_chat_id, text=_["call_6"])
+        
         stream = dynamic_media_stream(path=videoid, video=video)
-        try:
-            await client.play(chat_id, stream)
-        except Exception as e:
-            LOGGER(__name__).error(f"Index stream play failed: {e}")
-            return await app.send_message(original_chat_id, text=_["call_6"])
+        if not await self._play_with_error_handling(client, chat_id, stream, original_chat_id, _["call_6"]):
+            return
+        
         user = current["by"]
         await self._send_playback_message(
             original_chat_id,
@@ -527,44 +479,26 @@ class Call:
             "tg",
         )
 
-    async def _handle_regular_stream(
-        self, client, chat_id: int, queued: str, video: bool, videoid: str, streamtype: str, original_chat_id: int, _: dict, current: dict
-    ) -> None:
+    async def _handle_regular_stream(self, client, chat_id: int, queued: str, video: bool, videoid: str, streamtype: str, original_chat_id: int, _: dict, current: dict) -> None:
         if not queued:
             return await app.send_message(original_chat_id, text=_["call_6"])
+        
         stream = dynamic_media_stream(path=queued, video=video)
-        try:
-            await client.play(chat_id, stream)
-        except Exception as e:
-            LOGGER(__name__).error(f"Regular stream play failed: {e}")
-            return await app.send_message(original_chat_id, text=_["call_6"])
+        if not await self._play_with_error_handling(client, chat_id, stream, original_chat_id, _["call_6"]):
+            return
+        
         title = (current["title"]).title()
         user = current["by"]
+        
         if videoid == "telegram":
-            photo = (
-                config.TELEGRAM_AUDIO_URL
-                if str(streamtype) == "audio"
-                else config.TELEGRAM_VIDEO_URL
-            )
-            caption = _["stream_1"].format(
-                config.SUPPORT_CHAT, title[:23], current["dur"], user
-            )
-            await self._send_playback_message(
-                original_chat_id, photo, caption, chat_id, _, "tg"
-            )
+            photo = config.TELEGRAM_AUDIO_URL if str(streamtype) == "audio" else config.TELEGRAM_VIDEO_URL
+            caption = _["stream_1"].format(config.SUPPORT_CHAT, title[:23], current["dur"], user)
+            await self._send_playback_message(original_chat_id, photo, caption, chat_id, _, "tg")
         elif videoid == "soundcloud" or is_soundcloud_url(videoid):
-            thumb_source = (
-                queued
-                if is_soundcloud_url(queued)
-                else (videoid if is_soundcloud_url(videoid) else "soundcloud")
-            )
+            thumb_source = queued if is_soundcloud_url(queued) else (videoid if is_soundcloud_url(videoid) else "soundcloud")
             img = await get_thumb(thumb_source)
-            caption = _["stream_1"].format(
-                config.SUPPORT_CHAT, title[:23], current["dur"], user
-            )
-            await self._send_playback_message(
-                original_chat_id, img, caption, chat_id, _, "tg"
-            )
+            caption = _["stream_1"].format(config.SUPPORT_CHAT, title[:23], current["dur"], user)
+            await self._send_playback_message(original_chat_id, img, caption, chat_id, _, "tg")
         else:
             img = await get_thumb(videoid)
             caption = _["stream_1"].format(
@@ -574,21 +508,18 @@ class Call:
                 user,
             )
             try:
-                await self._send_playback_message(
-                    original_chat_id, img, caption, chat_id, _, "stream"
-                )
+                await self._send_playback_message(original_chat_id, img, caption, chat_id, _, "stream")
             except FloodWait as e:
                 LOGGER(__name__).warning(f"FloodWait: Sleeping for {e.value}")
                 await asyncio.sleep(e.value)
-                await self._send_playback_message(
-                    original_chat_id, img, caption, chat_id, _, "stream"
-                )
+                await self._send_playback_message(original_chat_id, img, caption, chat_id, _, "stream")
 
     @capture_internal_err
     async def play(self, client, chat_id: int) -> None:
         check = db.get(chat_id)
         if not check:
             return
+        
         loop = await get_loop(chat_id)
         try:
             if loop == 0:
@@ -599,8 +530,8 @@ class Call:
                     except Exception:
                         pass
             else:
-                loop = loop - 1
-                await set_loop(chat_id, loop)
+                await set_loop(chat_id, loop - 1)
+            
             if not check:
                 await self._cleanup_and_leave(chat_id, client)
                 return
@@ -611,45 +542,38 @@ class Call:
             LOGGER(__name__).error(f"Error in play method: {e}")
             await self._cleanup_and_leave(chat_id, client)
             return
+        
         check = db.get(chat_id) or []
         if not check:
             await self._cleanup_and_leave(chat_id, client)
             return
+        
         try:
             current = check[0]
         except (IndexError, KeyError, AttributeError):
             await self._cleanup_and_leave(chat_id, client)
             return
+        
         queued = current["file"]
         language = await get_lang(chat_id)
         _ = get_string(language)
         title = (current["title"]).title()
-        user = current["by"]
         original_chat_id = current["chat_id"]
         streamtype = current["streamtype"]
         videoid = current["vidid"]
         self._reset_queue_progress(chat_id, current)
         video = str(streamtype) == "video"
+        
         if "live_" in queued:
-            await self._handle_live_stream(
-                client, chat_id, videoid, video, original_chat_id, _, current
-            )
+            await self._handle_live_stream(client, chat_id, videoid, video, original_chat_id, _, current)
         elif "vid_" in queued:
-            await self._handle_vid_stream(
-                client, chat_id, videoid, video, streamtype, title, original_chat_id, _, current
-            )
+            await self._handle_vid_stream(client, chat_id, videoid, video, streamtype, title, original_chat_id, _, current)
         elif videoid and (videoid == "soundcloud" or is_soundcloud_url(videoid)):
-            await self._handle_soundcloud_stream(
-                client, chat_id, videoid, queued, original_chat_id, _, current
-            )
+            await self._handle_soundcloud_stream(client, chat_id, videoid, queued, original_chat_id, _, current)
         elif "index_" in queued:
-            await self._handle_index_stream(
-                client, chat_id, videoid, video, original_chat_id, _, current
-            )
+            await self._handle_index_stream(client, chat_id, videoid, video, original_chat_id, _, current)
         else:
-            await self._handle_regular_stream(
-                client, chat_id, queued, video, videoid, streamtype, original_chat_id, _, current
-            )
+            await self._handle_regular_stream(client, chat_id, queued, video, videoid, streamtype, original_chat_id, _, current)
 
     async def start(self) -> None:
         active_count = len([a for a in self.assistants_list if a])
@@ -690,18 +614,14 @@ class Call:
                             if assistant:
                                 await self.play(assistant, update.chat_id)
                         except Exception as e:
-                            LOGGER(__name__).error(
-                                f"Error in StreamEnded handler: {e}"
-                            )
+                            LOGGER(__name__).error(f"Error in StreamEnded handler: {e}")
                 elif isinstance(update, ChatUpdate):
                     status = update.status
                     if (status & ChatUpdate.Status.LEFT_CALL) or (status & CRITICAL):
                         try:
                             await self.stop_stream(update.chat_id)
                         except Exception as e:
-                            LOGGER(__name__).error(
-                                f"Error in ChatUpdate handler: {e}"
-                            )
+                            LOGGER(__name__).error(f"Error in ChatUpdate handler: {e}")
                         return
             except Exception as e:
                 LOGGER(__name__).error(f"Error in unified_update_handler: {e}")
@@ -711,9 +631,7 @@ class Call:
                 try:
                     assistant.on_update()(unified_update_handler)
                 except Exception as e:
-                    LOGGER(__name__).error(
-                        f"Error registering update handler: {e}"
-                    )
+                    LOGGER(__name__).error(f"Error registering update handler: {e}")
 
 
 StreamController = Call()

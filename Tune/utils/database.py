@@ -27,7 +27,6 @@ usersdb = mongodb.tgusersdb
 antispamdb = mongodb.antispam
 antispamblockeddb = mongodb.antispamblocked
 
-
 active = []
 activevideo = []
 assistantdict = {}
@@ -44,17 +43,15 @@ playtype = {}
 skipmode = {}
 mute = {}
 
+
 async def get_assistant_number(chat_id: int) -> str:
-    assistant = assistantdict.get(chat_id)
-    return assistant
+    return assistantdict.get(chat_id)
 
 
 async def get_client(assistant: int):
-    """Get assistant client by index (1-based)."""
     assistant_index = int(assistant)
     client = userbot.get_assistant(assistant_index)
     if client is None:
-        # Fallback to first available assistant
         assistants_list = userbot.get_assistants_list()
         if assistants_list:
             return assistants_list[0]
@@ -70,129 +67,89 @@ async def set_assistant_new(chat_id, number):
     )
 
 
-async def set_assistant(chat_id):
-    from Tune.core.userbot import assistants
-
-    ran_assistant = random.choice(assistants)
-    assistantdict[chat_id] = ran_assistant
+async def _set_assistant_in_db(chat_id, assistant):
+    assistantdict[chat_id] = assistant
     await assdb.update_one(
         {"chat_id": chat_id},
-        {"$set": {"assistant": ran_assistant}},
+        {"$set": {"assistant": assistant}},
         upsert=True,
     )
-    userbot = await get_client(ran_assistant)
-    return userbot
 
 
-async def get_assistant(chat_id: int) -> str:
+async def set_assistant(chat_id):
     from Tune.core.userbot import assistants
-
-    assistant = assistantdict.get(chat_id)
-    if not assistant:
-        dbassistant = await assdb.find_one({"chat_id": chat_id})
-        if not dbassistant:
-            userbot = await set_assistant(chat_id)
-            return userbot
-        else:
-            got_assis = dbassistant["assistant"]
-            if got_assis in assistants:
-                assistantdict[chat_id] = got_assis
-                userbot = await get_client(got_assis)
-                return userbot
-            else:
-                userbot = await set_assistant(chat_id)
-                return userbot
-    else:
-        if assistant in assistants:
-            userbot = await get_client(assistant)
-            return userbot
-        else:
-            userbot = await set_assistant(chat_id)
-            return userbot
+    ran_assistant = random.choice(assistants)
+    await _set_assistant_in_db(chat_id, ran_assistant)
+    return await get_client(ran_assistant)
 
 
 async def set_calls_assistant(chat_id):
     from Tune.core.userbot import assistants
-
     ran_assistant = random.choice(assistants)
-    assistantdict[chat_id] = ran_assistant
-    await assdb.update_one(
-        {"chat_id": chat_id},
-        {"$set": {"assistant": ran_assistant}},
-        upsert=True,
-    )
+    await _set_assistant_in_db(chat_id, ran_assistant)
     return ran_assistant
+
+
+async def get_assistant(chat_id: int) -> str:
+    from Tune.core.userbot import assistants
+    assistant = assistantdict.get(chat_id)
+    if assistant and assistant in assistants:
+        return await get_client(assistant)
+    dbassistant = await assdb.find_one({"chat_id": chat_id})
+    if dbassistant:
+        got_assis = dbassistant["assistant"]
+        if got_assis in assistants:
+            assistantdict[chat_id] = got_assis
+            return await get_client(got_assis)
+    return await set_assistant(chat_id)
 
 
 async def group_assistant(self, chat_id: int):
     from Tune.core.userbot import assistants
-
     assistant = assistantdict.get(chat_id)
     if not assistant:
         dbassistant = await assdb.find_one({"chat_id": chat_id})
-        if not dbassistant:
-            assis = await set_calls_assistant(chat_id)
-        else:
+        if dbassistant and dbassistant["assistant"] in assistants:
             assis = dbassistant["assistant"]
-            if assis in assistants:
-                assistantdict[chat_id] = assis
-            else:
-                assis = await set_calls_assistant(chat_id)
-    else:
-        if assistant in assistants:
-            assis = assistant
+            assistantdict[chat_id] = assis
         else:
             assis = await set_calls_assistant(chat_id)
-    
-    # Dynamically get assistant from available list (self is Call instance)
+    elif assistant in assistants:
+        assis = assistant
+    else:
+        assis = await set_calls_assistant(chat_id)
     result = None
     try:
         assis_int = int(assis)
-        # Access assistants from the Call instance's dynamic list
-        # Note: assistants_list maintains original positions (0=STRING1, 1=STRING2, etc.)
         if hasattr(self, 'assistants_list') and self.assistants_list:
-            idx = assis_int - 1  # Convert to 0-based index
+            idx = assis_int - 1
             if 0 <= idx < len(self.assistants_list):
                 candidate = self.assistants_list[idx]
                 if candidate is not None:
                     result = candidate
     except (ValueError, AttributeError, IndexError):
         pass
-    
     if result is None:
-        # Fallback to first available assistant
         if hasattr(self, 'assistants_list') and self.assistants_list:
             available = [a for a in self.assistants_list if a is not None]
             if available:
                 result = available[0]
-            else:
-                # Last resort: try to get any available assistant from named attributes
-                available = [a for a in [self.one, self.two, self.three, self.four, self.five] if a]
-                if available:
-                    result = available[0]
-                else:
-                    raise AssistantErr("No active assistant available.")
-        else:
-            # Last resort: try to get any available assistant from named attributes
+        if result is None:
             available = [a for a in [self.one, self.two, self.three, self.four, self.five] if a]
             if available:
                 result = available[0]
             else:
                 raise AssistantErr("No active assistant available.")
-    
     return result
 
 
 async def is_skipmode(chat_id: int) -> bool:
     mode = skipmode.get(chat_id)
-    if not mode:
-        user = await skipdb.find_one({"chat_id": chat_id})
-        if not user:
-            skipmode[chat_id] = True
-            return True
-        skipmode[chat_id] = False
-        return False
-    return mode
+    if mode is not None:
+        return mode
+    user = await skipdb.find_one({"chat_id": chat_id})
+    skipmode[chat_id] = user is None
+    return skipmode[chat_id]
 
 
 async def skip_on(chat_id: int):
@@ -211,13 +168,13 @@ async def skip_off(chat_id: int):
 
 async def get_upvote_count(chat_id: int) -> int:
     mode = count.get(chat_id)
+    if mode is not None:
+        return mode
+    mode = await countdb.find_one({"chat_id": chat_id})
     if not mode:
-        mode = await countdb.find_one({"chat_id": chat_id})
-        if not mode:
-            return 5
-        count[chat_id] = mode["mode"]
-        return mode["mode"]
-    return mode
+        return 5
+    count[chat_id] = mode["mode"]
+    return mode["mode"]
 
 
 async def set_upvotes(chat_id: int, mode: int):
@@ -228,28 +185,20 @@ async def set_upvotes(chat_id: int, mode: int):
 
 
 async def is_autoend() -> bool:
-    chat_id = 1234
-    user = await autoenddb.find_one({"chat_id": chat_id})
-    if not user:
-        return False
-    return True
+    user = await autoenddb.find_one({"chat_id": 1234})
+    return user is not None
 
 
 async def autoend_on():
-    chat_id = 1234
-    await autoenddb.insert_one({"chat_id": chat_id})
+    await autoenddb.insert_one({"chat_id": 1234})
 
 
 async def autoend_off():
-    chat_id = 1234
-    await autoenddb.delete_one({"chat_id": chat_id})
+    await autoenddb.delete_one({"chat_id": 1234})
 
 
 async def get_loop(chat_id: int) -> int:
-    lop = loop.get(chat_id)
-    if not lop:
-        return 0
-    return lop
+    return loop.get(chat_id, 0)
 
 
 async def set_loop(chat_id: int, mode: int):
@@ -258,13 +207,13 @@ async def set_loop(chat_id: int, mode: int):
 
 async def get_cmode(chat_id: int) -> int:
     mode = channelconnect.get(chat_id)
+    if mode is not None:
+        return mode
+    mode = await channeldb.find_one({"chat_id": chat_id})
     if not mode:
-        mode = await channeldb.find_one({"chat_id": chat_id})
-        if not mode:
-            return None
-        channelconnect[chat_id] = mode["mode"]
-        return mode["mode"]
-    return mode
+        return None
+    channelconnect[chat_id] = mode["mode"]
+    return mode["mode"]
 
 
 async def set_cmode(chat_id: int, mode: int):
@@ -276,14 +225,14 @@ async def set_cmode(chat_id: int, mode: int):
 
 async def get_playtype(chat_id: int) -> str:
     mode = playtype.get(chat_id)
+    if mode:
+        return mode
+    mode = await playtypedb.find_one({"chat_id": chat_id})
     if not mode:
-        mode = await playtypedb.find_one({"chat_id": chat_id})
-        if not mode:
-            playtype[chat_id] = "Everyone"
-            return "Everyone"
-        playtype[chat_id] = mode["mode"]
-        return mode["mode"]
-    return mode
+        playtype[chat_id] = "Everyone"
+        return "Everyone"
+    playtype[chat_id] = mode["mode"]
+    return mode["mode"]
 
 
 async def set_playtype(chat_id: int, mode: str):
@@ -295,14 +244,14 @@ async def set_playtype(chat_id: int, mode: str):
 
 async def get_playmode(chat_id: int) -> str:
     mode = playmode.get(chat_id)
+    if mode:
+        return mode
+    mode = await playmodedb.find_one({"chat_id": chat_id})
     if not mode:
-        mode = await playmodedb.find_one({"chat_id": chat_id})
-        if not mode:
-            playmode[chat_id] = "Direct"
-            return "Direct"
-        playmode[chat_id] = mode["mode"]
-        return mode["mode"]
-    return mode
+        playmode[chat_id] = "Direct"
+        return "Direct"
+    playmode[chat_id] = mode["mode"]
+    return mode["mode"]
 
 
 async def set_playmode(chat_id: int, mode: str):
@@ -314,14 +263,14 @@ async def set_playmode(chat_id: int, mode: str):
 
 async def get_lang(chat_id: int) -> str:
     mode = langm.get(chat_id)
-    if not mode:
-        lang = await langdb.find_one({"chat_id": chat_id})
-        if not lang:
-            langm[chat_id] = "en"
-            return "en"
-        langm[chat_id] = lang["lang"]
-        return lang["lang"]
-    return mode
+    if mode:
+        return mode
+    lang = await langdb.find_one({"chat_id": chat_id})
+    if not lang:
+        langm[chat_id] = "en"
+        return "en"
+    langm[chat_id] = lang["lang"]
+    return lang["lang"]
 
 
 async def set_lang(chat_id: int, lang: str):
@@ -330,10 +279,7 @@ async def set_lang(chat_id: int, lang: str):
 
 
 async def is_music_playing(chat_id: int) -> bool:
-    mode = pause.get(chat_id)
-    if not mode:
-        return False
-    return mode
+    return bool(pause.get(chat_id))
 
 
 async def music_on(chat_id: int):
@@ -343,11 +289,9 @@ async def music_on(chat_id: int):
 async def music_off(chat_id: int):
     pause[chat_id] = False
 
+
 async def is_muted(chat_id: int) -> bool:
-    mode = mute.get(chat_id)
-    if not mode:
-        return False
-    return mode
+    return bool(mute.get(chat_id))
 
 
 async def get_active_chats() -> list:
@@ -355,10 +299,7 @@ async def get_active_chats() -> list:
 
 
 async def is_active_chat(chat_id: int) -> bool:
-    if chat_id not in active:
-        return False
-    else:
-        return True
+    return chat_id in active
 
 
 async def add_active_chat(chat_id: int):
@@ -376,10 +317,7 @@ async def get_active_video_chats() -> list:
 
 
 async def is_active_video_chat(chat_id: int) -> bool:
-    if chat_id not in activevideo:
-        return False
-    else:
-        return True
+    return chat_id in activevideo
 
 
 async def add_active_video_chat(chat_id: int):
@@ -394,101 +332,71 @@ async def remove_active_video_chat(chat_id: int):
 
 async def check_nonadmin_chat(chat_id: int) -> bool:
     user = await authdb.find_one({"chat_id": chat_id})
-    if not user:
-        return False
-    return True
+    return user is not None
 
 
 async def is_nonadmin_chat(chat_id: int) -> bool:
     mode = nonadmin.get(chat_id)
-    if not mode:
-        user = await authdb.find_one({"chat_id": chat_id})
-        if not user:
-            nonadmin[chat_id] = False
-            return False
-        nonadmin[chat_id] = True
-        return True
-    return mode
+    if mode is not None:
+        return mode
+    user = await authdb.find_one({"chat_id": chat_id})
+    nonadmin[chat_id] = user is not None
+    return nonadmin[chat_id]
 
 
 async def add_nonadmin_chat(chat_id: int):
     nonadmin[chat_id] = True
-    is_admin = await check_nonadmin_chat(chat_id)
-    if is_admin:
-        return
-    return await authdb.insert_one({"chat_id": chat_id})
+    if not await check_nonadmin_chat(chat_id):
+        return await authdb.insert_one({"chat_id": chat_id})
 
 
 async def remove_nonadmin_chat(chat_id: int):
     nonadmin[chat_id] = False
-    is_admin = await check_nonadmin_chat(chat_id)
-    if not is_admin:
-        return
-    return await authdb.delete_one({"chat_id": chat_id})
+    if await check_nonadmin_chat(chat_id):
+        return await authdb.delete_one({"chat_id": chat_id})
 
 
 async def is_on_off(on_off: int) -> bool:
     onoff = await onoffdb.find_one({"on_off": on_off})
-    if not onoff:
-        return False
-    return True
+    return onoff is not None
 
 
 async def add_on(on_off: int):
-    is_on = await is_on_off(on_off)
-    if is_on:
-        return
-    return await onoffdb.insert_one({"on_off": on_off})
+    if not await is_on_off(on_off):
+        return await onoffdb.insert_one({"on_off": on_off})
 
 
 async def add_off(on_off: int):
-    is_off = await is_on_off(on_off)
-    if not is_off:
-        return
-    return await onoffdb.delete_one({"on_off": on_off})
+    if await is_on_off(on_off):
+        return await onoffdb.delete_one({"on_off": on_off})
 
 
 async def is_maintenance():
     if not maintenance:
         get = await onoffdb.find_one({"on_off": 1})
-        if not get:
-            maintenance.clear()
-            maintenance.append(2)
-            return True
-        else:
-            maintenance.clear()
-            maintenance.append(1)
-            return False
-    else:
-        if 1 in maintenance:
-            return False
-        else:
-            return True
+        maintenance.clear()
+        maintenance.append(2 if not get else 1)
+        return not get
+    return 1 not in maintenance
 
 
 async def maintenance_off():
     maintenance.clear()
     maintenance.append(2)
-    is_off = await is_on_off(1)
-    if not is_off:
-        return
-    return await onoffdb.delete_one({"on_off": 1})
+    if await is_on_off(1):
+        return await onoffdb.delete_one({"on_off": 1})
 
 
 async def maintenance_on():
     maintenance.clear()
     maintenance.append(1)
-    is_on = await is_on_off(1)
-    if is_on:
-        return
-    return await onoffdb.insert_one({"on_off": 1})
+    if not await is_on_off(1):
+        return await onoffdb.insert_one({"on_off": 1})
 
 
 async def is_served_user(user_id: int) -> bool:
     user = await usersdb.find_one({"user_id": user_id})
-    if not user:
-        return False
-    return True
+    return user is not None
 
 
 async def get_served_users() -> list:
@@ -499,10 +407,8 @@ async def get_served_users() -> list:
 
 
 async def add_served_user(user_id: int):
-    is_served = await is_served_user(user_id)
-    if is_served:
-        return
-    return await usersdb.insert_one({"user_id": user_id})
+    if not await is_served_user(user_id):
+        return await usersdb.insert_one({"user_id": user_id})
 
 
 async def get_served_chats() -> list:
@@ -514,16 +420,12 @@ async def get_served_chats() -> list:
 
 async def is_served_chat(chat_id: int) -> bool:
     chat = await chatsdb.find_one({"chat_id": chat_id})
-    if not chat:
-        return False
-    return True
+    return chat is not None
 
 
 async def add_served_chat(chat_id: int):
-    is_served = await is_served_chat(chat_id)
-    if is_served:
-        return
-    return await chatsdb.insert_one({"chat_id": chat_id})
+    if not await is_served_chat(chat_id):
+        return await chatsdb.insert_one({"chat_id": chat_id})
 
 
 async def remove_served_chat(chat_id: int):
@@ -565,26 +467,17 @@ async def _get_authusers(chat_id: int) -> Dict[str, int]:
 
 
 async def get_authuser_names(chat_id: int) -> List[str]:
-    _notes = []
-    for note in await _get_authusers(chat_id):
-        _notes.append(note)
-    return _notes
+    return list(await _get_authusers(chat_id))
 
 
 async def get_authuser(chat_id: int, name: str) -> Union[bool, dict]:
-    name = name
     _notes = await _get_authusers(chat_id)
-    if name in _notes:
-        return _notes[name]
-    else:
-        return False
+    return _notes.get(name, False)
 
 
 async def save_authuser(chat_id: int, name: str, note: dict):
-    name = name
     _notes = await _get_authusers(chat_id)
     _notes[name] = note
-
     await authuserdb.update_one(
         {"chat_id": chat_id}, {"$set": {"notes": _notes}}, upsert=True
     )
@@ -592,7 +485,6 @@ async def save_authuser(chat_id: int, name: str, note: dict):
 
 async def delete_authuser(chat_id: int, name: str) -> bool:
     notesd = await _get_authusers(chat_id)
-    name = name
     if name in notesd:
         del notesd[name]
         await authuserdb.update_one(
@@ -607,30 +499,23 @@ async def delete_authuser(chat_id: int, name: str) -> bool:
 async def get_gbanned() -> list:
     results = []
     async for user in gbansdb.find({"user_id": {"$gt": 0}}):
-        user_id = user["user_id"]
-        results.append(user_id)
+        results.append(user["user_id"])
     return results
 
 
 async def is_gbanned_user(user_id: int) -> bool:
     user = await gbansdb.find_one({"user_id": user_id})
-    if not user:
-        return False
-    return True
+    return user is not None
 
 
 async def add_gban_user(user_id: int):
-    is_gbanned = await is_gbanned_user(user_id)
-    if is_gbanned:
-        return
-    return await gbansdb.insert_one({"user_id": user_id})
+    if not await is_gbanned_user(user_id):
+        return await gbansdb.insert_one({"user_id": user_id})
 
 
 async def remove_gban_user(user_id: int):
-    is_gbanned = await is_gbanned_user(user_id)
-    if not is_gbanned:
-        return
-    return await gbansdb.delete_one({"user_id": user_id})
+    if await is_gbanned_user(user_id):
+        return await gbansdb.delete_one({"user_id": user_id})
 
 
 async def get_sudoers() -> list:
@@ -661,8 +546,7 @@ async def remove_sudo(user_id: int) -> bool:
 async def get_banned_users() -> list:
     results = []
     async for user in blockeddb.find({"user_id": {"$gt": 0}}):
-        user_id = user["user_id"]
-        results.append(user_id)
+        results.append(user["user_id"])
     return results
 
 
@@ -674,23 +558,17 @@ async def get_banned_count() -> int:
 
 async def is_banned_user(user_id: int) -> bool:
     user = await blockeddb.find_one({"user_id": user_id})
-    if not user:
-        return False
-    return True
+    return user is not None
 
 
 async def add_banned_user(user_id: int):
-    is_gbanned = await is_banned_user(user_id)
-    if is_gbanned:
-        return
-    return await blockeddb.insert_one({"user_id": user_id})
+    if not await is_banned_user(user_id):
+        return await blockeddb.insert_one({"user_id": user_id})
 
 
 async def remove_banned_user(user_id: int):
-    is_gbanned = await is_banned_user(user_id)
-    if not is_gbanned:
-        return
-    return await blockeddb.delete_one({"user_id": user_id})
+    if await is_banned_user(user_id):
+        return await blockeddb.delete_one({"user_id": user_id})
 
 
 async def is_antispam_enabled() -> bool:
@@ -751,8 +629,7 @@ async def get_spam_blocked_users() -> list:
         user_id = user.get("user_id")
         if user_id:
             try:
-                user_id = int(user_id)
-                results.append(user_id)
+                results.append(int(user_id))
             except (ValueError, TypeError):
                 continue
     return results

@@ -14,7 +14,7 @@ logging.basicConfig(
     datefmt=DATEFMT,
     handlers=[
         logging.StreamHandler(),
-        RotatingFileHandler(LOG_FILE, maxBytes=10_000_000, backupCount=3, encoding="utf-8"),
+        RotatingFileHandler(LOG_FILE, maxBytes=2_000_000, backupCount=3, encoding="utf-8"),
     ],
 )
 
