@@ -44,7 +44,7 @@ from Tune.utils.database import (
 )
 from Tune.utils.errors import capture_internal_err
 from Tune.utils.exceptions import AssistantErr
-from Tune.utils.formatters import check_duration, clean_title_for_html, seconds_to_min, speed_converter
+from Tune.utils.formatters import check_duration, seconds_to_min, speed_converter
 from Tune.utils.inline.play import stream_markup
 from Tune.utils.stream.autoclear import auto_clean
 from Tune.utils.thumbnails import get_thumb
@@ -381,7 +381,7 @@ class Call:
             return await app.send_message(original_chat_id, text=_["call_6"])
         
         img = await get_thumb(videoid)
-        title = clean_title_for_html((current["title"]).title())
+        title = (current["title"]).title()
         user = current["by"]
         caption = _["stream_1"].format(
             f"https://t.me/{app.username}?start=info_{videoid}",
@@ -417,10 +417,9 @@ class Call:
         
         user = current["by"]
         await mystic.delete()
-        clean_title = clean_title_for_html(title)
         caption = _["stream_1"].format(
             f"https://t.me/{app.username}?start=info_{videoid}",
-            clean_title[:23],
+            title[:23],
             current["dur"],
             user,
         )
@@ -462,7 +461,7 @@ class Call:
         if not await self._play_with_error_handling(client, chat_id, stream, original_chat_id, _["call_6"]):
             return
         
-        title = clean_title_for_html((current["title"]).title())
+        title = (current["title"]).title()
         user = current["by"]
         link = config.SUPPORT_CHAT if videoid == "soundcloud" else videoid
         caption = _["stream_1"].format(link, title[:23], current["dur"], user)
@@ -494,7 +493,7 @@ class Call:
         if not await self._play_with_error_handling(client, chat_id, stream, original_chat_id, _["call_6"]):
             return
         
-        title = clean_title_for_html((current["title"]).title())
+        title = (current["title"]).title()
         user = current["by"]
         
         if videoid == "telegram":

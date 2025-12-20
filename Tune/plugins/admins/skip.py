@@ -9,7 +9,6 @@ from Tune.misc import db, set_current_message
 from Tune.platforms.Soundcloud import is_soundcloud_url
 from Tune.utils.database import get_loop
 from Tune.utils.decorators import AdminRightsCheck
-from Tune.utils.formatters import clean_title_for_html
 from Tune.utils.inline import close_markup, stream_markup
 from Tune.utils.stream.autoclear import auto_clean
 from Tune.utils.thumbnails import get_thumb
@@ -75,12 +74,11 @@ async def send_stream_message(message: Message, _, chat_id, check, queued, title
             return await message.reply_text(_["call_6"])
         
         img = await get_thumb(videoid)
-        clean_title = clean_title_for_html(title)
         run = await message.reply_photo(
             photo=img,
             caption=_["stream_1"].format(
                 f"https://t.me/{app.username}?start=info_{videoid}",
-                clean_title[:23],
+                title[:23],
                 check[0]["dur"],
                 user,
             ),
@@ -107,12 +105,11 @@ async def send_stream_message(message: Message, _, chat_id, check, queued, title
             return await mystic.edit_text(_["call_6"])
         
         img = await get_thumb(videoid)
-        clean_title = clean_title_for_html(title)
         run = await message.reply_photo(
             photo=img,
             caption=_["stream_1"].format(
                 f"https://t.me/{app.username}?start=info_{videoid}",
-                clean_title[:23],
+                title[:23],
                 check[0]["dur"],
                 user,
             ),
@@ -140,21 +137,20 @@ async def send_stream_message(message: Message, _, chat_id, check, queued, title
         except:
             return await message.reply_text(_["call_6"])
         
-        clean_title = clean_title_for_html(title)
         if videoid == "telegram":
             photo = config.TELEGRAM_AUDIO_URL if str(streamtype) == "audio" else config.TELEGRAM_VIDEO_URL
-            caption = _["stream_1"].format(config.SUPPORT_CHAT, clean_title[:23], check[0]["dur"], user)
+            caption = _["stream_1"].format(config.SUPPORT_CHAT, title[:23], check[0]["dur"], user)
             msg_type = "tg"
         elif videoid == "soundcloud":
             thumb_source = queued if is_soundcloud_url(queued) else (videoid if is_soundcloud_url(videoid) else "soundcloud")
             photo = await get_thumb(thumb_source)
-            caption = _["stream_1"].format(config.SUPPORT_CHAT, clean_title[:23], check[0]["dur"], user)
+            caption = _["stream_1"].format(config.SUPPORT_CHAT, title[:23], check[0]["dur"], user)
             msg_type = "tg"
         else:
             photo = await get_thumb(videoid)
             caption = _["stream_1"].format(
                 f"https://t.me/{app.username}?start=info_{videoid}",
-                clean_title[:23],
+                title[:23],
                 check[0]["dur"],
                 user,
             )
