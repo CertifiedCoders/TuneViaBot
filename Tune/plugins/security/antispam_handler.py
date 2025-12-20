@@ -10,7 +10,7 @@ from pyrogram.types import Message
 from Tune import app
 from Tune.utils.antispam import track_command, reset_user_tracking, get_user_command_count
 from Tune.utils.database import is_spam_blocked, is_antispam_enabled, get_lang
-from config import SUPPORT_CHAT, OWNER_ID, LOGGER_ID
+from config import SUPPORT_CHAT, OWNER_ID
 from Tune.core.dir import LOGS_DIR
 from Tune.logging import LOGGER
 from strings import get_string
@@ -91,7 +91,7 @@ async def _notify_support_chat(user_id: int, user_name: str, username: str, chat
             timestamp
         )
         
-        await app.send_message(LOGGER_ID, spam_notification)
+        await app.send_message(SUPPORT_CHAT, spam_notification)
         _support_notified_cache.add(user_id)
         _write_debug_log("SUPPORT_NOTIFICATION", {"user_id": user_id, "status": "sent"})
     except Exception as e:
