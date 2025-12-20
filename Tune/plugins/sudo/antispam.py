@@ -55,12 +55,47 @@ async def antispam_command(client, message: Message, _):
         if len(message.command) < 3 and not message.reply_to_message:
             return await message.reply_text("Please reply to a user or provide a user ID/username.")
         
-        try:
-            user = await extract_user(message)
-            user_id = int(user.id)  # Ensure integer type
-            user_mention = user.mention
-        except Exception as e:
-            return await message.reply_text(f"❌ Failed to extract user: {str(e)}")
+        user_id = None
+        user_mention = None
+        
+        # Handle reply to message
+        if message.reply_to_message and message.reply_to_message.from_user:
+            user_id = int(message.reply_to_message.from_user.id)
+            try:
+                user = await app.get_users(user_id)
+                user_mention = user.mention or user.first_name or f"User {user_id}"
+            except:
+                user_mention = f"User {user_id}"
+        # Handle numeric user ID (direct ID)
+        elif len(message.command) >= 3:
+            cmd_arg = message.command[2].strip()
+            # Check if it's a numeric ID (including negative numbers)
+            if cmd_arg.lstrip('-').isdigit():
+                user_id = int(cmd_arg)
+                try:
+                    user = await app.get_users(user_id)
+                    user_mention = user.mention or user.first_name or f"User {user_id}"
+                except:
+                    user_mention = f"User {user_id}"
+            else:
+                # Handle username or mention (use extract_user)
+                try:
+                    user = await extract_user(message)
+                    user_id = int(user.id)
+                    user_mention = user.mention or user.first_name or f"User {user_id}"
+                except Exception as e:
+                    return await message.reply_text(f"❌ Failed to extract user: {str(e)}")
+        # Handle username or mention when no command args (shouldn't happen, but safety check)
+        else:
+            try:
+                user = await extract_user(message)
+                user_id = int(user.id)
+                user_mention = user.mention or user.first_name or f"User {user_id}"
+            except Exception as e:
+                return await message.reply_text(f"❌ Failed to extract user: {str(e)}")
+        
+        if user_id is None:
+            return await message.reply_text("❌ Could not determine user ID. Please provide a valid user ID, username, or reply to a message.")
         
         # Check both cache and database
         cache = get_spam_blocked_cache()
@@ -68,7 +103,7 @@ async def antispam_command(client, message: Message, _):
         is_in_db = await is_spam_blocked(user_id)
         
         if not is_in_cache and not is_in_db:
-            return await message.reply_text(f"❌ User {user_mention} is not blocked.")
+            return await message.reply_text(f"❌ User {user_mention} ({user_id}) is not blocked.")
         
         # Remove from database
         await remove_spam_blocked_user(user_id)
@@ -78,7 +113,7 @@ async def antispam_command(client, message: Message, _):
         reset_user_tracking(user_id)
         clear_user_notification(user_id)
         
-        return await message.reply_text(f"✅ Unblocked {user_mention} from anti-spam system.")
+        return await message.reply_text(f"✅ Unblocked {user_mention} ({user_id}) from anti-spam system.")
     
     elif action == "list":
         blocked_users = await get_spam_blocked_users()
