@@ -4,11 +4,11 @@ from pyrogram import filters
 from Tune import app
 from Tune.misc import SUDOERS
 from Tune.utils.database import add_off, add_on
-from Tune.utils.decorators.language import language
+from Tune.utils.decorators.language import language_no_delete
 
 
 @app.on_message(filters.command(["logger"]) & SUDOERS)
-@language
+@language_no_delete
 async def logger(client, message, _):
     usage = _["log_1"]
     if len(message.command) != 2:

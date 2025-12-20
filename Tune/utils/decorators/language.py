@@ -1,6 +1,6 @@
 ﻿# Authored By Certified Coders © 2025
 from Tune import app
-from config import SUPPORT_CHAT
+from config import SUPPORT_CHAT, OWNER_ID
 from Tune.misc import SUDOERS
 from Tune.utils.database import get_lang, is_maintenance
 from strings import get_string
@@ -19,6 +19,19 @@ def language(mystic):
         except:
             pass
 
+        try:
+            language = await get_lang(message.chat.id)
+            language = get_string(language)
+        except:
+            language = get_string("en")
+        return await mystic(_, message, language)
+
+    return wrapper
+
+
+def language_no_delete(mystic):
+    """Language decorator for antispam commands - no message deletion, no maintenance checks"""
+    async def wrapper(_, message, **kwargs):
         try:
             language = await get_lang(message.chat.id)
             language = get_string(language)

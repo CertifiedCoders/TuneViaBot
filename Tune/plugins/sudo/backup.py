@@ -13,6 +13,8 @@ from Tune import app
 from config import MONGO_DB_URI, LOGGER_ID, OWNER_ID
 from Tune.logging import LOGGER
 from Tune.core.dir import BACKUP_DIR
+from Tune.utils.decorators.language import language_no_delete
+from strings import get_string
 
 DB_NAME = "Tune"
 TEMP_DIR = os.path.join(BACKUP_DIR, "tmp")
@@ -80,25 +82,16 @@ async def _send_backup(zip_path: str, chat_id: int, caption: str):
             pass
 
 @app.on_message(filters.command("backup") & filters.user(OWNER_ID))
-async def manual_backup(_: Client, message: Message):
-    processing = await message.reply_text(
-        "🔐 **Starting Backup…**\n"
-        "__Please wait while we securely export your database.__ 🚀"
-    )
+@language_no_delete
+async def manual_backup(client: Client, message: Message, _):
+    processing = await message.reply_text(_["backup_1"])
     try:
         zip_path = await _create_backup_zip()
-        caption = (
-            "✅ **Backup Successfully Completed!**\n"
-            "__Your MongoDB database has been exported.__ 📁✨\n\n"
-            f"**File:** `{os.path.basename(zip_path)}`"
-        )
+        caption = _["backup_2"].format(os.path.basename(zip_path))
         await _send_backup(zip_path, message.chat.id, caption)
         await processing.delete()
     except Exception as e:
-        await processing.edit_text(
-            "❌ **Backup Failed!**\n"
-            f"**Error:** `{e}`"
-        )
+        await processing.edit_text(_["backup_3"].format(str(e)))
         LOGGER(__name__).error(f"Manual backup failed: {e}")
 
 async def daily_backup_task():
@@ -110,10 +103,8 @@ async def daily_backup_task():
         await asyncio.sleep((target - now).total_seconds())
         try:
             zip_path = await _create_backup_zip()
-            caption = (
-                "🕛 **Daily Backup — Completed☑️**\n"
-                "__Your automatic full database backup is ready.__ 🔒📦"
-            )
+            _ = get_string("en")
+            caption = _["backup_4"]
             await _send_backup(zip_path, LOGGER_ID, caption)
             LOGGER(__name__).info("Daily backup sent to LOGGER_ID.")
         except Exception as e:

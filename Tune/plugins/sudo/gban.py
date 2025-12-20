@@ -16,13 +16,13 @@ from Tune.utils.database import (
     is_banned_user,
     remove_banned_user,
 )
-from Tune.utils.decorators.language import language
+from Tune.utils.decorators.language import language_no_delete
 from Tune.utils.extraction import extract_user
 from config import BANNED_USERS
 
 
 @app.on_message(filters.command(["gban", "globalban"]) & SUDOERS)
-@language
+@language_no_delete
 async def global_ban(client, message: Message, _):
     if not message.reply_to_message:
         if len(message.command) != 2:
@@ -70,7 +70,7 @@ async def global_ban(client, message: Message, _):
 
 
 @app.on_message(filters.command(["ungban"]) & SUDOERS)
-@language
+@language_no_delete
 async def global_un(client, message: Message, _):
     if not message.reply_to_message:
         if len(message.command) != 2:
@@ -102,7 +102,7 @@ async def global_un(client, message: Message, _):
 
 
 @app.on_message(filters.command(["gbannedusers", "gbanlist"]) & SUDOERS)
-@language
+@language_no_delete
 async def gbanned_list(client, message: Message, _):
     counts = await get_banned_count()
     if counts == 0:

@@ -13,14 +13,14 @@ from Tune.utils.database import (
     is_spam_blocked,
     remove_spam_blocked_user,
 )
-from Tune.utils.decorators.language import language
+from Tune.utils.decorators.language import language_no_delete
 from Tune.utils.extraction import extract_user
 from Tune.plugins.security.antispam_handler import get_spam_blocked_cache, clear_user_notification, get_debug_file_path
 from Tune.utils.antispam import reset_user_tracking
 
 
 @app.on_message(filters.command(["antispam"]) & SUDOERS)
-@language
+@language_no_delete
 async def antispam_command(client, message: Message, _):
     if len(message.command) < 2:
         status = await is_antispam_enabled()

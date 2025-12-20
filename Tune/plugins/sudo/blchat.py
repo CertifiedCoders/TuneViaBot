@@ -5,12 +5,12 @@ from pyrogram.types import Message
 from Tune import app
 from Tune.misc import SUDOERS
 from Tune.utils.database import blacklist_chat, blacklisted_chats, whitelist_chat
-from Tune.utils.decorators.language import language
+from Tune.utils.decorators.language import language_no_delete
 from config import BANNED_USERS
 
 
 @app.on_message(filters.command(["blchat", "blacklistchat"]) & SUDOERS)
-@language
+@language_no_delete
 async def blacklist_chat_func(client, message: Message, _):
     if len(message.command) != 2:
         return await message.reply_text(_["black_1"])
@@ -31,7 +31,7 @@ async def blacklist_chat_func(client, message: Message, _):
 @app.on_message(
     filters.command(["whitelistchat", "unblacklistchat", "unblchat"]) & SUDOERS
 )
-@language
+@language_no_delete
 async def white_funciton(client, message: Message, _):
     if len(message.command) != 2:
         return await message.reply_text(_["black_4"])
@@ -45,7 +45,7 @@ async def white_funciton(client, message: Message, _):
 
 
 @app.on_message(filters.command(["blchats", "blacklistedchats"]) & ~BANNED_USERS)
-@language
+@language_no_delete
 async def all_chats(client, message: Message, _):
     text = _["black_7"]
     j = 0

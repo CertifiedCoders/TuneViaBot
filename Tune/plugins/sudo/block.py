@@ -5,13 +5,13 @@ from pyrogram.types import Message
 from Tune import app
 from Tune.misc import SUDOERS
 from Tune.utils.database import add_gban_user, remove_gban_user, add_banned_user, remove_banned_user
-from Tune.utils.decorators.language import language
+from Tune.utils.decorators.language import language_no_delete
 from Tune.utils.extraction import extract_user
 from config import BANNED_USERS
 
 
 @app.on_message(filters.command(["block"]) & SUDOERS)
-@language
+@language_no_delete
 async def useradd(client, message: Message, _):
     if not message.reply_to_message and len(message.command) != 2:
         return await message.reply_text(_["general_1"])
@@ -28,7 +28,7 @@ async def useradd(client, message: Message, _):
 
 
 @app.on_message(filters.command(["unblock"]) & SUDOERS)
-@language
+@language_no_delete
 async def userdel(client, message: Message, _):
     if not message.reply_to_message and len(message.command) != 2:
         return await message.reply_text(_["general_1"])
@@ -45,7 +45,7 @@ async def userdel(client, message: Message, _):
 
 
 @app.on_message(filters.command(["blocked", "blockedusers", "blusers"]) & SUDOERS)
-@language
+@language_no_delete
 async def sudoers_list(client, message: Message, _):
     if not BANNED_USERS:
         return await message.reply_text(_["block_5"])

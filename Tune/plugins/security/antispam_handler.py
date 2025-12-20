@@ -8,7 +8,7 @@ from pyrogram import filters, StopPropagation
 from pyrogram.types import Message
 
 from Tune import app
-from Tune.utils.antispam import track_command, reset_user_tracking, get_user_command_count
+from Tune.utils.antispam import track_command, reset_user_tracking, get_user_command_count, TIME_WINDOW_SECONDS
 from Tune.utils.database import is_spam_blocked, is_antispam_enabled, get_lang
 from config import SUPPORT_CHAT, OWNER_ID
 from Tune.core.dir import LOGS_DIR
@@ -75,7 +75,7 @@ async def _notify_user_blocked(user_id: int):
         _write_debug_log("NOTIFY_USER", {"user_id": user_id, "status": "failed", "error": str(e)})
 
 
-async def _notify_support_chat(user_id: int, user_name: str, username: str, chat_info: str, spammed_commands: list, timestamp: str):
+async def _notify_support_chat(user_id: int, user_name: str, username: str, chat_info: str, spammed_commands: list, timestamp: str, command_name: str, command_count: int):
     if user_id in _support_notified_cache:
         return
     
@@ -85,14 +85,16 @@ async def _notify_support_chat(user_id: int, user_name: str, username: str, chat
         if username:
             user_display += f" (@{username})"
         
-        most_used_command = _get_most_frequent_command(spammed_commands)
+        # Format command name with /
+        cmd_display = f"/{command_name}" if command_name else _get_most_frequent_command(spammed_commands)
         
         spam_notification = _["antispam_2"].format(
             user_display,
             user_id,
             chat_info,
-            len(spammed_commands),
-            most_used_command,
+            cmd_display,
+            command_count,
+            TIME_WINDOW_SECONDS,
             timestamp
         )
         
@@ -389,7 +391,7 @@ async def antispam_command_handler(client, message: Message):
             })
             
             await _notify_user_blocked(user_id)
-            await _notify_support_chat(user_id, user_name, username, chat_info, spammed_commands, timestamp)
+            await _notify_support_chat(user_id, user_name, username, chat_info, spammed_commands, timestamp, command_name, command_count)
             
             _write_debug_log("STOP_PROPAGATION", {"user_id": user_id, "command": command_name})
             raise StopPropagation()
