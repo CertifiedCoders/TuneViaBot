@@ -14,6 +14,7 @@ from Tune.core.call import StreamController
 from Tune.misc import db, set_current_message
 from Tune.utils.database import add_active_video_chat, is_active_chat
 from Tune.utils.exceptions import AssistantErr
+from Tune.utils.formatters import clean_title_for_html
 from Tune.utils.inline import aq_markup, close_markup, stream_markup
 from Tune.utils.pastebin import TuneBin
 from Tune.utils.stream.queue import put_queue, put_queue_index
@@ -146,9 +147,10 @@ async def stream(
                     user_name, vidid, user_id, "video" if is_video else "audio", forceplay=forceplay
                 )
                 info_url = vidid if is_soundcloud_url(vidid) else f"https://t.me/{app.username}?start=info_{vidid}"
+                clean_title = clean_title_for_html(title)
                 await _send_stream_photo(
                     _, original_chat_id, img,
-                    _["stream_1"].format(info_url, title[:23], duration_min, user_name), chat_id
+                    _["stream_1"].format(info_url, clean_title[:23], duration_min, user_name), chat_id
                 )
                 first_song_played = True
                 count += 1
@@ -208,9 +210,10 @@ async def stream(
                 chat_id, original_chat_id, file_identifier, title, duration_min, user_name, vidid, user_id,
                 stream_type, forceplay=forceplay
             )
+            clean_title = clean_title_for_html(title)
             await _send_stream_photo(
                 _, original_chat_id, img,
-                _["stream_1"].format(f"https://t.me/{app.username}?start=info_{vidid}", title[:23], duration_min, user_name),
+                _["stream_1"].format(f"https://t.me/{app.username}?start=info_{vidid}", clean_title[:23], duration_min, user_name),
                 chat_id
             )
 
@@ -235,9 +238,10 @@ async def stream(
                 forceplay=forceplay
             )
             img = await get_thumb(vidid)
+            clean_title = clean_title_for_html(title)
             await _send_stream_photo(
                 _, original_chat_id, img,
-                _["stream_1"].format(config.SUPPORT_CHAT, title[:23], duration_min, user_name), chat_id, "tg"
+                _["stream_1"].format(config.SUPPORT_CHAT, clean_title[:23], duration_min, user_name), chat_id, "tg"
             )
 
     elif streamtype == "telegram":
@@ -265,8 +269,9 @@ async def stream(
             if is_video:
                 await add_active_video_chat(chat_id)
             photo = config.TELEGRAM_VIDEO_URL if is_video else config.TELEGRAM_AUDIO_URL
+            clean_title = clean_title_for_html(title)
             await _send_stream_photo(
-                _, original_chat_id, photo, _["stream_1"].format(link, title[:23], duration_min, user_name), chat_id, "tg"
+                _, original_chat_id, photo, _["stream_1"].format(link, clean_title[:23], duration_min, user_name), chat_id, "tg"
             )
 
     elif streamtype == "live":
@@ -299,9 +304,10 @@ async def stream(
                 "video" if is_video else "audio", forceplay=forceplay
             )
             img = await get_thumb(vidid)
+            clean_title = clean_title_for_html(title)
             await _send_stream_photo(
                 _, original_chat_id, img,
-                _["stream_1"].format(f"https://t.me/{app.username}?start=info_{vidid}", title[:23], duration_min, user_name),
+                _["stream_1"].format(f"https://t.me/{app.username}?start=info_{vidid}", clean_title[:23], duration_min, user_name),
                 chat_id, "tg"
             )
 

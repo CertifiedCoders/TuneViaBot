@@ -1,6 +1,8 @@
 ﻿# Authored By Certified Coders © 2025
 import json
+import re
 import subprocess
+import html
 
 def get_readable_time(seconds: int) -> str:
     count = 0
@@ -142,6 +144,55 @@ def check_duration(file_path):
                 return float(s["duration"])
 
     return "Unknown"
+
+
+def clean_title_for_html(title: str) -> str:
+    """
+    Clean and sanitize title for use in HTML links/captions.
+    Removes video IDs, URL artifacts, and escapes HTML entities.
+    
+    Args:
+        title: Raw title string that may contain video IDs or HTML artifacts
+        
+    Returns:
+        Cleaned title safe for HTML usage
+    """
+    if not title:
+        return ""
+    
+    # Convert to string and strip whitespace
+    title = str(title).strip()
+    
+    # Remove YouTube video ID patterns at the start (11 alphanumeric chars followed by > or space)
+    # Pattern: JND3HuOmDM> or JND3HuOmDM followed by non-word character
+    title = re.sub(r'^[a-zA-Z0-9_-]{11}[>|]\s*', '', title)
+    title = re.sub(r'^[a-zA-Z0-9_-]{11}\s+', '', title)
+    
+    # Remove any URL fragments or HTML artifacts
+    # Remove patterns like "video_id>", "id>", etc.
+    title = re.sub(r'^[a-zA-Z0-9_-]{8,15}[>|]\s*', '', title)
+    
+    # Remove HTML tags if any
+    title = re.sub(r'<[^>]+>', '', title)
+    
+    # Remove URL patterns that might have leaked in
+    title = re.sub(r'https?://[^\s]+', '', title)
+    
+    # Remove common URL/HTML artifacts
+    title = re.sub(r'[>|]\s*', '', title, count=1)  # Remove first occurrence of > or |
+    
+    # Strip again after cleaning
+    title = title.strip()
+    
+    # Escape HTML entities (but keep the title readable)
+    # We'll escape &, <, > but not other characters to preserve readability
+    title = html.escape(title, quote=False)
+    
+    # Limit length to prevent issues (optional, but good practice)
+    if len(title) > 200:
+        title = title[:197] + "..."
+    
+    return title if title else "Unknown Title"
 
 
 formats = [

@@ -28,7 +28,7 @@ from Tune.utils.database import (
     set_loop,
 )
 from Tune.utils.decorators import ActualAdminCB, languageCB
-from Tune.utils.formatters import seconds_to_min
+from Tune.utils.formatters import clean_title_for_html, seconds_to_min
 from Tune.utils.inline import close_markup, stream_markup, stream_markup_timer
 from Tune.utils.stream.autoclear import auto_clean
 from Tune.utils.thumbnails import get_thumb
@@ -44,18 +44,19 @@ def parse_chat_info(chat_info: str):
 
 
 async def _send_stream_message(message, _, chat_id, videoid, title, duration, user, streamtype, msg_type, queued=None):
+    clean_title = clean_title_for_html(title)
     if videoid == "telegram":
         photo = TELEGRAM_AUDIO_URL if str(streamtype) == "audio" else TELEGRAM_VIDEO_URL
-        caption = _["stream_1"].format(SUPPORT_CHAT, title[:23], duration, user)
+        caption = _["stream_1"].format(SUPPORT_CHAT, clean_title[:23], duration, user)
         msg_key = "tg"
     elif videoid == "soundcloud" or is_soundcloud_url(videoid):
         thumb_source = queued if queued and is_soundcloud_url(queued) else (videoid if is_soundcloud_url(videoid) else "soundcloud")
         photo = await get_thumb(thumb_source)
-        caption = _["stream_1"].format(SUPPORT_CHAT, title[:23], duration, user)
+        caption = _["stream_1"].format(SUPPORT_CHAT, clean_title[:23], duration, user)
         msg_key = "tg"
     elif videoid:
         photo = await get_thumb(videoid)
-        caption = _["stream_1"].format(f"https://t.me/{app.username}?start=info_{videoid}", title[:23], duration, user)
+        caption = _["stream_1"].format(f"https://t.me/{app.username}?start=info_{videoid}", clean_title[:23], duration, user)
         msg_key = msg_type
     else:
         photo = STREAM_IMG_URL
