@@ -90,8 +90,6 @@ def get_ytdlp_base_opts(is_soundcloud: bool = False) -> Dict[str, object]:
         opts["retries"] = 2
         opts["fragment_retries"] = 2
         opts["merge_output_format"] = "mp4"
-        opts["external_downloader"] = "aria2c"
-        opts["external_downloader_args"] = ["-x", "16", "-s", "16", "-j", "16", "-k", "1M"]
     
     if cookiefile := get_cookie_file():
         opts["cookiefile"] = cookiefile
