@@ -92,8 +92,9 @@ async def cached_youtube_search(query: str) -> List[Dict]:
             _cache.pop(oldest_key, None)
 
     try:
-        data = await VideosSearch(query, limit=1).next()
-        result = data.get("result", [])
+        _search = VideosSearch(query, limit=1)
+        data = await _search.next()
+        result = data.get("result", []) if data else []
     except Exception:
         result = []
 
@@ -108,7 +109,11 @@ class YouTubeAPI:
     def __init__(self) -> None:
         self.base_url = "https://www.youtube.com/watch?v="
         self.playlist_url = "https://youtube.com/playlist?list="
-        self._url_pattern = re.compile(r"(?:youtube\.com|youtu\.be)")
+        self._url_pattern = re.compile(
+            r"(https?://)?(www\.|m\.|music\.)?"
+            r"(youtube\.com/(watch\?v=|shorts/|playlist\?list=)|youtu\.be/)"
+            r"([A-Za-z0-9_-]{11}|PL[A-Za-z0-9_-]+)([&?][^\s]*)?"
+        )
 
     def _prepare_link(self, link: str, videoid: Union[str, bool, None] = None) -> str:
         if isinstance(videoid, str) and videoid.strip():
@@ -125,7 +130,8 @@ class YouTubeAPI:
 
     @capture_internal_err
     async def exists(self, link: str, videoid: Union[str, bool, None] = None) -> bool:
-        return bool(self._url_pattern.search(self._prepare_link(link, videoid)))
+        prepared = self._prepare_link(link, videoid)
+        return bool(self._url_pattern.match(prepared))
 
     @capture_internal_err
     async def url(self, message: Message) -> Optional[str]:
@@ -161,14 +167,16 @@ class YouTubeAPI:
     @capture_internal_err
     async def _fetch_video_info(self, query: str, *, use_cache: bool = True) -> Optional[Dict]:
         original_query = query.strip()
-        is_url = bool(self._url_pattern.search(original_query))
+        is_url = bool(self._url_pattern.match(original_query))
         
         if is_url:
             video_id = _extract_video_id_from_url(original_query)
             if video_id:
                 search_query = video_id
             else:
-                search_query = self._prepare_link(original_query)
+                prepared = self._prepare_link(original_query)
+                video_id = _extract_video_id_from_url(prepared)
+                search_query = video_id if video_id else prepared
         else:
             search_query = original_query
         
@@ -176,9 +184,13 @@ class YouTubeAPI:
             res = await cached_youtube_search(search_query)
             return res[0] if res else None
         
-        data = await VideosSearch(search_query, limit=1).next()
-        result = data.get("result", [])
-        return result[0] if result else None
+        try:
+            _search = VideosSearch(search_query, limit=1)
+            data = await _search.next()
+            result = data.get("result", []) if data else []
+            return result[0] if result else None
+        except Exception:
+            return None
 
     @capture_internal_err
     async def is_live(self, link: str) -> bool:
@@ -300,7 +312,11 @@ class YouTubeAPI:
 
         try:
             plist = await Playlist.get(link)
-            items = [video.get("id") for video in plist.get("videos", [])[:limit] if video.get("id")]
+            items = []
+            for video in plist.get("videos", [])[:limit]:
+                vid_id = video.get("id")
+                if vid_id:
+                    items.append(vid_id)
             if items:
                 return items
         except Exception:
