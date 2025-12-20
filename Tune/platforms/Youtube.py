@@ -11,7 +11,7 @@ from typing import Dict, List, Optional, Tuple, Union
 import yt_dlp
 from pyrogram.enums import MessageEntityType
 from pyrogram.types import Message
-from youtubesearchpython.__future__ import VideosSearch, Playlist
+from py_yt import VideosSearch, Playlist
 
 from Tune.utils.cookie_handler import COOKIE_PATH
 from Tune.utils.downloader import yt_dlp_download
@@ -213,7 +213,7 @@ class YouTubeAPI:
         try:
             info = await self._fetch_video_info(prepared_link)
             if not info:
-                raise ValueError("No results from youtubesearchpython (VideosSearch)")
+                raise ValueError("No results from py_yt (VideosSearch)")
         except Exception as search_err:
             raise ValueError("Video not found", {"cause": str(search_err)}) from search_err
 
@@ -246,7 +246,7 @@ class YouTubeAPI:
             info = await self._fetch_video_info(prepared_link)
             if not info:
                 raise ValueError(
-                    f"No results from youtubesearchpython (VideosSearch) "
+                    f"No results from py_yt (VideosSearch) "
                     f"for query/URL: '{prepared_link}'"
                 )
         except Exception as search_err:
@@ -257,7 +257,7 @@ class YouTubeAPI:
             def _both_failed(details: str) -> ValueError:
                 return ValueError(
                     f"Both methods failed for '{prepared_link}':\n"
-                    f"  1. youtubesearchpython error: {search_err}\n"
+                    f"  1. py_yt error: {search_err}\n"
                     f"{details}"
                 )
 

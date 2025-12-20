@@ -5,7 +5,7 @@ import hashlib
 import aiofiles
 import aiohttp
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
-from youtubesearchpython.__future__ import VideosSearch
+from py_yt import VideosSearch
 from config import YOUTUBE_IMG_URL, SOUNCLOUD_IMG_URL
 from Tune.core.dir import CACHE_DIR
 from Tune.platforms.Soundcloud import is_soundcloud_url
@@ -185,7 +185,7 @@ async def get_thumb(videoid: str) -> str:
     if os.path.exists(cache_path):
         return cache_path
 
-    results = VideosSearch(f"https://www.youtube.com/watch?v={videoid}", limit=1)
+    results = VideosSearch(videoid, limit=1)
     try:
         results_data = await results.next()
         result_items = results_data.get("result", [])
