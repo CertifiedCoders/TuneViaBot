@@ -36,6 +36,10 @@ def get_spam_blocked_cache():
     return _spam_blocked_users_cache
 
 
+def get_debug_file_path():
+    return _debug_file_path
+
+
 def clear_user_notification(user_id: int):
     _user_notified_cache.discard(user_id)
     _support_notified_cache.discard(user_id)

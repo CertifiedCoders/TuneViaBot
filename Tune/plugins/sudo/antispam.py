@@ -1,4 +1,5 @@
 # Authored By Certified Coders © 2025
+import os
 from pyrogram import filters
 from pyrogram.types import Message
 
@@ -14,7 +15,7 @@ from Tune.utils.database import (
 )
 from Tune.utils.decorators.language import language
 from Tune.utils.extraction import extract_user
-from Tune.plugins.security.antispam_handler import get_spam_blocked_cache, clear_user_notification
+from Tune.plugins.security.antispam_handler import get_spam_blocked_cache, clear_user_notification, get_debug_file_path
 from Tune.utils.antispam import reset_user_tracking
 
 
@@ -114,6 +115,23 @@ async def antispam_command(client, message: Message, _):
             response += _["antispam_15"].format(len(blocked_users) - 50)
         
         return await message.reply_text(response)
+    
+    elif action == "debug":
+        debug_file_path = get_debug_file_path()
+        try:
+            if not os.path.exists(debug_file_path):
+                return await message.reply_text(_["antispam_23"])
+            
+            file_size = os.path.getsize(debug_file_path)
+            if file_size == 0:
+                return await message.reply_text(_["antispam_24"])
+            
+            await message.reply_document(
+                document=debug_file_path,
+                caption=_["antispam_25"]
+            )
+        except Exception as e:
+            return await message.reply_text(_["antispam_26"].format(str(e)))
     
     else:
         return await message.reply_text(_["antispam_16"])
