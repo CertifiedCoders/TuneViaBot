@@ -723,11 +723,9 @@ async def add_spam_blocked_user(user_id: int, command_count: int, time_window: i
     )
 
 
-async def remove_spam_blocked_user(user_id: int):
-    is_blocked = await is_spam_blocked(user_id)
-    if not is_blocked:
-        return
-    return await antispamblockeddb.delete_one({"user_id": user_id})
+async def remove_spam_blocked_user(user_id: int) -> bool:
+    result = await antispamblockeddb.delete_one({"user_id": user_id})
+    return result.deleted_count > 0
 
 
 async def get_spam_blocked_users() -> list:

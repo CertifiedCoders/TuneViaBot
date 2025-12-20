@@ -136,7 +136,7 @@ def _extract_commands_from_source():
                 except Exception:
                     continue
     except Exception as e:
-        LOGGER(__name__).warning(f"Failed to extract commands from source: {e}")
+        _write_debug_log("EXTRACT_COMMANDS_ERROR", {"error": str(e)})
     
     return sorted(commands_set)
 
@@ -185,7 +185,7 @@ def _get_all_protected_commands():
         if not commands_set:
             commands_set = _extract_commands_from_source()
     except Exception as e:
-        LOGGER(__name__).warning(f"Failed to extract commands: {e}")
+        _write_debug_log("GET_COMMANDS_ERROR", {"error": str(e)})
         commands_set = _extract_commands_from_source()
     
     return sorted(commands_set) if commands_set else []
@@ -232,14 +232,6 @@ def _get_chat_info(message: Message) -> str:
         return "Unknown Location"
 
 
-def _should_block_user(user_id: int) -> bool:
-    if user_id == OWNER_ID:
-        return False
-    if user_id in _spam_blocked_users_cache:
-        return True
-    return False
-
-
 COMMAND_FILTER = filters.create(_check_command)
 
 
@@ -272,7 +264,7 @@ async def antispam_command_handler(client, message: Message):
         except Exception:
             pass
         
-        if _should_block_user(user_id):
+        if user_id in _spam_blocked_users_cache:
             _write_debug_log("ALREADY_BLOCKED_CACHE", {"user_id": user_id})
             raise StopPropagation()
         
@@ -343,7 +335,6 @@ async def log_antispam_status():
         enabled = await is_antispam_enabled()
         protected_commands = _get_all_protected_commands()
         cmd_count = len(protected_commands)
-        status = "enabled" if enabled else "disabled"
         
         _write_debug_log("STARTUP_STATUS", {
             "enabled": enabled,
@@ -353,15 +344,7 @@ async def log_antispam_status():
             "handler_group": -1
         })
         
-        LOGGER("Tune").info(f"🛡️ ᴀɴᴛɪ-sᴘᴀᴍ ʜᴀɴᴅʟᴇʀ ʀᴇɢɪsᴛᴇʀᴇᴅ (ɢʀᴏᴜᴘ=-1) - ᴡᴀᴛᴄʜɪɴɢ ᴀʟʟ ᴄᴏᴍᴍᴀɴᴅs")
-        LOGGER("Tune").info(f"📝 ᴅᴇʙᴜɢ ʟᴏɢ: {_debug_file_path}")
-        
-        if protected_commands:
-            commands_list = ", ".join(protected_commands[:100])
-            if cmd_count > 100:
-                commands_list += f" ... and {cmd_count - 100} more"
-            LOGGER("Tune").info(f"ᴀɴᴛɪ-sᴘᴀᴍ {status} ɪɴ ʙᴏᴛ ғᴏʀ {cmd_count} ᴄᴏᴍᴍᴀɴᴅs: {commands_list}")
-        else:
-            LOGGER("Tune").info(f"ᴀɴᴛɪ-sᴘᴀᴍ {status} ɪɴ ʙᴏᴛ - ᴀʟʟ ᴄᴏᴍᴍᴀɴᴅs ᴀʀᴇ ᴘʀᴏᴛᴇᴄᴛᴇᴅ")
+        return enabled, cmd_count
     except Exception as e:
-        LOGGER("Tune").warning(f"ғᴀɪʟᴇᴅ ᴛᴏ ʟᴏɢ ᴀɴᴛɪ-sᴘᴀᴍ sᴛᴀᴛᴜs: {e}")
+        _write_debug_log("STARTUP_ERROR", {"error": str(e)})
+        return False, 0

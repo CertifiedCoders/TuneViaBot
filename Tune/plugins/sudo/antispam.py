@@ -54,17 +54,23 @@ async def antispam_command(client, message: Message, _):
         if len(message.command) < 3 and not message.reply_to_message:
             return await message.reply_text("Please reply to a user or provide a user ID/username.")
         
-        user = await extract_user(message)
-        if not await remove_spam_blocked_user(user.id):
-            return await message.reply_text(f"❌ User {user.mention} is not blocked.")
+        try:
+            user = await extract_user(message)
+            user_id = user.id
+            user_mention = user.mention
+        except Exception as e:
+            return await message.reply_text(f"❌ Failed to extract user: {str(e)}")
+        
+        was_blocked = await remove_spam_blocked_user(user_id)
+        if not was_blocked:
+            return await message.reply_text(f"❌ User {user_mention} is not blocked.")
         
         cache = get_spam_blocked_cache()
-        cache.discard(user.id)
+        cache.discard(user_id)
+        reset_user_tracking(user_id)
+        clear_user_notification(user_id)
         
-        reset_user_tracking(user.id)
-        clear_user_notification(user.id)
-        
-        return await message.reply_text(f"✅ Unblocked {user.mention} from anti-spam system.")
+        return await message.reply_text(f"✅ Unblocked {user_mention} from anti-spam system.")
     
     elif action == "list":
         blocked_users = await get_spam_blocked_users()

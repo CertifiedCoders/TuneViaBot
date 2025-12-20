@@ -46,7 +46,6 @@ async def init():
         cache = get_spam_blocked_cache()
         for user_id in spam_users:
             cache.add(user_id)
-        LOGGER("Tune").info("ᴀɴᴛɪ-sᴘᴀᴍ sʏsᴛᴇᴍ ʟᴏᴀᴅᴇᴅ sᴜᴄᴄᴇssғᴜʟʟʏ ✅")
     except Exception as e:
         LOGGER("Tune").warning(f"ғᴀɪʟᴇᴅ ᴛᴏ ʟᴏᴀᴅ ʙᴀɴɴᴇᴅ ᴜsᴇʀs: {e}")
 
@@ -56,7 +55,9 @@ async def init():
         importlib.import_module("Tune.plugins" + all_module)
 
     LOGGER("Tune.plugins").info("ᴛᴜɴᴇ's ᴍᴏᴅᴜʟᴇs ʟᴏᴀᴅᴇᴅ...")
-    await log_antispam_status()
+    enabled, cmd_count = await log_antispam_status()
+    if enabled:
+        LOGGER("Tune").info(f"Aɴᴛɪsᴘᴀᴍ ᴘʀᴏᴛᴇᴄᴛɪᴏɴ ᴇɴᴀʙʟᴇᴅ ɪɴsɪᴅᴇ {cmd_count} ᴄᴏᴍᴍᴀɴᴅs ☑️")
     await userbot.start()
     await StreamController.start()
 
