@@ -21,7 +21,6 @@ FFMPEG_AUDIO_FILTERS = (
     "loudnorm=I=-16:TP=-1.5:LRA=11,"
     "highpass=f=80,"
     "lowpass=f=15000,"
-    "aresample=48000,"
     "acompressor=threshold=0.89:ratio=9:attack=200:release=1000"
 )
 

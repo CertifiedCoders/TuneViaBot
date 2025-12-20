@@ -58,9 +58,13 @@ def dynamic_media_stream(
     path: str, video: bool = False, ffmpeg_params: str = None
 ) -> MediaStream:
     
-    if ffmpeg_params is None:
-        audio_filters = FFMPEG_AUDIO_FILTERS
-        ffmpeg_params = f"-af {audio_filters} -ar {AUDIO_SAMPLE_RATE} -ac {AUDIO_CHANNELS} -b:a {AUDIO_BITRATE} -bufsize 512k -maxrate 192k"
+    audio_filters = FFMPEG_AUDIO_FILTERS
+    default_audio_params = f"-af {audio_filters} -ar {AUDIO_SAMPLE_RATE} -ac {AUDIO_CHANNELS} -b:a {AUDIO_BITRATE} -bufsize 512k -maxrate 192k"
+    
+    if ffmpeg_params:
+        ffmpeg_params = f"{ffmpeg_params} {default_audio_params}"
+    else:
+        ffmpeg_params = default_audio_params
     
     if video:
         return MediaStream(
