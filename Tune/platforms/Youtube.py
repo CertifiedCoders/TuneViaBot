@@ -25,6 +25,19 @@ _formats_cache: Dict[str, Tuple[float, List[Dict], str]] = {}
 _formats_lock = asyncio.Lock()
 
 YOUTUBE_ID_RE = re.compile(r"^[a-zA-Z0-9_-]{11}$")
+_VIDEO_ID_PATTERN = re.compile(r"(?:v=|\/)([a-zA-Z0-9_-]{11})")
+
+
+def _extract_video_id_from_url(url: str) -> Optional[str]:
+    url = url.strip()
+    if "youtu.be" in url:
+        vid = url.split("/")[-1].split("?")[0].split("&")[0]
+        if YOUTUBE_ID_RE.match(vid):
+            return vid
+    match = _VIDEO_ID_PATTERN.search(url)
+    if match:
+        return match.group(1)
+    return None
 
 
 def _cookiefile_path() -> Optional[str]:
@@ -128,10 +141,18 @@ class YouTubeAPI:
         return None
 
     async def _ensure_watch_url(self, maybe_query_or_url: str) -> Optional[str]:
-        prepared = self._prepare_link(maybe_query_or_url)
-        if prepared.startswith("http"):
-            return prepared
-        data = await cached_youtube_search(prepared)
+        original_query = maybe_query_or_url.strip()
+        is_url = bool(self._url_pattern.search(original_query))
+        
+        if is_url:
+            video_id = _extract_video_id_from_url(original_query)
+            if video_id:
+                return self.base_url + video_id
+            prepared = self._prepare_link(original_query)
+            if prepared.startswith("http"):
+                return prepared
+        
+        data = await cached_youtube_search(original_query)
         if not data:
             return None
         vid = data[0].get("id")
@@ -139,11 +160,23 @@ class YouTubeAPI:
 
     @capture_internal_err
     async def _fetch_video_info(self, query: str, *, use_cache: bool = True) -> Optional[Dict]:
-        q = self._prepare_link(query)
-        if use_cache and not q.startswith("http"):
-            res = await cached_youtube_search(q)
+        original_query = query.strip()
+        is_url = bool(self._url_pattern.search(original_query))
+        
+        if is_url:
+            video_id = _extract_video_id_from_url(original_query)
+            if video_id:
+                search_query = self.base_url + video_id
+            else:
+                search_query = self._prepare_link(original_query)
+        else:
+            search_query = original_query
+        
+        if use_cache and not is_url:
+            res = await cached_youtube_search(search_query)
             return res[0] if res else None
-        data = await VideosSearch(q, limit=1).next()
+        
+        data = await VideosSearch(search_query, limit=1).next()
         result = data.get("result", [])
         return result[0] if result else None
 
