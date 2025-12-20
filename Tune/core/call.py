@@ -398,14 +398,17 @@ class Call:
 
     async def _handle_vid_stream(self, client, chat_id: int, videoid: str, video: bool, streamtype: str, title: str, original_chat_id: int, _: dict, current: dict) -> None:
         mystic = await app.send_message(original_chat_id, _["call_7"])
+        download_task = YouTube.download(
+            videoid,
+            mystic,
+            videoid=True,
+            video=(str(streamtype) == "video"),
+            title=title,
+        )
+        thumb_task = get_thumb(videoid)
         try:
-            file_path, direct = await YouTube.download(
-                videoid,
-                mystic,
-                videoid=True,
-                video=(str(streamtype) == "video"),
-                title=title,
-            )
+            download_result, img = await asyncio.gather(download_task, thumb_task, return_exceptions=False)
+            file_path, direct = download_result
         except Exception as e:
             LOGGER(__name__).error(f"YouTube download failed in play: {e}")
             return await mystic.edit_text(_["call_6"], disable_web_page_preview=True)
@@ -417,7 +420,6 @@ class Call:
         if not await self._play_with_error_handling(client, chat_id, stream, original_chat_id, _["call_6"]):
             return
         
-        img = await get_thumb(videoid)
         user = current["by"]
         await mystic.delete()
         caption = _["stream_1"].format(
@@ -431,13 +433,17 @@ class Call:
     async def _handle_soundcloud_stream(self, client, chat_id: int, videoid: str, queued: str, original_chat_id: int, _: dict, current: dict) -> None:
         if not is_soundcloud_url(queued) and os.path.exists(str(queued)):
             file_path = queued
+            thumb_task = get_thumb(videoid)
+            img = await thumb_task
         else:
             mystic = await app.send_message(original_chat_id, _["call_7"])
+            download_task = SoundCloud.download(videoid)
+            thumb_task = get_thumb(videoid)
             try:
-                result = await SoundCloud.download(videoid)
-                if result is False or not isinstance(result, tuple):
+                download_result, img = await asyncio.gather(download_task, thumb_task, return_exceptions=False)
+                if download_result is False or not isinstance(download_result, tuple):
                     return await mystic.edit_text(_["call_6"], disable_web_page_preview=True)
-                details_dict, file_path = result
+                details_dict, file_path = download_result
             except Exception as e:
                 LOGGER(__name__).error(f"SoundCloud download failed in play: {e}")
                 return await mystic.edit_text(_["call_6"], disable_web_page_preview=True)
@@ -460,7 +466,6 @@ class Call:
         if not await self._play_with_error_handling(client, chat_id, stream, original_chat_id, _["call_6"]):
             return
         
-        img = await get_thumb(videoid)
         title = (current["title"]).title()
         user = current["by"]
         link = config.SUPPORT_CHAT if videoid == "soundcloud" else videoid

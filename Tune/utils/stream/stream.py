@@ -128,8 +128,13 @@ async def stream(
             elif not first_song_played:
                 if not forceplay:
                     db[chat_id] = []
+                download_task = _download_track(_, vidid, mystic, is_video, title, chat_id)
+                thumb_task = get_thumb(vidid)
                 try:
-                    file_path, direct = await _download_track(_, vidid, mystic, is_video, title, chat_id)
+                    download_result, img = await asyncio.gather(
+                        download_task, thumb_task, return_exceptions=False
+                    )
+                    file_path, direct = download_result
                 except AssistantErr:
                     raise
                 except Exception:
@@ -140,7 +145,6 @@ async def stream(
                     chat_id, original_chat_id, _get_file_identifier(vidid, file_path, direct), title, duration_min,
                     user_name, vidid, user_id, "video" if is_video else "audio", forceplay=forceplay
                 )
-                img = await get_thumb(vidid)
                 info_url = vidid if is_soundcloud_url(vidid) else f"https://t.me/{app.username}?start=info_{vidid}"
                 await _send_stream_photo(
                     _, original_chat_id, img,
@@ -177,8 +181,11 @@ async def stream(
         duration_min = result["duration_min"]
         thumbnail = result["thumb"]
 
+        download_task = YouTube.download(vidid, mystic, video=is_video, videoid=vidid, title=title)
+        thumb_task = get_thumb(vidid)
         try:
-            file_path, direct = await YouTube.download(vidid, mystic, video=is_video, videoid=vidid, title=title)
+            download_result, img = await asyncio.gather(download_task, thumb_task, return_exceptions=False)
+            file_path, direct = download_result
             if not file_path:
                 raise AssistantErr(_["play_14"])
         except AssistantErr:
@@ -201,7 +208,6 @@ async def stream(
                 chat_id, original_chat_id, file_identifier, title, duration_min, user_name, vidid, user_id,
                 stream_type, forceplay=forceplay
             )
-            img = await get_thumb(vidid)
             await _send_stream_photo(
                 _, original_chat_id, img,
                 _["stream_1"].format(f"https://t.me/{app.username}?start=info_{vidid}", title[:23], duration_min, user_name),
