@@ -64,7 +64,7 @@
 | 🌟 Feature                | 🔎 Description                              |
 | ------------------------- | ------------------------------------------- |
 | 🎶 HQ Music Streaming     | Lag‑free HD audio in group voice chats      |
-| 🌐 Multi‑Platform Sources | YouTube, Spotify, Apple Music, etc.  |
+| 🌐 Multi‑Platform Sources | YouTube, Spotify, Apple Music, Resso, etc.  |
 | ⚡ Fast Setup              | One‑click Heroku, VPS, or Docker deployment |
 | 🔄 Auto Config            | Quick setup script with pre‑checks          |
 

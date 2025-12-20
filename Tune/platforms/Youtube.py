@@ -11,7 +11,7 @@ from typing import Dict, List, Optional, Tuple, Union
 import yt_dlp
 from pyrogram.enums import MessageEntityType
 from pyrogram.types import Message
-from py_yt import VideosSearch, Playlist
+from youtubesearchpython.__future__ import VideosSearch, Playlist
 
 from Tune.utils.cookie_handler import COOKIE_PATH
 from Tune.utils.downloader import yt_dlp_download
@@ -92,9 +92,8 @@ async def cached_youtube_search(query: str) -> List[Dict]:
             _cache.pop(oldest_key, None)
 
     try:
-        _search = VideosSearch(query, limit=1)
-        data = await _search.next()
-        result = data.get("result", []) if data else []
+        data = await VideosSearch(query, limit=1).next()
+        result = data.get("result", [])
     except Exception:
         result = []
 
@@ -109,11 +108,7 @@ class YouTubeAPI:
     def __init__(self) -> None:
         self.base_url = "https://www.youtube.com/watch?v="
         self.playlist_url = "https://youtube.com/playlist?list="
-        self._url_pattern = re.compile(
-            r"(https?://)?(www\.|m\.|music\.)?"
-            r"(youtube\.com/(watch\?v=|shorts/|playlist\?list=)|youtu\.be/)"
-            r"([A-Za-z0-9_-]{11}|PL[A-Za-z0-9_-]+)([&?][^\s]*)?"
-        )
+        self._url_pattern = re.compile(r"(?:youtube\.com|youtu\.be)")
 
     def _prepare_link(self, link: str, videoid: Union[str, bool, None] = None) -> str:
         if isinstance(videoid, str) and videoid.strip():
@@ -130,8 +125,7 @@ class YouTubeAPI:
 
     @capture_internal_err
     async def exists(self, link: str, videoid: Union[str, bool, None] = None) -> bool:
-        prepared = self._prepare_link(link, videoid)
-        return bool(self._url_pattern.match(prepared))
+        return bool(self._url_pattern.search(self._prepare_link(link, videoid)))
 
     @capture_internal_err
     async def url(self, message: Message) -> Optional[str]:
@@ -167,16 +161,14 @@ class YouTubeAPI:
     @capture_internal_err
     async def _fetch_video_info(self, query: str, *, use_cache: bool = True) -> Optional[Dict]:
         original_query = query.strip()
-        is_url = bool(self._url_pattern.match(original_query))
+        is_url = bool(self._url_pattern.search(original_query))
         
         if is_url:
             video_id = _extract_video_id_from_url(original_query)
             if video_id:
                 search_query = video_id
             else:
-                prepared = self._prepare_link(original_query)
-                video_id = _extract_video_id_from_url(prepared)
-                search_query = video_id if video_id else prepared
+                search_query = self._prepare_link(original_query)
         else:
             search_query = original_query
         
@@ -184,13 +176,9 @@ class YouTubeAPI:
             res = await cached_youtube_search(search_query)
             return res[0] if res else None
         
-        try:
-            _search = VideosSearch(search_query, limit=1)
-            data = await _search.next()
-            result = data.get("result", []) if data else []
-            return result[0] if result else None
-        except Exception:
-            return None
+        data = await VideosSearch(search_query, limit=1).next()
+        result = data.get("result", [])
+        return result[0] if result else None
 
     @capture_internal_err
     async def is_live(self, link: str) -> bool:
@@ -213,7 +201,7 @@ class YouTubeAPI:
         try:
             info = await self._fetch_video_info(prepared_link)
             if not info:
-                raise ValueError("No results from py_yt (VideosSearch)")
+                raise ValueError("No results from youtubesearchpython (VideosSearch)")
         except Exception as search_err:
             raise ValueError("Video not found", {"cause": str(search_err)}) from search_err
 
@@ -246,7 +234,7 @@ class YouTubeAPI:
             info = await self._fetch_video_info(prepared_link)
             if not info:
                 raise ValueError(
-                    f"No results from py_yt (VideosSearch) "
+                    f"No results from youtubesearchpython (VideosSearch) "
                     f"for query/URL: '{prepared_link}'"
                 )
         except Exception as search_err:
@@ -257,7 +245,7 @@ class YouTubeAPI:
             def _both_failed(details: str) -> ValueError:
                 return ValueError(
                     f"Both methods failed for '{prepared_link}':\n"
-                    f"  1. py_yt error: {search_err}\n"
+                    f"  1. youtubesearchpython error: {search_err}\n"
                     f"{details}"
                 )
 
@@ -312,11 +300,7 @@ class YouTubeAPI:
 
         try:
             plist = await Playlist.get(link)
-            items = []
-            for video in plist.get("videos", [])[:limit]:
-                vid_id = video.get("id")
-                if vid_id:
-                    items.append(vid_id)
+            items = [video.get("id") for video in plist.get("videos", [])[:limit] if video.get("id")]
             if items:
                 return items
         except Exception:
