@@ -705,11 +705,21 @@ async def antispam_off():
 
 
 async def is_spam_blocked(user_id: int) -> bool:
+    # Ensure user_id is an integer for consistent querying
+    user_id = int(user_id)
+    # Try both integer and string types to handle any legacy data
     user = await antispamblockeddb.find_one({"user_id": user_id})
+    if not user:
+        # Try as string for legacy data compatibility
+        user = await antispamblockeddb.find_one({"user_id": str(user_id)})
     return bool(user)
 
 
 async def add_spam_blocked_user(user_id: int, command_count: int, time_window: int):
+    # Ensure user_id is always stored as an integer
+    user_id = int(user_id)
+    # Remove any existing entries with string type for this user_id
+    await antispamblockeddb.delete_one({"user_id": str(user_id)})
     await antispamblockeddb.update_one(
         {"user_id": user_id},
         {
@@ -724,12 +734,27 @@ async def add_spam_blocked_user(user_id: int, command_count: int, time_window: i
 
 
 async def remove_spam_blocked_user(user_id: int) -> bool:
+    # Ensure user_id is an integer for consistent querying
+    user_id = int(user_id)
+    # Try to delete as integer first
     result = await antispamblockeddb.delete_one({"user_id": user_id})
+    if result.deleted_count == 0:
+        # Try as string for legacy data compatibility
+        result = await antispamblockeddb.delete_one({"user_id": str(user_id)})
     return result.deleted_count > 0
 
 
 async def get_spam_blocked_users() -> list:
     results = []
-    async for user in antispamblockeddb.find({"user_id": {"$gt": 0}}):
-        results.append(user["user_id"])
+    # Get all blocked users and ensure they're integers
+    async for user in antispamblockeddb.find({}):
+        user_id = user.get("user_id")
+        if user_id:
+            # Convert to int if it's a string, otherwise use as-is
+            try:
+                user_id = int(user_id)
+                results.append(user_id)
+            except (ValueError, TypeError):
+                # Skip invalid user IDs
+                continue
     return results

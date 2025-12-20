@@ -9,6 +9,7 @@ from Tune.utils.database import (
     antispam_on,
     get_spam_blocked_users,
     is_antispam_enabled,
+    is_spam_blocked,
     remove_spam_blocked_user,
 )
 from Tune.utils.decorators.language import language
@@ -56,16 +57,23 @@ async def antispam_command(client, message: Message, _):
         
         try:
             user = await extract_user(message)
-            user_id = user.id
+            user_id = int(user.id)  # Ensure integer type
             user_mention = user.mention
         except Exception as e:
             return await message.reply_text(f"❌ Failed to extract user: {str(e)}")
         
-        was_blocked = await remove_spam_blocked_user(user_id)
-        if not was_blocked:
+        # Check both cache and database
+        cache = get_spam_blocked_cache()
+        is_in_cache = user_id in cache
+        is_in_db = await is_spam_blocked(user_id)
+        
+        if not is_in_cache and not is_in_db:
             return await message.reply_text(f"❌ User {user_mention} is not blocked.")
         
-        cache = get_spam_blocked_cache()
+        # Remove from database
+        await remove_spam_blocked_user(user_id)
+        
+        # Remove from cache
         cache.discard(user_id)
         reset_user_tracking(user_id)
         clear_user_notification(user_id)
