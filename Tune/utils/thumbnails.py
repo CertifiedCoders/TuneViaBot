@@ -5,7 +5,7 @@ import hashlib
 import aiofiles
 import aiohttp
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
-from youtubesearchpython.__future__ import VideosSearch
+from youtubesearchpython.aio import VideosSearch
 from config import YOUTUBE_IMG_URL, SOUNCLOUD_IMG_URL
 from Tune.core.dir import CACHE_DIR
 from Tune.platforms.Soundcloud import is_soundcloud_url

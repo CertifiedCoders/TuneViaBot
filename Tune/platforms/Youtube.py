@@ -11,7 +11,7 @@ from typing import Dict, List, Optional, Tuple, Union
 import yt_dlp
 from pyrogram.enums import MessageEntityType
 from pyrogram.types import Message
-from youtubesearchpython.__future__ import VideosSearch, Playlist
+from youtubesearchpython.aio import VideosSearch, Playlist, Video
 
 from Tune.utils.cookie_handler import COOKIE_PATH
 from Tune.utils.downloader import yt_dlp_download
@@ -163,20 +163,23 @@ class YouTubeAPI:
         original_query = query.strip()
         is_url = bool(self._url_pattern.search(original_query))
         
+        # If URL is provided, extract video ID and use Video.get()
         if is_url:
             video_id = _extract_video_id_from_url(original_query)
             if video_id:
-                search_query = video_id
-            else:
-                search_query = self._prepare_link(original_query)
-        else:
-            search_query = original_query
+                try:
+                    info = await Video.get(video_id)
+                    return info if info else None
+                except Exception:
+                    # Fallback to VideosSearch if Video.get() fails
+                    pass
         
+        # For text queries or if URL extraction/Video.get() failed, use VideosSearch
         if use_cache and not is_url:
-            res = await cached_youtube_search(search_query)
+            res = await cached_youtube_search(original_query)
             return res[0] if res else None
         
-        data = await VideosSearch(search_query, limit=1).next()
+        data = await VideosSearch(original_query, limit=1).next()
         result = data.get("result", [])
         return result[0] if result else None
 
