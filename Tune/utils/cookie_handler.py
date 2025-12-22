@@ -24,9 +24,11 @@ def resolve_raw_cookie_url(url: str) -> str:
         paste_id = _extract_paste_id(url)
         return f"https://pastebin.com/raw/{paste_id}" if paste_id else url
 
-    if "batbin.me/" in low and "/raw/" not in low:
+    if "batbin.me/" in low:
+        if "/api/v2/paste/" in low:
+            return url
         paste_id = _extract_paste_id(url)
-        return f"https://batbin.me/raw/{paste_id}" if paste_id else url
+        return f"https://batbin.me/api/v2/paste/{paste_id}" if paste_id else url
 
     return url
 
