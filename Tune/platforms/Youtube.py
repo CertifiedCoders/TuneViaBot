@@ -27,6 +27,9 @@ _playlist_cache: Dict[str, Tuple[float, Dict]] = {}
 _playlist_cache_lock = asyncio.Lock()
 _formats_cache: Dict[str, Tuple[float, List[Dict], str]] = {}
 _formats_lock = asyncio.Lock()
+_live_cache: Dict[str, Tuple[float, bool, Optional[Dict]]] = {}
+_live_cache_lock = asyncio.Lock()
+LIVE_CACHE_TTL = 300
 
 YOUTUBE_ID_RE = re.compile(r"^[a-zA-Z0-9_-]{11}$")
 _PLAYLIST_ID_RE = re.compile(r"[&?]list=([a-zA-Z0-9_-]+)")
@@ -114,8 +117,17 @@ async def _exec_ytdlp_command(*args: str) -> Tuple[bytes, bytes]:
 
 def _evict_oldest_cache(cache: Dict, max_size: int):
     if len(cache) >= max_size:
-        oldest_key = min(cache.keys(), key=lambda k: cache[k][0])
+        if len(cache) == 0:
+            return
+        oldest_key = min(cache.keys(), key=lambda k: cache[k][0] if isinstance(cache[k], tuple) else float('inf'))
         cache.pop(oldest_key, None)
+
+
+def _update_cache_access(cache: Dict, key: str, now: float):
+    if key in cache and isinstance(cache[key], tuple):
+        old_val = cache[key]
+        if len(old_val) >= 2:
+            cache[key] = (now, old_val[1]) + old_val[2:]
 
 
 @capture_internal_err
@@ -127,9 +139,11 @@ async def _cached_query_search(query: str) -> List[Dict]:
         if key in _query_cache:
             ts, val = _query_cache[key]
             if now - ts < YOUTUBE_META_TTL:
+                _query_cache[key] = (now, val)
                 return val
             _query_cache.pop(key, None)
-        _evict_oldest_cache(_query_cache, YOUTUBE_META_MAX)
+        if len(_query_cache) >= YOUTUBE_META_MAX:
+            _evict_oldest_cache(_query_cache, YOUTUBE_META_MAX)
 
     try:
         search = VideosSearch(query, limit=1)
@@ -154,9 +168,11 @@ async def _cached_video_get(video_url: str) -> Optional[Dict]:
         if key in _video_cache:
             ts, val = _video_cache[key]
             if now - ts < YOUTUBE_META_TTL:
+                _video_cache[key] = (now, val)
                 return val
             _video_cache.pop(key, None)
-        _evict_oldest_cache(_video_cache, YOUTUBE_META_MAX)
+        if len(_video_cache) >= YOUTUBE_META_MAX:
+            _evict_oldest_cache(_video_cache, YOUTUBE_META_MAX)
 
     try:
         video = await Video.get(video_url)
@@ -179,9 +195,11 @@ async def _cached_playlist_get(playlist_url: str) -> Optional[Dict]:
         if key in _playlist_cache:
             ts, val = _playlist_cache[key]
             if now - ts < YOUTUBE_META_TTL:
+                _playlist_cache[key] = (now, val)
                 return val
             _playlist_cache.pop(key, None)
-        _evict_oldest_cache(_playlist_cache, YOUTUBE_META_MAX)
+        if len(_playlist_cache) >= YOUTUBE_META_MAX:
+            _evict_oldest_cache(_playlist_cache, YOUTUBE_META_MAX)
 
     try:
         playlist = await Playlist.get(playlist_url)
@@ -402,14 +420,37 @@ class YouTubeAPI:
         if url_type == "live":
             return True
 
-        stdout, _ = await _exec_ytdlp_command("yt-dlp", *(_cookies_args()), "--dump-json", prepared)
-        if not stdout:
-            return False
+        cache_key = f"live:{prepared}"
+        now = time.time()
+
+        async with _live_cache_lock:
+            if cache_key in _live_cache:
+                ts, val, cached_info = _live_cache[cache_key]
+                if now - ts < LIVE_CACHE_TTL:
+                    return val
+                _live_cache.pop(cache_key, None)
+            _evict_oldest_cache(_live_cache, YOUTUBE_META_MAX)
+
         try:
-            info = json.loads(stdout.decode())
-            return bool(info.get("is_live"))
-        except json.JSONDecodeError:
-            return False
+            stdout, stderr = await _exec_ytdlp_command("yt-dlp", *(_cookies_args()), "--dump-json", prepared)
+            if not stdout or stdout == b"timeout":
+                result = False
+                info = None
+            else:
+                try:
+                    info = json.loads(stdout.decode())
+                    result = bool(info.get("is_live"))
+                except json.JSONDecodeError:
+                    result = False
+                    info = None
+        except Exception:
+            result = False
+            info = None
+
+        async with _live_cache_lock:
+            _live_cache[cache_key] = (now, result, info)
+
+        return result
 
     @capture_internal_err
     async def details(
@@ -488,6 +529,7 @@ class YouTubeAPI:
         """
         Get track details specifically for live videos.
         This method uses _get_live_video_info() and ensures duration_min is None for live streams.
+        Reuses cached info from is_live() if available to avoid redundant API calls.
         """
         # Extract video ID from link or videoid
         if isinstance(videoid, str) and videoid.strip():
@@ -500,24 +542,33 @@ class YouTubeAPI:
         if not video_id:
             raise ValueError("Could not extract video ID from live URL")
 
-        # Use live-specific info fetching
-        info = await _get_live_video_info(link if link else f"{self.video_url}{video_id}", video_id)
-        
+        prepared_link = self._prepare_link(link, videoid or video_id)
+        cache_key = f"live:{prepared_link}"
+        now = time.time()
+        info = None
+
+        async with _live_cache_lock:
+            if cache_key in _live_cache:
+                ts, is_live_val, cached_info = _live_cache[cache_key]
+                if now - ts < LIVE_CACHE_TTL and cached_info:
+                    info = cached_info.copy()
+
         if not info:
-            # Fallback to yt-dlp if _get_live_video_info fails
-            prepared_link = self._prepare_link(link, videoid or video_id)
-            stdout, stderr = await _exec_ytdlp_command(
-                "yt-dlp", *(_cookies_args()), "--dump-json", "--no-warnings", prepared_link
-            )
+            info = await _get_live_video_info(link if link else f"{self.video_url}{video_id}", video_id)
+            
+            if not info:
+                stdout, stderr = await _exec_ytdlp_command(
+                    "yt-dlp", *(_cookies_args()), "--dump-json", "--no-warnings", prepared_link
+                )
 
-            if not stdout:
-                stderr_msg = stderr.decode().strip() if stderr else "Empty response"
-                raise ValueError(f"Failed to get live video info: {stderr_msg}")
+                if not stdout:
+                    stderr_msg = stderr.decode().strip() if stderr else "Empty response"
+                    raise ValueError(f"Failed to get live video info: {stderr_msg}")
 
-            try:
-                info = json.loads(stdout.decode())
-            except json.JSONDecodeError as json_err:
-                raise ValueError(f"Failed to parse live video info: {json_err}")
+                try:
+                    info = json.loads(stdout.decode())
+                except json.JSONDecodeError as json_err:
+                    raise ValueError(f"Failed to parse live video info: {json_err}")
 
         # Ensure live video structure
         if not info.get("duration_sec"):

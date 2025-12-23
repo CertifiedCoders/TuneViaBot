@@ -215,6 +215,9 @@ async def play_command(
         return
 
     if url:
+        if not url.strip():
+            return await mystic.edit_text(_["play_3"])
+        
         if await YouTube.exists(url):
             if "playlist" in url:
                 try:
@@ -229,14 +232,12 @@ async def play_command(
                 internal_type = "playlist"
                 log_label = "Youtube playlist"
             else:
-                # Check if it's a live stream
-                is_live = await YouTube.is_live(url)
+                is_live_task = YouTube.is_live(url)
                 try:
+                    is_live = await is_live_task
                     if is_live:
-                        # Use live_track() for live videos
                         details, track_id = await YouTube.live_track(url)
                     else:
-                        # Use regular track() for normal videos
                         details, track_id = await YouTube.track(url)
                 except Exception as e:
                     return await mystic.edit_text(f"{_['play_3']}\nʀᴇᴀsᴏɴ: {e}")

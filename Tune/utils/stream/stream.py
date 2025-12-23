@@ -19,7 +19,19 @@ from Tune.utils.pastebin import TuneBin
 from Tune.utils.stream.queue import put_queue, put_queue_index
 from Tune.utils.thumbnails import get_thumb
 from Tune.utils.errors import capture_internal_err
-from Tune.utils.tuning import get_chat_semaphore
+from Tune.utils.tuning import DOWNLOAD_TIMEOUT, get_chat_semaphore
+
+_active_downloads: dict[int, asyncio.Task] = {}
+_downloads_lock = asyncio.Lock()
+
+
+async def cancel_chat_downloads(chat_id: int):
+    async with _downloads_lock:
+        if chat_id in _active_downloads:
+            task = _active_downloads[chat_id]
+            if not task.done():
+                task.cancel()
+            del _active_downloads[chat_id]
 
 
 def _get_file_identifier(vidid: str, file_path: str = None, direct: bool = False) -> str:
@@ -34,17 +46,26 @@ async def _download_track(_, vidid: str, mystic, is_video: bool, title: str, cha
     is_soundcloud = is_soundcloud_url(vidid)
     sem = await get_chat_semaphore(chat_id) if chat_id else None
     async with sem if sem else asyncio.Lock():
-        if is_soundcloud:
-            result = await SoundCloud.download(vidid)
-            if result is False or not isinstance(result, tuple):
-                raise AssistantErr(_["play_14"])
-            details_dict, file_path = result
-            return file_path, True
-        else:
-            file_path, direct = await YouTube.download(vidid, mystic, video=is_video, videoid=vidid, title=title)
-            if not file_path:
-                raise AssistantErr(_["play_14"])
-            return file_path, direct
+        try:
+            if is_soundcloud:
+                result = await asyncio.wait_for(
+                    SoundCloud.download(vidid),
+                    timeout=DOWNLOAD_TIMEOUT
+                )
+                if result is False or not isinstance(result, tuple):
+                    raise AssistantErr(_["play_14"])
+                details_dict, file_path = result
+                return file_path, True
+            else:
+                file_path, direct = await asyncio.wait_for(
+                    YouTube.download(vidid, mystic, video=is_video, videoid=vidid, title=title),
+                    timeout=DOWNLOAD_TIMEOUT
+                )
+                if not file_path:
+                    raise AssistantErr(_["play_14"])
+                return file_path, direct
+        except asyncio.TimeoutError:
+            raise AssistantErr(_["play_14"])
 
 
 async def _queue_and_notify(_, chat_id, original_chat_id, file_identifier, title, duration_min, user_name, vidid, user_id, stream_type):
@@ -99,23 +120,35 @@ async def stream(
         count = 0
         is_chat_active = await is_active_chat(chat_id)
         first_song_played = False
+        limit = min(len(result), config.PLAYLIST_FETCH_LIMIT)
+        items_to_process = result[:limit]
 
-        for search in result:
+        async def fetch_metadata(search_item):
+            try:
+                is_soundcloud = is_soundcloud_url(search_item)
+                if is_soundcloud:
+                    return await SoundCloud.details(search_item)
+                else:
+                    if spotify and len(search_item) == 11 and search_item.replace("-", "").replace("_", "").isalnum():
+                        return await YouTube.details(search_item, videoid=search_item)
+                    else:
+                        return await YouTube.details(search_item)
+            except Exception:
+                return None
+
+        metadata_tasks = [fetch_metadata(item) for item in items_to_process]
+        metadata_results = await asyncio.gather(*metadata_tasks, return_exceptions=True)
+
+        for idx, (search, metadata_result) in enumerate(zip(items_to_process, metadata_results)):
             if int(count) == config.PLAYLIST_FETCH_LIMIT:
                 continue
+            
+            if isinstance(metadata_result, Exception) or metadata_result is None:
+                continue
+
             try:
-                is_soundcloud = is_soundcloud_url(search)
-                if is_soundcloud:
-                    title, duration_min, duration_sec, thumbnail, vidid = await SoundCloud.details(search)
-                else:
-                    # For Spotify playlists, search is a track name string, not a video ID
-                    # Only pass videoid if it looks like a valid YouTube video ID (11 chars alphanumeric)
-                    if spotify and len(search) == 11 and search.replace("-", "").replace("_", "").isalnum():
-                        title, duration_min, duration_sec, thumbnail, vidid = await YouTube.details(search, videoid=search)
-                    else:
-                        # Treat as search query, don't pass videoid
-                        title, duration_min, duration_sec, thumbnail, vidid = await YouTube.details(search)
-            except Exception:
+                title, duration_min, duration_sec, thumbnail, vidid = metadata_result
+            except (ValueError, TypeError):
                 continue
 
             if str(duration_min) == "None":
@@ -136,17 +169,25 @@ async def stream(
             elif not first_song_played:
                 if not forceplay:
                     db[chat_id] = []
-                download_task = _download_track(_, vidid, mystic, is_video, title, chat_id)
+                download_task_coro = _download_track(_, vidid, mystic, is_video, title, chat_id)
+                download_task = asyncio.create_task(download_task_coro)
+                async with _downloads_lock:
+                    _active_downloads[chat_id] = download_task
                 thumb_task = get_thumb(vidid)
                 try:
                     download_result, img = await asyncio.gather(
                         download_task, thumb_task, return_exceptions=False
                     )
                     file_path, direct = download_result
+                except asyncio.CancelledError:
+                    raise AssistantErr(_["play_14"])
                 except AssistantErr:
                     raise
                 except Exception:
                     raise AssistantErr(_["play_14"])
+                finally:
+                    async with _downloads_lock:
+                        _active_downloads.pop(chat_id, None)
 
                 await StreamController.join_call(chat_id, original_chat_id, file_path, video=is_video, image=thumbnail)
                 await put_queue(
@@ -193,17 +234,25 @@ async def stream(
         # Handle None duration_min for display (shouldn't happen for normal youtube videos, but safety check)
         display_duration = duration_min if duration_min is not None else "Unknown"
 
-        download_task = YouTube.download(vidid, mystic, video=is_video, videoid=vidid, title=title)
+        download_task_coro = YouTube.download(vidid, mystic, video=is_video, videoid=vidid, title=title)
+        download_task = asyncio.create_task(download_task_coro)
+        async with _downloads_lock:
+            _active_downloads[chat_id] = download_task
         thumb_task = get_thumb(vidid)
         try:
             download_result, img = await asyncio.gather(download_task, thumb_task, return_exceptions=False)
             file_path, direct = download_result
             if not file_path:
                 raise AssistantErr(_["play_14"])
+        except asyncio.CancelledError:
+            raise AssistantErr(_["play_14"])
         except AssistantErr:
             raise
         except Exception:
             raise AssistantErr(_["play_14"])
+        finally:
+            async with _downloads_lock:
+                _active_downloads.pop(chat_id, None)
 
         stream_type = "video" if is_video else "audio"
         file_identifier = _get_file_identifier(vidid, file_path, direct)
