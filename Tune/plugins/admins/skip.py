@@ -177,21 +177,25 @@ async def skip(cli, message: Message, _, chat_id):
         stopped = await skip_multiple_tracks(message, _, chat_id, int(state))
         if stopped:
             return
+        # If skip_multiple_tracks returned False, it already popped N items
+        # Continue to play the next track (which is now at index 0)
     
     check = db.get(chat_id)
     if not check:
         return await message.reply_text(_["queue_2"])
     
-    try:
-        popped = check.pop(0)
-        if popped:
-            await auto_clean(popped)
-        if not check:
+    # Only pop if we didn't use skip_multiple_tracks (simple /skip command)
+    if len(message.command) < 2:
+        try:
+            popped = check.pop(0)
+            if popped:
+                await auto_clean(popped)
+            if not check:
+                await stop_stream_on_empty(message, _, chat_id)
+                return
+        except:
             await stop_stream_on_empty(message, _, chat_id)
             return
-    except:
-        await stop_stream_on_empty(message, _, chat_id)
-        return
     
     queued = check[0]["file"]
     title = check[0]["title"].title()
