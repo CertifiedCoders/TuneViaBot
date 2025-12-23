@@ -129,8 +129,8 @@ def git():
 
     try:
         origin = repo.remote("origin")
-        if origin.url != config.UPSTREAM_REPO:
-            origin.set_url(config.UPSTREAM_REPO)
+        if origin.url != UPSTREAM_REPO:
+            origin.set_url(UPSTREAM_REPO)
 
         origin.fetch(config.UPSTREAM_BRANCH)
     except Exception as e:
