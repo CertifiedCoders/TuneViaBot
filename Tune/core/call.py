@@ -592,12 +592,18 @@ class Call:
     async def start(self) -> None:
         active_count = len([a for a in self.assistants_list if a])
         LOGGER(__name__).info(f"Starting PyTgCalls Clients... (Found {active_count} active assistant{'s' if active_count != 1 else ''})")
-        try:
-            for assistant in self.assistants_list:
-                if assistant:
+        started_count = 0
+        failed_count = 0
+        for idx, assistant in enumerate(self.assistants_list, 1):
+            if assistant:
+                try:
                     await assistant.start()
-        except Exception as e:
-            LOGGER(__name__).error(f"Error starting PyTgCalls clients: {e}")
+                    started_count += 1
+                    LOGGER(__name__).info(f"✅ Assistant {idx} started successfully")
+                except Exception as e:
+                    failed_count += 1
+                    LOGGER(__name__).error(f"❌ Failed to start Assistant {idx}: {e}")
+        LOGGER(__name__).info(f"PyTgCalls startup complete: {started_count} started, {failed_count} failed")
 
     @capture_internal_err
     async def ping(self) -> str:
