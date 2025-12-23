@@ -438,13 +438,22 @@ async def play_command(
         if not plist_type:
             # Check if it's a live stream (internal_type is already set)
             if internal_type == "live":
-                # Live streams don't need duration check, proceed directly
-                pass
+                # Show live stream confirmation panel
+                buttons = livestream_markup(
+                    _,
+                    track_id,
+                    user_id,
+                    "v" if video else "a",
+                    "c" if channel else "g",
+                    "f" if fplay else "d",
+                )
+                return await mystic.edit_text(_["play_13"], reply_markup=InlineKeyboardMarkup(buttons))
             elif details.get("duration_min"):
                 duration_sec = time_to_seconds(details["duration_min"])
                 if _check_duration_limit(duration_sec):
                     return await mystic.edit_text(_["play_6"].format(config.DURATION_LIMIT_MIN, app.mention))
             else:
+                # No duration_min but not explicitly live - show confirmation panel
                 buttons = livestream_markup(
                     _,
                     track_id,
