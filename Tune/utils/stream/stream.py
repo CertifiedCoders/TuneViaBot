@@ -108,7 +108,13 @@ async def stream(
                 if is_soundcloud:
                     title, duration_min, duration_sec, thumbnail, vidid = await SoundCloud.details(search)
                 else:
-                    title, duration_min, duration_sec, thumbnail, vidid = await YouTube.details(search, videoid=search)
+                    # For Spotify playlists, search is a track name string, not a video ID
+                    # Only pass videoid if it looks like a valid YouTube video ID (11 chars alphanumeric)
+                    if spotify and len(search) == 11 and search.replace("-", "").replace("_", "").isalnum():
+                        title, duration_min, duration_sec, thumbnail, vidid = await YouTube.details(search, videoid=search)
+                    else:
+                        # Treat as search query, don't pass videoid
+                        title, duration_min, duration_sec, thumbnail, vidid = await YouTube.details(search)
             except Exception:
                 continue
 
@@ -160,7 +166,7 @@ async def stream(
                 is_chat_active = True
 
         if count == 0:
-            return
+            raise AssistantErr(_["play_14"])
         link = await TuneBin(msg)
         lines = msg.count("\n")
         car = os.linesep.join(msg.split(os.linesep)[:17]) if lines >= 17 else msg

@@ -469,6 +469,13 @@ async def play_command(
                     "f" if fplay else "d",
                 )
                 return await mystic.edit_text(_["play_13"], reply_markup=InlineKeyboardMarkup(buttons))
+        else:
+            # Handle playlists in Direct mode
+            if not details or (isinstance(details, list) and len(details) == 0):
+                return await mystic.edit_text(_["play_3"])
+            # Ensure details is a list for playlist streaming
+            if not isinstance(details, list):
+                return await mystic.edit_text(_["play_3"])
 
         try:
             await stream(
