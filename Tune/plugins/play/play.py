@@ -302,7 +302,7 @@ async def play_command(
 
                 plist_type = "spartist"
                 img = config.SPOTIFY_ARTIST_IMG_URL
-                cap = _["play_11"].format(message.from_user.first_name)
+                cap = _["play_11"].format(app.mention, message.from_user.mention)
                 internal_type = "playlist"
                 log_label = "Spotify artist"
 

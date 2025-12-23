@@ -87,11 +87,16 @@ def _cookies_args() -> List[str]:
 
 
 def _extract_thumbnail(info: Dict) -> str:
-    thumb = (
-        info.get("thumbnail")
-        or info.get("thumbnails", [{}])[-1].get("url", "")
-        or (info.get("thumbnails", [{}])[0].get("url", "") if info.get("thumbnails") else "")
-    )
+    thumb = info.get("thumbnail", "")
+    if not thumb:
+        thumbnails = info.get("thumbnails", [])
+        if thumbnails:
+            # Try to get the last thumbnail first (usually highest quality)
+            if isinstance(thumbnails, list) and len(thumbnails) > 0:
+                thumb = thumbnails[-1].get("url", "") if isinstance(thumbnails[-1], dict) else ""
+            # If no thumbnail from last element, try first element
+            if not thumb and len(thumbnails) > 0:
+                thumb = thumbnails[0].get("url", "") if isinstance(thumbnails[0], dict) else ""
     return thumb.split("?")[0] if thumb else ""
 
 
