@@ -232,14 +232,19 @@ async def play_command(
                 # Check if it's a live stream
                 is_live = await YouTube.is_live(url)
                 try:
-                    details, track_id = await YouTube.track(url)
+                    if is_live:
+                        # Use live_track() for live videos
+                        details, track_id = await YouTube.live_track(url)
+                    else:
+                        # Use regular track() for normal videos
+                        details, track_id = await YouTube.track(url)
                 except Exception as e:
                     return await mystic.edit_text(f"{_['play_3']}\nʀᴇᴀsᴏɴ: {e}")
 
                 img = details["thumb"]
                 u = url.lower()
                 
-                # Handle live streams (only check is_live, not duration_min to avoid misclassification)
+                # Handle live streams
                 if is_live:
                     internal_type = "live"
                     log_label = "Youtube Live Stream"
@@ -431,7 +436,11 @@ async def play_command(
 
     if str(playmode) == "Direct":
         if not plist_type:
-            if details.get("duration_min"):
+            # Check if it's a live stream (internal_type is already set)
+            if internal_type == "live":
+                # Live streams don't need duration check, proceed directly
+                pass
+            elif details.get("duration_min"):
                 duration_sec = time_to_seconds(details["duration_min"])
                 if _check_duration_limit(duration_sec):
                     return await mystic.edit_text(_["play_6"].format(config.DURATION_LIMIT_MIN, app.mention))

@@ -48,12 +48,14 @@ async def _download_track(_, vidid: str, mystic, is_video: bool, title: str, cha
 
 
 async def _queue_and_notify(_, chat_id, original_chat_id, file_identifier, title, duration_min, user_name, vidid, user_id, stream_type):
+    # Handle None duration_min (for live videos)
+    display_duration = duration_min if duration_min is not None else "Live Track"
     await put_queue(chat_id, original_chat_id, file_identifier, title, duration_min, user_name, vidid, user_id, stream_type)
     position = len(db.get(chat_id) or []) - 1
     button = aq_markup(_, chat_id)
     await app.send_message(
         chat_id=original_chat_id,
-        text=_["queue_4"].format(position, title[:27], duration_min, user_name),
+        text=_["queue_4"].format(position, title[:27], display_duration, user_name),
         reply_markup=InlineKeyboardMarkup(button),
     )
 
@@ -146,9 +148,10 @@ async def stream(
                     user_name, vidid, user_id, "video" if is_video else "audio", forceplay=forceplay
                 )
                 info_url = vidid if is_soundcloud_url(vidid) else f"https://t.me/{app.username}?start=info_{vidid}"
+                display_duration = duration_min if duration_min is not None else "Live Track"
                 await _send_stream_photo(
                     _, original_chat_id, img,
-                    _["stream_1"].format(info_url, title[:23], duration_min, user_name), chat_id
+                    _["stream_1"].format(info_url, title[:23], display_duration, user_name), chat_id
                 )
                 first_song_played = True
                 count += 1
@@ -178,8 +181,11 @@ async def stream(
         link = result["link"]
         vidid = result["vidid"]
         title = result["title"].title()
-        duration_min = result["duration_min"]
+        duration_min = result.get("duration_min")  # Use .get() to safely handle None
         thumbnail = result["thumb"]
+        
+        # Handle None duration_min for display (shouldn't happen for normal youtube videos, but safety check)
+        display_duration = duration_min if duration_min is not None else "Unknown"
 
         download_task = YouTube.download(vidid, mystic, video=is_video, videoid=vidid, title=title)
         thumb_task = get_thumb(vidid)
@@ -210,7 +216,7 @@ async def stream(
             )
             await _send_stream_photo(
                 _, original_chat_id, img,
-                _["stream_1"].format(f"https://t.me/{app.username}?start=info_{vidid}", title[:23], duration_min, user_name),
+                _["stream_1"].format(f"https://t.me/{app.username}?start=info_{vidid}", title[:23], display_duration, user_name),
                 chat_id
             )
 

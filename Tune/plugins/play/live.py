@@ -48,11 +48,13 @@ async def play_live_stream(client, CallbackQuery, _):
     )
 
     try:
-        details, track_id = await YouTube.track("", videoid=vidid)
+        # Use live_track() method specifically for live videos
+        details, track_id = await YouTube.live_track("", videoid=vidid)
     except Exception as e:
         return await mystic.edit_text(f"{_['play_3']}\nʀᴇᴀsᴏɴ: {e}")
 
-    if not details.get("duration_min"):
+    # Live videos should have duration_min as None
+    if details.get("duration_min") is None:
         try:
             await stream(
                 _,
