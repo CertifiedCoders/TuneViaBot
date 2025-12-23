@@ -6,37 +6,6 @@ from Tune.misc import db
 from Tune.utils.formatters import check_duration, seconds_to_min
 from config import autoclean, time_to_seconds
 
-_queue_locks: dict[int, asyncio.Lock] = {}
-_queue_locks_lock = asyncio.Lock()
-
-
-async def _get_queue_lock(chat_id: int) -> asyncio.Lock:
-    async with _queue_locks_lock:
-        if chat_id not in _queue_locks:
-            _queue_locks[chat_id] = asyncio.Lock()
-        return _queue_locks[chat_id]
-
-
-async def get_queue_lock(chat_id: int) -> asyncio.Lock:
-    return await _get_queue_lock(chat_id)
-
-
-def _validate_queue_state(chat_id: int) -> bool:
-    if chat_id not in db:
-        return True
-    queue = db.get(chat_id)
-    if queue is None:
-        return True
-    if not isinstance(queue, list):
-        return False
-    for item in queue:
-        if not isinstance(item, dict):
-            return False
-        required_keys = {"title", "dur", "streamtype", "by", "chat_id", "file", "vidid", "seconds", "played"}
-        if not all(key in item for key in required_keys):
-            return False
-    return True
-
 
 async def put_queue(
     chat_id,
@@ -67,18 +36,16 @@ async def put_queue(
         "seconds": duration_in_seconds,
         "played": 0,
     }
-    lock = await _get_queue_lock(chat_id)
-    async with lock:
-        if forceplay:
-            check = db.get(chat_id)
-            if check:
-                check.insert(0, put)
-            else:
-                db[chat_id] = [put]
+    if forceplay:
+        check = db.get(chat_id)
+        if check:
+            check.insert(0, put)
         else:
-            if chat_id not in db:
-                db[chat_id] = []
-            db[chat_id].append(put)
+            db[chat_id] = [put]
+    else:
+        if chat_id not in db:
+            db[chat_id] = []
+        db[chat_id].append(put)
     autoclean.append(file)
 
 
@@ -117,15 +84,13 @@ async def put_queue_index(
         "seconds": dur,
         "played": 0,
     }
-    lock = await _get_queue_lock(chat_id)
-    async with lock:
-        if forceplay:
-            check = db.get(chat_id)
-            if check:
-                check.insert(0, put)
-            else:
-                db[chat_id] = [put]
+    if forceplay:
+        check = db.get(chat_id)
+        if check:
+            check.insert(0, put)
         else:
-            if chat_id not in db:
-                db[chat_id] = []
-            db[chat_id].append(put)
+            db[chat_id] = [put]
+    else:
+        if chat_id not in db:
+            db[chat_id] = []
+        db[chat_id].append(put)

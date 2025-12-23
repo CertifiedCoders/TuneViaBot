@@ -47,7 +47,6 @@ from Tune.utils.exceptions import AssistantErr
 from Tune.utils.formatters import check_duration, seconds_to_min, speed_converter
 from Tune.utils.inline.play import stream_markup
 from Tune.utils.stream.autoclear import auto_clean
-from Tune.utils.stream.queue import get_queue_lock
 from Tune.utils.thumbnails import get_thumb
 from Tune.utils.tuning import JOIN_CALL_TIMEOUT
 
@@ -88,16 +87,14 @@ def _to_bool(value: Union[bool, str, None]) -> bool:
 
 
 async def _clear_(chat_id: int) -> None:
-    lock = await get_queue_lock(chat_id)
-    async with lock:
-        popped = db.pop(chat_id, None)
-        if popped:
-            for item in popped:
-                try:
-                    await auto_clean(item)
-                except Exception:
-                    pass
-        db[chat_id] = []
+    popped = db.pop(chat_id, None)
+    if popped:
+        for item in popped:
+            try:
+                await auto_clean(item)
+            except Exception:
+                pass
+    db[chat_id] = []
     try:
         await remove_active_video_chat(chat_id)
         await remove_active_chat(chat_id)
@@ -337,18 +334,16 @@ class Call:
             if users == 1:
                 autoend[chat_id] = datetime.now() + timedelta(minutes=1)
 
-    async def _reset_queue_progress(self, chat_id: int, current: dict) -> None:
+    def _reset_queue_progress(self, chat_id: int, current: dict) -> None:
         try:
-            lock = await get_queue_lock(chat_id)
-            async with lock:
-                if chat_id in db and db[chat_id]:
-                    db[chat_id][0]["played"] = 0
-                    exis = current.get("old_dur")
-                    if exis:
-                        db[chat_id][0]["dur"] = exis
-                        db[chat_id][0]["seconds"] = current["old_second"]
-                        db[chat_id][0]["speed_path"] = None
-                        db[chat_id][0]["speed"] = 1.0
+            if chat_id in db and db[chat_id]:
+                db[chat_id][0]["played"] = 0
+                exis = current.get("old_dur")
+                if exis:
+                    db[chat_id][0]["dur"] = exis
+                    db[chat_id][0]["seconds"] = current["old_second"]
+                    db[chat_id][0]["speed_path"] = None
+                    db[chat_id][0]["speed"] = 1.0
         except (IndexError, KeyError):
             pass
 
@@ -535,89 +530,64 @@ class Call:
 
     @capture_internal_err
     async def play(self, client, chat_id: int) -> None:
-        lock = await get_queue_lock(chat_id)
-        async with lock:
-            check = db.get(chat_id)
-            if not check:
-                return
-            
-            loop = await get_loop(chat_id)
-            popped_item = None
-            try:
-                if loop == 0:
-                    if check:
-                        popped_item = check.pop(0)
-                else:
-                    await set_loop(chat_id, loop - 1)
-                
-                if not check:
-                    if popped_item:
-                        try:
-                            await auto_clean(popped_item)
-                        except Exception:
-                            pass
-                    await self._cleanup_and_leave(chat_id, client)
-                    return
-            except (IndexError, KeyError, AttributeError):
-                if popped_item:
+        check = db.get(chat_id)
+        if not check:
+            return
+        
+        loop = await get_loop(chat_id)
+        try:
+            if loop == 0:
+                popped = check.pop(0)
+                if popped:
                     try:
-                        await auto_clean(popped_item)
+                        await auto_clean(popped)
                     except Exception:
                         pass
-                await self._cleanup_and_leave(chat_id, client)
-                return
-            except Exception as e:
-                LOGGER(__name__).error(f"Error in play method queue pop: {e}")
-                if popped_item:
-                    try:
-                        await auto_clean(popped_item)
-                    except Exception:
-                        pass
-                await self._cleanup_and_leave(chat_id, client)
-                return
+            else:
+                await set_loop(chat_id, loop - 1)
             
-            check = db.get(chat_id) or []
             if not check:
                 await self._cleanup_and_leave(chat_id, client)
                 return
-            
-            try:
-                current = check[0]
-            except (IndexError, KeyError, AttributeError):
-                await self._cleanup_and_leave(chat_id, client)
-                return
-            
-            queued = current["file"]
-            language = await get_lang(chat_id)
-            _ = get_string(language)
-            title = (current["title"]).title()
-            original_chat_id = current["chat_id"]
-            streamtype = current["streamtype"]
-            videoid = current["vidid"]
-            await self._reset_queue_progress(chat_id, current)
-            video = str(streamtype) == "video"
+        except (IndexError, KeyError, AttributeError):
+            await self._cleanup_and_leave(chat_id, client)
+            return
+        except Exception as e:
+            LOGGER(__name__).error(f"Error in play method: {e}")
+            await self._cleanup_and_leave(chat_id, client)
+            return
+        
+        check = db.get(chat_id) or []
+        if not check:
+            await self._cleanup_and_leave(chat_id, client)
+            return
         
         try:
-            if "live_" in queued:
-                await self._handle_live_stream(client, chat_id, videoid, video, original_chat_id, _, current)
-            elif "vid_" in queued:
-                await self._handle_vid_stream(client, chat_id, videoid, video, streamtype, title, original_chat_id, _, current)
-            elif videoid and (videoid == "soundcloud" or is_soundcloud_url(videoid)):
-                await self._handle_soundcloud_stream(client, chat_id, videoid, queued, original_chat_id, _, current)
-            elif "index_" in queued:
-                await self._handle_index_stream(client, chat_id, videoid, video, original_chat_id, _, current)
-            else:
-                await self._handle_regular_stream(client, chat_id, queued, video, videoid, streamtype, original_chat_id, _, current)
-        except Exception as e:
-            LOGGER(__name__).error(f"Error in play method playback: {e}")
-            async with lock:
-                check = db.get(chat_id)
-                if check and current not in check:
-                    check.insert(0, current)
-            try:
-                await app.send_message(original_chat_id, text=_["call_6"])
-            except Exception:
-                pass
+            current = check[0]
+        except (IndexError, KeyError, AttributeError):
+            await self._cleanup_and_leave(chat_id, client)
+            return
+        
+        queued = current["file"]
+        language = await get_lang(chat_id)
+        _ = get_string(language)
+        title = (current["title"]).title()
+        original_chat_id = current["chat_id"]
+        streamtype = current["streamtype"]
+        videoid = current["vidid"]
+        self._reset_queue_progress(chat_id, current)
+        video = str(streamtype) == "video"
+        
+        if "live_" in queued:
+            await self._handle_live_stream(client, chat_id, videoid, video, original_chat_id, _, current)
+        elif "vid_" in queued:
+            await self._handle_vid_stream(client, chat_id, videoid, video, streamtype, title, original_chat_id, _, current)
+        elif videoid and (videoid == "soundcloud" or is_soundcloud_url(videoid)):
+            await self._handle_soundcloud_stream(client, chat_id, videoid, queued, original_chat_id, _, current)
+        elif "index_" in queued:
+            await self._handle_index_stream(client, chat_id, videoid, video, original_chat_id, _, current)
+        else:
+            await self._handle_regular_stream(client, chat_id, queued, video, videoid, streamtype, original_chat_id, _, current)
 
     async def start(self) -> None:
         active_count = len([a for a in self.assistants_list if a])
