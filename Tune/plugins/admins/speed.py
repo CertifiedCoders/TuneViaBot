@@ -72,11 +72,15 @@ async def manage_callback(client, CallbackQuery, _):
     if not playing:
         return await CallbackQuery.answer(_["queue_2"], show_alert=True)
     
-    if str(speed) == "1.0":
-        return await CallbackQuery.answer(_["admin_29"], show_alert=True)
-    
     current_speed = playing[0].get("speed")
-    if current_speed and str(current_speed) == str(speed):
+    # Block if the requested speed matches the current speed
+    # For 1.0x, also treat None/unset as 1.0x (default normal speed)
+    if str(speed) == "1.0":
+        # Block only if already at normal speed (1.0x or unset/None)
+        if not current_speed or str(current_speed) == "1.0":
+            return await CallbackQuery.answer(_["admin_29"], show_alert=True)
+    elif current_speed and str(current_speed) == str(speed):
+        # For other speeds, block if already at that speed
         return await CallbackQuery.answer(_["admin_29"], show_alert=True)
     
     if chat_id in checker:

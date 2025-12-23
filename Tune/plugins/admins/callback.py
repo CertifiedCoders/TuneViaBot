@@ -172,11 +172,11 @@ async def handle_skip_replay(callback: CallbackQuery, _, chat_id: int, command: 
     else:
         # Replay command
         text_msg = f"➻ sᴛʀᴇᴀᴍ ʀᴇᴩʟᴀʏᴇᴅ 🎄\n│ \n└ʙʏ : {user_mention} 🥀"
+        # Defensive check: ensure playlist is still valid before proceeding
+        if not playlist:
+            return await callback.answer(_["queue_2"], show_alert=True)
 
     await callback.answer()
-
-    if not playlist:
-        return await callback.answer(_["queue_2"], show_alert=True)
 
     current_track = playlist[0]
     queued = current_track["file"]
