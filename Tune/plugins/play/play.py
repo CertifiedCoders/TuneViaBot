@@ -312,7 +312,10 @@ async def play_command(
         elif await Apple.valid(url):
             if "album" in url or "/song/" in url:
                 try:
-                    details, track_id = await Apple.track(url)
+                    result = await Apple.track(url)
+                    if result is False:
+                        return await mystic.edit_text(f"{_['play_3']}\nʀᴇᴀsᴏɴ: Unable to fetch track details from Apple Music URL.")
+                    details, track_id = result
                 except Exception as e:
                     return await mystic.edit_text(f"{_['play_3']}\nʀᴇᴀsᴏɴ: {e}")
 
@@ -324,7 +327,10 @@ async def play_command(
             elif "playlist" in url:
                 spotify = True
                 try:
-                    details, plist_id = await Apple.playlist(url)
+                    result = await Apple.playlist(url)
+                    if result is False:
+                        return await mystic.edit_text(f"{_['play_3']}\nʀᴇᴀsᴏɴ: Unable to fetch playlist details from Apple Music URL.")
+                    details, plist_id = result
                 except Exception as e:
                     return await mystic.edit_text(f"{_['play_3']}\nʀᴇᴀsᴏɴ: {e}")
 
@@ -637,7 +643,11 @@ async def play_playlists_command(client, CallbackQuery, _):
             internal_type = "playlist"
             log_label = "Spotify artist"
         elif ptype == "apple":
-            result, _ = await Apple.playlist(videoid, True)
+            playlist_result = await Apple.playlist(videoid, True)
+            if playlist_result is False:
+                await mystic.edit_text(f"{_['play_3']}\nʀᴇᴀsᴏɴ: Unable to fetch playlist details from Apple Music.")
+                return
+            result, _ = playlist_result
             internal_type = "playlist"
             log_label = "Apple Music playlist"
         else:
