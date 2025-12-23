@@ -229,16 +229,25 @@ async def play_command(
                 internal_type = "playlist"
                 log_label = "Youtube playlist"
             else:
+                # Check if it's a live stream
+                is_live = await YouTube.is_live(url)
                 try:
                     details, track_id = await YouTube.track(url)
                 except Exception as e:
                     return await mystic.edit_text(f"{_['play_3']}\nʀᴇᴀsᴏɴ: {e}")
 
                 img = details["thumb"]
-                cap = _["play_10"].format(details["title"], details["duration_min"])
                 u = url.lower()
-                internal_type = "youtube"
-                log_label = "Youtube shorts" if "youtube.com/shorts/" in u else "Youtube Track"
+                
+                # Handle live streams (only check is_live, not duration_min to avoid misclassification)
+                if is_live:
+                    internal_type = "live"
+                    log_label = "Youtube Live Stream"
+                    cap = _["play_10"].format(details["title"], "Live Track")
+                else:
+                    internal_type = "youtube"
+                    log_label = "Youtube shorts" if "youtube.com/shorts/" in u else "Youtube Track"
+                    cap = _["play_10"].format(details["title"], details.get("duration_min", "Unknown"))
 
         elif await Spotify.valid(url):
             spotify = True

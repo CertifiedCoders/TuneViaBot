@@ -190,6 +190,70 @@ async def _cached_playlist_get(playlist_url: str) -> Optional[Dict]:
     return None
 
 
+@capture_internal_err
+async def _get_live_video_info(link: str, video_id: str) -> Optional[Dict]:
+    """
+    Get live video info using VideosSearch and yt-dlp.
+    This function is specifically for live YouTube videos as Video.get() doesn't work for them.
+    """
+    normalized_url = f"https://www.youtube.com/watch?v={video_id}"
+    
+    # Try VideosSearch first
+    try:
+        search = VideosSearch(normalized_url, limit=1)
+        data = await search.next()
+        results = data.get("result", [])
+        if results:
+            result = results[0]
+            # Convert VideosSearch result to compatible format
+            info = {
+                "id": result.get("id", video_id),
+                "title": result.get("title", ""),
+                "duration": None,  # Live videos don't have duration
+                "thumbnails": result.get("thumbnails", []),
+                "thumbnail": result.get("thumbnails", [{}])[0].get("url", "") if result.get("thumbnails") else "",
+                "link": normalized_url,
+                "webpage_url": normalized_url,
+                "viewCount": result.get("viewCount", {}),
+            }
+            # Verify it's actually live using yt-dlp and merge better data
+            try:
+                stdout, _ = await _exec_ytdlp_command(
+                    "yt-dlp", *(_cookies_args()), "--dump-json", "--no-warnings", normalized_url
+                )
+                if stdout:
+                    yt_dlp_info = json.loads(stdout.decode())
+                    # Merge yt-dlp info for more complete data (even if not currently live)
+                    info["title"] = yt_dlp_info.get("title", info["title"])
+                    info["thumbnail"] = yt_dlp_info.get("thumbnail", info["thumbnail"])
+                    info["thumbnails"] = yt_dlp_info.get("thumbnails", info["thumbnails"])
+                    info["description"] = yt_dlp_info.get("description", "")
+                    info["uploader"] = yt_dlp_info.get("uploader", "")
+                    info["is_live"] = yt_dlp_info.get("is_live", False)
+                    return info
+            except Exception:
+                pass
+            # If VideosSearch found it, return it anyway (might be upcoming live or live URL)
+            return info
+    except Exception:
+        pass
+    
+    # Fallback to yt-dlp only
+    try:
+        stdout, stderr = await _exec_ytdlp_command(
+            "yt-dlp", *(_cookies_args()), "--dump-json", "--no-warnings", normalized_url
+        )
+        if stdout:
+            info = json.loads(stdout.decode())
+            # Return info if it's a live video or if the URL is a live URL pattern
+            if info.get("is_live") or "/live/" in link.lower():
+                return info
+    except Exception:
+        pass
+    
+    return None
+
+
 class YouTubeAPI:
     def __init__(self) -> None:
         self.video_url = "https://www.youtube.com/watch?v="
@@ -276,11 +340,19 @@ class YouTubeAPI:
     async def _get_video_info(self, link: str, videoid: Union[str, bool, None] = None) -> Optional[Dict]:
         if isinstance(videoid, str) and videoid.strip():
             normalized_url = f"{self.video_url}{videoid.strip()}"
+            # Check if it's a live video URL
+            url_type, video_id, _ = self._classify_url(normalized_url)
+            if url_type == "live" and video_id:
+                return await _get_live_video_info(normalized_url, video_id)
             return await _cached_video_get(normalized_url)
 
         url_type, video_id, playlist_id = self._classify_url(link)
 
-        if url_type in ("video", "live") and video_id:
+        # Handle live videos separately as Video.get() doesn't work for them
+        if url_type == "live" and video_id:
+            return await _get_live_video_info(link, video_id)
+
+        if url_type == "video" and video_id:
             normalized_url = f"{self.video_url}{video_id}"
             video_info = await _cached_video_get(normalized_url)
             if video_info:
@@ -293,6 +365,12 @@ class YouTubeAPI:
                 video_id = first_result.get("id")
                 if video_id:
                     normalized_url = f"{self.video_url}{video_id}"
+                    # Check URL pattern first (fast) before calling is_live() (slower)
+                    url_type_check, _, _ = self._classify_url(normalized_url)
+                    if url_type_check == "live":
+                        return await _get_live_video_info(normalized_url, video_id)
+                    elif await self.is_live(normalized_url):
+                        return await _get_live_video_info(normalized_url, video_id)
                     video_info = await _cached_video_get(normalized_url)
                     if video_info:
                         return video_info
@@ -302,6 +380,12 @@ class YouTubeAPI:
         video_id = _extract_video_id_from_url(link)
         if video_id:
             normalized_url = f"{self.video_url}{video_id}"
+            # Check URL pattern first (fast) before calling is_live() (slower)
+            url_type_check, _, _ = self._classify_url(normalized_url)
+            if url_type_check == "live":
+                return await _get_live_video_info(normalized_url, video_id)
+            elif await self.is_live(normalized_url):
+                return await _get_live_video_info(normalized_url, video_id)
             return await _cached_video_get(normalized_url)
 
         return None
@@ -381,6 +465,10 @@ class YouTubeAPI:
 
     @capture_internal_err
     async def track(self, link: str, videoid: Union[str, bool, None] = None) -> Tuple[Dict, str]:
+        # Check if it's a live video first
+        url_type, video_id, _ = self._classify_url(link if not videoid else f"{self.video_url}{videoid}")
+        is_live_url = url_type == "live"
+        
         info = await self._get_video_info(link, videoid)
 
         if not info:
@@ -398,8 +486,14 @@ class YouTubeAPI:
             except json.JSONDecodeError as json_err:
                 raise ValueError(f"Failed to parse video info: {json_err}")
 
-        if not info.get("duration_sec"):
+        # For live videos, don't convert duration_sec as they don't have one
+        if not is_live_url and not info.get("duration_sec"):
             info = self._convert_video_info_to_legacy_format(info)
+        elif is_live_url:
+            # Ensure live video info has proper structure
+            if not info.get("duration_sec"):
+                info["duration_sec"] = 0
+                info["duration"] = None
 
         thumb = _extract_thumbnail(info)
         vidid = info.get("id", "")
@@ -408,7 +502,7 @@ class YouTubeAPI:
             "title": info.get("title", ""),
             "link": info.get("webpage_url") or info.get("link") or f"{self.video_url}{vidid}",
             "vidid": vidid,
-            "duration_min": info.get("duration") or _normalize_duration(info.get("duration")),
+            "duration_min": info.get("duration") or _normalize_duration(info.get("duration")) or None,
             "thumb": thumb,
         }
 
