@@ -432,7 +432,9 @@ class Call:
             img = await thumb_task
         else:
             mystic = await app.send_message(original_chat_id, _["call_7"])
-            download_task = SoundCloud.download(videoid)
+            # Use queued URL if it's a valid SoundCloud URL, otherwise use videoid
+            download_url = queued if is_soundcloud_url(queued) else videoid
+            download_task = SoundCloud.download(download_url)
             thumb_task = get_thumb(videoid)
             try:
                 download_result, img = await asyncio.gather(download_task, thumb_task, return_exceptions=False)

@@ -154,9 +154,8 @@ async def handle_skip_replay(callback: CallbackQuery, _, chat_id: int, command: 
     if not playlist:
         return await callback.answer(_["queue_2"], show_alert=True)
 
-    text_msg = f"➻ sᴛʀᴇᴀᴍ sᴋɪᴩᴩᴇᴅ 🎄\n│ \n└ʙʏ : {user_mention} 🥀"
-
     if command == "Skip":
+        text_msg = f"➻ sᴛʀᴇᴀᴍ sᴋɪᴩᴩᴇᴅ 🎄\n│ \n└ʙʏ : {user_mention} 🥀"
         try:
             popped = playlist.pop(0)
             if popped:
@@ -170,6 +169,9 @@ async def handle_skip_replay(callback: CallbackQuery, _, chat_id: int, command: 
                 reply_markup=close_markup(_)
             )
             return await StreamController.stop_stream(chat_id)
+    else:
+        # Replay command
+        text_msg = f"➻ sᴛʀᴇᴀᴍ ʀᴇᴩʟᴀʏᴇᴅ 🎄\n│ \n└ʙʏ : {user_mention} 🥀"
 
     await callback.answer()
 
