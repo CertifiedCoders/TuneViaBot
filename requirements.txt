@@ -17,7 +17,6 @@ ntgcalls>=2.0.6
 py-tgcalls>=2.2.8
 pyyaml>=6.0.3
 requests
-speedtest-cli
 spotipy
 pytgcrypto
 unidecode

@@ -206,6 +206,10 @@ curl -fsSL https://deno.land/install.sh | sh
 # → When prompted: "Edit shell configs to add deno to the PATH? (y/n)" → Type: y
 source ~/.bashrc
 
+# Step 2.5: Install Ookla Speedtest CLI (optional, for /speedtest command)
+curl -s https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | sudo bash
+sudo apt-get install speedtest
+
 # Step 3: Clone & Setup
 git clone https://github.com/CertifiedCoders/TuneViaBot 
 cd TuneViaBot

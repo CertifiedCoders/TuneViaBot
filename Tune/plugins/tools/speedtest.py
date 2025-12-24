@@ -1,7 +1,8 @@
 ﻿# Authored By Certified Coders © 2025
 import asyncio
+import json
+import shutil
 
-import speedtest
 from pyrogram import filters
 from pyrogram.types import Message
 
@@ -10,13 +11,37 @@ from Tune.misc import SUDOERS
 from Tune.utils.decorators.language import language
 
 
-def run_speedtest():
-    test = speedtest.Speedtest()
-    test.get_best_server()
-    test.download()
-    test.upload()
-    test.results.share()
-    return test.results.dict()
+async def run_speedtest():
+    """
+    Runs Ookla Speedtest CLI and returns JSON results.
+    
+    Note: Ookla Speedtest CLI is a system-level binary (not a Python package).
+    Install it separately:
+    - Linux: https://www.speedtest.net/apps/cli
+    - Or: curl -s https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | sudo bash && sudo apt-get install speedtest
+    """
+    speedtest_cmd = shutil.which("speedtest")
+    if not speedtest_cmd:
+        raise FileNotFoundError("Ookla Speedtest CLI not found. Please install it from https://www.speedtest.net/apps/cli")
+
+    proc = await asyncio.create_subprocess_exec(
+        speedtest_cmd,
+        "-f", "json",
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+
+    stdout, stderr = await proc.communicate()
+
+    if proc.returncode != 0:
+        error_msg = stderr.decode("utf-8", "replace").strip()
+        raise RuntimeError(f"Speedtest CLI failed: {error_msg}")
+
+    try:
+        result = json.loads(stdout.decode("utf-8"))
+        return result
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Failed to parse Speedtest CLI output: {e}")
 
 
 @app.on_message(filters.command(["speedtest", "spt"]) & SUDOERS)
@@ -26,25 +51,54 @@ async def speedtest_function(_, message: Message, lang):
         m = await message.reply_text(lang["server_11"])
         await m.edit_text(lang["server_12"])
 
-        loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(None, run_speedtest)
+        result = await run_speedtest()
 
-        await m.edit_text(lang["server_13"])  #
+        await m.edit_text(lang["server_13"])
+
+        isp = result.get("isp", "Unknown")
+        server_info = result.get("server", {})
+        server_name = server_info.get("name", "Unknown")
+        server_location = server_info.get("location", "Unknown")
+        server_country = server_info.get("country", "Unknown")
+
+        ping_info = result.get("ping", {})
+        latency = ping_info.get("latency", 0)
+        jitter = ping_info.get("jitter", 0)
+
+        download_info = result.get("download", {})
+        download_bandwidth = download_info.get("bandwidth", 0)
+        download_mbps = (download_bandwidth * 8) / 1_000_000
+
+        upload_info = result.get("upload", {})
+        upload_bandwidth = upload_info.get("bandwidth", 0)
+        upload_mbps = (upload_bandwidth * 8) / 1_000_000
+
+        packet_loss = result.get("packetLoss", 0)
+
+        result_info = result.get("result", {})
+        result_url = result_info.get("url", "")
+        if not result_url:
+            result_url = "https://www.speedtest.net/"
 
         output = lang["server_15"].format(
-            result["client"]["isp"],
-            result["client"]["country"],
-            result["server"]["name"],
-            result["server"]["country"],
-            result["server"]["cc"],
-            result["server"]["sponsor"],
-            result["server"]["latency"],
-            result["ping"],
+            isp,
+            server_name,
+            server_location,
+            server_country,
+            f"{latency:.2f}",
+            f"{jitter:.2f}",
+            f"{download_mbps:.2f}",
+            f"{upload_mbps:.2f}",
+            f"{packet_loss:.2f}",
+            result_url,
         )
 
         await m.edit_text(lang["server_14"])
-        await message.reply_photo(photo=result["share"], caption=output)
+        await message.reply_text(output, disable_web_page_preview=False)
         await m.delete()
 
+    except FileNotFoundError as e:
+        error_msg = lang.get("server_16", "❌ Speedtest CLI not found. Please install Ookla Speedtest CLI from https://www.speedtest.net/apps/cli")
+        await message.reply_text(error_msg)
     except Exception as e:
         await message.reply_text(f"<code>{e}</code>")

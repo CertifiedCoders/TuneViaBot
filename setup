@@ -61,6 +61,84 @@ prompt_opt(){ local label="$1" var="$2" val=""; IFS= read -r -p "  $(c yellow)$l
 
 ell(){ local s="$1" max="$2" n=${#1}; if [ "$n" -gt "$max" ]; then printf "%s…" "${s:0:$((max-1))}"; else printf "%s" "$s"; fi }
 
+# ------- Dependency Check -------
+check_dependencies(){
+  local missing_deps=()
+  local auto_install_deno=0
+  
+  printf "\n"
+  info "Checking system dependencies..."
+  printf "\n"
+  
+  if has deno; then
+    good "Deno is installed"
+  else
+    bad "Deno is not installed"
+    missing_deps+=("deno")
+    printf "  %s  %sRequired for: yt-dlp functionality%s\n" "$(c yellow)" "$(c dim)" "$(c reset)"
+    printf "  %s  %sInstall: curl -fsSL https://deno.land/install.sh | sh%s\n" "$(c yellow)" "$(c dim)" "$(c reset)"
+    printf "  %s  %sThen: source ~/.bashrc (or restart terminal)%s\n\n" "$(c yellow)" "$(c dim)" "$(c reset)"
+    
+    if [ "$IS_TTY" -eq 1 ]; then
+      local resp
+      read -r -p "  $(c yellow)Install Deno automatically? (y/n): $(c reset)" resp || true
+      case "$resp" in
+        [Yy]|[Yy][Ee][Ss]) auto_install_deno=1 ;;
+      esac
+    fi
+  fi
+  
+  if has speedtest; then
+    good "Ookla Speedtest CLI is installed"
+  else
+    bad "Ookla Speedtest CLI is not installed"
+    missing_deps+=("speedtest")
+    printf "  %s  %sRequired for: /speedtest command%s\n" "$(c yellow)" "$(c dim)" "$(c reset)"
+    printf "  %s  %sManual installation required (needs sudo):%s\n" "$(c yellow)" "$(c dim)" "$(c reset)"
+    printf "  %s  %s  curl -s https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | sudo bash%s\n" "$(c yellow)" "$(c dim)" "$(c reset)"
+    printf "  %s  %s  sudo apt-get install speedtest%s\n" "$(c yellow)" "$(c dim)" "$(c reset)"
+    printf "  %s  %sOr visit: https://www.speedtest.net/apps/cli%s\n\n" "$(c yellow)" "$(c dim)" "$(c reset)"
+  fi
+  
+  if [ ${#missing_deps[@]} -gt 0 ]; then
+    printf "\n"
+    warn "Some dependencies are missing. The bot may not work fully without them."
+    if [ "$auto_install_deno" -eq 1 ]; then
+      printf "\n"
+      info "Installing Deno..."
+      if curl -fsSL https://deno.land/install.sh | sh; then
+        DENO_INSTALL="$HOME/.deno"
+        export PATH="$DENO_INSTALL/bin:$PATH"
+        if has deno; then
+          good "Deno installed successfully"
+          for i in "${!missing_deps[@]}"; do
+            [[ "${missing_deps[$i]}" == "deno" ]] && unset "missing_deps[$i]"
+          done
+          missing_deps=("${missing_deps[@]}")
+        else
+          warn "Deno installed but PATH not updated. Please run: source ~/.bashrc"
+        fi
+      else
+        bad "Failed to install Deno automatically"
+      fi
+    fi
+    printf "\n"
+    if [ ${#missing_deps[@]} -gt 0 ]; then
+      if [ "$IS_TTY" -eq 1 ]; then
+        local resp
+        read -r -p "  $(c yellow)Continue with setup anyway? (y/n): $(c reset)" resp || true
+        case "$resp" in
+          [Yy]|[Yy][Ee][Ss]) : ;;
+          *) printf "\n"; info "Setup cancelled. Please install missing dependencies first."; exit 0 ;;
+        esac
+      fi
+    fi
+  else
+    good "All dependencies are installed"
+  fi
+  printf "\n"
+}
+
 # ------- Summary Table -------
 print_table(){ local h1="$1" h2="$2"; shift 2; local rows=("$@"); local max1=${#h1} r c1 c2; for r in "${rows[@]}"; do c1="${r%%|*}"; [ ${#c1} -gt $max1 ] && max1=${#c1}; done; local w right sep1 sep2; w="$(term_width)"; right=$(( w - max1 - 7 )); [ $right -lt 20 ] && right=20; sep1="$(printf '─%.0s' $(seq 1 $((max1+2))))"; sep2="$(printf '─%.0s' $(seq 1 $right))"; printf "%s┌%s┬%s%s\n" "$(c dim)" "$sep1" "$sep2" "$(c reset)"; printf "│ %-${max1}s │ %s\n" "$(c bold)$h1$(c reset)" "$(c bold)$h2$(c reset)"; printf "%s├%s┼%s%s\n" "$(c dim)" "$sep1" "$sep2" "$(c reset)"; for r in "${rows[@]}"; do c1="${r%%|*}"; c2="${r#*|}"; printf "│ %-${max1}s │ %s\n" "$c1" "$(ell "$c2" "$right")"; done; printf "%s└%s┴%s%s\n" "$(c dim)" "$sep1" "$sep2" "$(c reset)"; }
 
@@ -107,6 +185,6 @@ collect_config(){ banner; info "Enter the following values"; printf "\n";
 
 final_notes(){ printf "\n"; hr; good ".env saved successfully"; info "Edit: ./.env"; printf "\nThank you for using Tune Installer%s\n" "$(c bold)$(c cyan)" "$(c reset)"; }
 
-main(){ banner; info "Project: $(basename "$SCRIPT_DIR")"; collect_config; final_notes; }
+main(){ banner; info "Project: $(basename "$SCRIPT_DIR")"; check_dependencies; collect_config; final_notes; }
 
 main "$@"
