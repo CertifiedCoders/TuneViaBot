@@ -5,7 +5,7 @@ import random
 import string
 
 from pyrogram import filters
-from pyrogram.errors import FloodWait, RandomIdDuplicate
+from pyrogram.errors import FloodWait, RandomIdDuplicate, WebpageMediaEmpty
 from pyrogram.types import InlineKeyboardMarkup, InputMediaPhoto, Message
 from pytgcalls.exceptions import NoActiveGroupCall
 
@@ -490,8 +490,19 @@ async def play_command(
             lyrical[ran_hash] = plist_id
             buttons = playlist_markup(_, ran_hash, user_id, plist_type, "c" if channel else "g", "f" if fplay else "d")
             await mystic.delete()
-            photo = details["thumb"] if plist_type == "yt" else (details if plist_type == "apple" else img)
-            await message.reply_photo(photo=photo, caption=cap, reply_markup=InlineKeyboardMarkup(buttons))
+            if plist_type == "yt":
+                photo = details.get("thumb", "") if isinstance(details, dict) else img
+            elif plist_type == "apple":
+                photo = img
+            else:
+                photo = img
+            
+            if not photo or (isinstance(photo, str) and not photo.strip()):
+                photo = config.PLAYLIST_IMG_URL
+            try:
+                await message.reply_photo(photo=photo, caption=cap, reply_markup=InlineKeyboardMarkup(buttons))
+            except WebpageMediaEmpty:
+                await message.reply_photo(photo=config.PLAYLIST_IMG_URL, caption=cap, reply_markup=InlineKeyboardMarkup(buttons))
             plist_label_map = {
                 "yt": "Youtube playlist",
                 "scplay": "SoundCloud playlist",
@@ -503,24 +514,39 @@ async def play_command(
             return await play_logs(message, streamtype=plist_label_map.get(plist_type, "Playlist"))
 
         else:
+            thumb = details.get("thumb", "") or config.YOUTUBE_IMG_URL
             if slider:
                 buttons = slider_markup(_, track_id, user_id, query, 0, "c" if channel else "g", "f" if fplay else "d")
                 await mystic.delete()
-                await message.reply_photo(
-                    photo=details["thumb"],
-                    caption=_["play_10"].format(details["title"].title(), details["duration_min"]),
-                    reply_markup=InlineKeyboardMarkup(buttons),
-                )
+                try:
+                    await message.reply_photo(
+                        photo=thumb,
+                        caption=_["play_10"].format(details["title"].title(), details["duration_min"]),
+                        reply_markup=InlineKeyboardMarkup(buttons),
+                    )
+                except WebpageMediaEmpty:
+                    await message.reply_photo(
+                        photo=config.YOUTUBE_IMG_URL,
+                        caption=_["play_10"].format(details["title"].title(), details["duration_min"]),
+                        reply_markup=InlineKeyboardMarkup(buttons),
+                    )
                 return await play_logs(message, streamtype="Searched on YouTube")
 
             else:
                 buttons = track_markup(_, track_id, user_id, "c" if channel else "g", "f" if fplay else "d")
                 await mystic.delete()
-                await message.reply_photo(
-                    photo=details["thumb"],
-                    caption=_["play_10"].format(details["title"], details["duration_min"]),
-                    reply_markup=InlineKeyboardMarkup(buttons),
-                )
+                try:
+                    await message.reply_photo(
+                        photo=thumb,
+                        caption=_["play_10"].format(details["title"], details["duration_min"]),
+                        reply_markup=InlineKeyboardMarkup(buttons),
+                    )
+                except WebpageMediaEmpty:
+                    await message.reply_photo(
+                        photo=config.YOUTUBE_IMG_URL,
+                        caption=_["play_10"].format(details["title"], details["duration_min"]),
+                        reply_markup=InlineKeyboardMarkup(buttons),
+                    )
                 return await play_logs(message, streamtype="URL Search Inline")
 
 

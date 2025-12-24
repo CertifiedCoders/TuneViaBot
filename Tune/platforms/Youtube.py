@@ -90,14 +90,27 @@ def _cookies_args() -> List[str]:
 
 
 def _extract_thumbnail(info: Dict) -> str:
-    thumb = info.get("thumbnail", "")
-    if not thumb:
-        thumbnails = info.get("thumbnails", [])
-        if thumbnails and isinstance(thumbnails, list) and thumbnails:
+    thumbnails = info.get("thumbnails", [])
+    if thumbnails and isinstance(thumbnails, list):
+        quality_keywords = ["maxresdefault", "hqdefault", "sddefault", "mqdefault", "default"]
+        for quality in quality_keywords:
+            for thumb_item in reversed(thumbnails):
+                if isinstance(thumb_item, dict):
+                    url = thumb_item.get("url", "")
+                    if url and quality in url.lower():
+                        return url.split("?")[0]
+        if thumbnails:
             thumb = thumbnails[-1].get("url", "") if isinstance(thumbnails[-1], dict) else ""
-            if not thumb:
-                thumb = thumbnails[0].get("url", "") if isinstance(thumbnails[0], dict) else ""
-    return thumb.split("?")[0] if thumb else ""
+            if thumb:
+                return thumb.split("?")[0]
+            thumb = thumbnails[0].get("url", "") if isinstance(thumbnails[0], dict) else ""
+            if thumb:
+                return thumb.split("?")[0]
+    
+    thumb = info.get("thumbnail", "")
+    if thumb:
+        return thumb.split("?")[0]
+    return ""
 
 
 async def _exec_ytdlp_command(*args: str) -> Tuple[bytes, bytes]:
@@ -307,18 +320,14 @@ class YouTubeAPI:
             duration_sec = int(time_to_seconds(duration_str)) if duration_str else 0
 
         thumbnails = info.get("thumbnails", [])
-        thumbnail = ""
-        if thumbnails:
-            thumbnail = thumbnails[0].get("url", "") if isinstance(thumbnails, list) else ""
-        if not thumbnail:
-            thumbnail = info.get("thumbnail", "")
+        thumbnail = _extract_thumbnail(info)
 
         return {
             "id": video_id,
             "title": info.get("title", ""),
             "duration": duration_str,
             "duration_sec": duration_sec,
-            "thumbnail": thumbnail.split("?")[0] if thumbnail else "",
+            "thumbnail": thumbnail,
             "thumbnails": thumbnails if thumbnails else [],
             "link": f"{self.video_url}{video_id}" if video_id else info.get("link", ""),
             "webpage_url": f"{self.video_url}{video_id}" if video_id else info.get("link", ""),
@@ -476,8 +485,22 @@ class YouTubeAPI:
         if not info.get("duration_sec"):
             info = self._convert_video_info_to_legacy_format(info)
 
-        thumb = _extract_thumbnail(info)
         vidid = info.get("id", "")
+        thumb = _extract_thumbnail(info)
+        
+        url_type, _, _ = self._classify_url(link)
+        if (url_type == "unknown" or not self._url_pattern.search(link)) and vidid:
+            try:
+                search = VideosSearch(f"{self.video_url}{vidid}", limit=1)
+                search_data = await search.next()
+                search_results = search_data.get("result", [])
+                if search_results:
+                    search_result = search_results[0]
+                    search_thumb = _extract_thumbnail(search_result)
+                    if search_thumb:
+                        thumb = search_thumb
+            except Exception:
+                pass
 
         details = {
             "title": info.get("title", ""),
