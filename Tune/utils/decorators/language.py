@@ -1,6 +1,7 @@
 ﻿# Authored By Certified Coders © 2025
 from Tune import app
 from config import SUPPORT_CHAT
+from pyrogram.types import CallbackQuery
 from Tune.misc import SUDOERS
 from Tune.utils.database import get_lang, is_maintenance
 from strings import get_string
@@ -66,7 +67,12 @@ def languageCB(mystic):
 
 def LanguageStart(mystic):
     async def wrapper(_, message, **kwargs):
-        language = await _get_language_strings(message.chat.id)
+        if isinstance(message, CallbackQuery):
+            chat_id = message.message.chat.id
+        else:
+            chat_id = message.chat.id
+        
+        language = await _get_language_strings(chat_id)
         return await mystic(_, message, language)
 
     return wrapper

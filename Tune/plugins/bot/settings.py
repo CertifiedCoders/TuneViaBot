@@ -199,7 +199,7 @@ async def playmode_ans(client, callback: CallbackQuery, _):
         else:
             await remove_nonadmin_chat(chat_id)
             Group = True
-        Direct, _, Playtype = await get_playmode_state(chat_id)
+        Direct, _group, Playtype = await get_playmode_state(chat_id)
         buttons = playmode_users_markup(_, Direct, Group, Playtype)
     
     elif command == "TOGGLE_SEARCH_MODE":
@@ -224,7 +224,7 @@ async def playmode_ans(client, callback: CallbackQuery, _):
         else:
             await set_playtype(chat_id, "Everyone")
             Playtype = True
-        Direct, Group, _ = await get_playmode_state(chat_id)
+        Direct, Group, _playtype = await get_playmode_state(chat_id)
         buttons = playmode_users_markup(_, Direct, Group, Playtype)
     
     try:

@@ -34,7 +34,7 @@ def _validate_playing(chat_id):
 )
 @AdminRightsCheck
 async def playback(cli, message: Message, _, chat_id):
-    playing, _ = _validate_playing(chat_id)
+    playing, file_path = _validate_playing(chat_id)
     if not playing:
         return await message.reply_text(_["queue_2"])
     return await message.reply_text(

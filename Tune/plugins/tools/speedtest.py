@@ -1,6 +1,7 @@
 ﻿# Authored By Certified Coders © 2025
 import asyncio
 import json
+import re
 import shutil
 
 from pyrogram import filters
@@ -26,6 +27,8 @@ async def run_speedtest():
 
     proc = await asyncio.create_subprocess_exec(
         speedtest_cmd,
+        "--accept-license",
+        "--accept-gdpr",
         "-f", "json",
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
@@ -37,8 +40,12 @@ async def run_speedtest():
         error_msg = stderr.decode("utf-8", "replace").strip()
         raise RuntimeError(f"Speedtest CLI failed: {error_msg}")
 
+    stdout_text = stdout.decode("utf-8", "replace").strip()
+    if not stdout_text:
+        raise ValueError("Speedtest CLI returned empty output")
+
     try:
-        result = json.loads(stdout.decode("utf-8"))
+        result = json.loads(stdout_text)
         return result
     except json.JSONDecodeError as e:
         raise ValueError(f"Failed to parse Speedtest CLI output: {e}")
@@ -93,8 +100,24 @@ async def speedtest_function(_, message: Message, lang):
             result_url,
         )
 
+        result_id = result_info.get("id", "")
+        image_url = None
+        if result_id:
+            image_url = f"https://www.speedtest.net/result/{result_id}.png"
+        elif result_url and ("/result/" in result_url or "/result/c/" in result_url):
+            match = re.search(r"/result/(?:c/)?([^/?#]+)", result_url)
+            if match:
+                result_id_from_url = match.group(1)
+                image_url = f"https://www.speedtest.net/result/{result_id_from_url}.png"
+
         await m.edit_text(lang["server_14"])
-        await message.reply_text(output, disable_web_page_preview=False)
+        if image_url:
+            try:
+                await message.reply_photo(photo=image_url, caption=output, disable_web_page_preview=True)
+            except Exception:
+                await message.reply_text(output, disable_web_page_preview=True)
+        else:
+            await message.reply_text(output, disable_web_page_preview=True)
         await m.delete()
 
     except FileNotFoundError as e:
