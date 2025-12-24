@@ -16,7 +16,7 @@ from config import BANNED_USERS
 from strings import get_string, languages_present
 
 
-def languages_keyboard(_):
+def languages_keyboard(_, back_button="SETTINGS_PRIVATE_BACK"):
     rows = []
     row = []
 
@@ -35,7 +35,7 @@ def languages_keyboard(_):
 
     rows.append(
         [
-            InlineKeyboardButton(text=_["BACK_BUTTON"], callback_data="SETTINGS_PRIVATE_BACK"),
+            InlineKeyboardButton(text=_["BACK_BUTTON"], callback_data=back_button),
             InlineKeyboardButton(text=_["CLOSE_BUTTON"], callback_data="close"),
         ]
     )

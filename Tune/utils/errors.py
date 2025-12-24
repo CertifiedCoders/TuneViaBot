@@ -63,7 +63,7 @@ def format_traceback(err, tb, label: str, extras: dict = None) -> str:
     
     parts = [
         f"<b>{severity_emoji} {label}</b>",
-        f"<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>",
+        f"<code>━━━━━━━━━━━━━━━━━━━━━━━</code>",
         f"",
         f"<b>📋 Type:</b> <code>{exc_type}</code>",
         f"<b>⚡ Severity:</b> <code>{severity.upper()}</code>",
@@ -78,7 +78,7 @@ def format_traceback(err, tb, label: str, extras: dict = None) -> str:
     
     parts.extend([
         "",
-        f"<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>",
+        f"<code>━━━━━━━━━━━━━━━━━━━━━━━</code>",
         f"",
         f"<b>📜 Traceback:</b>",
         f"<pre>{tb}</pre>"
@@ -95,7 +95,7 @@ async def send_large_error(text: str, caption: str, filename: str):
         if paste_url:
             enhanced_caption = (
                 f"{caption}\n\n"
-                f"<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n\n"
+                f"<code>━━━━━━━━━━━━━━━━━━━━━━━</code>\n\n"
                 f"<b>📄 Full Traceback:</b> <a href='{paste_url}'>View on Pastebin</a>\n"
                 f"<b>🕐 Time:</b> <code>{timestamp}</code>"
             )
@@ -110,7 +110,7 @@ async def send_large_error(text: str, caption: str, filename: str):
     
     fallback_caption = (
         f"<b>📎 Error Log File</b>\n"
-        f"<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n\n"
+        f"<code>━━━━━━━━━━━━━━━━━━━━━━━</code>\n\n"
         f"<b>🕐 Time:</b> <code>{timestamp}</code>\n"
         f"<b>📝 Filename:</b> <code>{filename}.txt</code>"
     )

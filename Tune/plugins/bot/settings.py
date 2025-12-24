@@ -29,6 +29,7 @@ from Tune.utils.inline.settings import (
     setting_markup,
     vote_mode_markup,
 )
+from Tune.plugins.tools.language import languages_keyboard
 from Tune.utils.inline.start import private_panel
 from config import BANNED_USERS, OWNER_ID
 
@@ -91,13 +92,16 @@ async def settings_back_markup(client, callback: CallbackQuery, _):
         )
     else:
         buttons = setting_markup(_)
-        return await callback.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup(buttons))
+        return await callback.edit_message_text(
+            _["setting_1"].format(app.mention, callback.message.chat.id, callback.message.chat.title),
+            reply_markup=InlineKeyboardMarkup(buttons),
+        )
 
 # ─── CALLBACK WITHOUT ADMIN RIGHTS ──────────────────────────────────
 
 @app.on_callback_query(
     filters.regex(
-        r"^(SEARCH_MODE_INFO|PLAY_TYPE_INFO|CHANNEL_MODE_INFO|AUTH_USERS_INFO|CURRENT_VOTE_INFO|VOTE_MODE_INFO|PLAYBACK_SETTINGS|AUTH_SETTINGS|VOTE_SETTINGS)$"
+        r"^(SEARCH_MODE_INFO|PLAY_TYPE_INFO|CHANNEL_MODE_INFO|AUTH_USERS_INFO|CURRENT_VOTE_INFO|VOTE_MODE_INFO|PLAYBACK_SETTINGS|AUTH_SETTINGS|VOTE_SETTINGS|LANGUAGE_SETTINGS)$"
     ) & ~BANNED_USERS
 )
 @languageCB
@@ -139,6 +143,15 @@ async def without_admin_rights(client, callback: CallbackQuery, _):
         mode = await is_skipmode(chat_id)
         current = await get_upvote_count(chat_id)
         buttons = vote_mode_markup(_, current, mode)
+    elif command == "LANGUAGE_SETTINGS":
+        keyboard = languages_keyboard(_, back_button="SETTINGS_BACK")
+        try:
+            return await callback.edit_message_text(
+                _["lang_1"],
+                reply_markup=keyboard
+            )
+        except MessageNotModified:
+            return
     
     if buttons:
         try:
