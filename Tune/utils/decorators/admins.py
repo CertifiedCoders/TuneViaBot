@@ -178,7 +178,8 @@ def AdminActual(mystic):
 
 
 def ActualAdminCB(mystic):
-    async def wrapper(client, CallbackQuery):
+    async def wrapper(client, CallbackQuery, *args, **kwargs):
+        language = args[0] if args else kwargs.get('language')
         maintenance_msg = await _check_maintenance(CallbackQuery.from_user.id)
         if maintenance_msg:
             return await CallbackQuery.answer(
@@ -186,7 +187,7 @@ def ActualAdminCB(mystic):
                 show_alert=True,
             )
 
-        _ = await _get_language_strings(CallbackQuery.message.chat.id)
+        _ = language if language is not None else await _get_language_strings(CallbackQuery.message.chat.id)
 
         if CallbackQuery.message.chat.type == ChatType.PRIVATE:
             return await mystic(client, CallbackQuery, _)
