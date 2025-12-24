@@ -51,7 +51,7 @@ async def play_live_stream(client, CallbackQuery, _):
     )
 
     try:
-        details, _ = await YouTube.live_track("", videoid=vidid)
+        details, track_id = await YouTube.live_track("", videoid=vidid)
     except Exception as e:
         return await mystic.edit_text(f"{_['play_3']}\nʀᴇᴀsᴏɴ: {e}")
 
