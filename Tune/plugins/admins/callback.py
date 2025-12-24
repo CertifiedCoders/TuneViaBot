@@ -90,6 +90,7 @@ async def unban_assistant(_, callback: CallbackQuery):
 
 @app.on_callback_query(filters.regex("stream_admin") & ~BANNED_USERS)
 @languageCB
+@ActualAdminCB
 async def manage_callback(client, callback: CallbackQuery, _):
     data = callback.data.strip().split(None, 1)[1]
     command, chat_info = data.split("|", 1)
