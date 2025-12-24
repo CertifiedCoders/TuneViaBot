@@ -76,7 +76,9 @@ async def manage_callback(client, CallbackQuery, _):
     current_speed = playing[0].get("speed")
     current_speed_str = str(current_speed) if current_speed else "1.0"
     if str(speed) == current_speed_str:
-        return await CallbackQuery.answer(_["admin_29"], show_alert=True)
+        if str(speed) == "1.0":
+            return await CallbackQuery.answer(_["admin_29"], show_alert=True)
+        return await CallbackQuery.answer(_["admin_45"].format(speed), show_alert=True)
     
     if chat_id in checker:
         return await CallbackQuery.answer(_["admin_30"], show_alert=True)

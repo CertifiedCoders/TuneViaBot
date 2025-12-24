@@ -93,12 +93,9 @@ def _extract_thumbnail(info: Dict) -> str:
     thumb = info.get("thumbnail", "")
     if not thumb:
         thumbnails = info.get("thumbnails", [])
-        if thumbnails:
-            # Try to get the last thumbnail first (usually highest quality)
-            if isinstance(thumbnails, list) and len(thumbnails) > 0:
-                thumb = thumbnails[-1].get("url", "") if isinstance(thumbnails[-1], dict) else ""
-            # If no thumbnail from last element, try first element
-            if not thumb and len(thumbnails) > 0:
+        if thumbnails and isinstance(thumbnails, list) and thumbnails:
+            thumb = thumbnails[-1].get("url", "") if isinstance(thumbnails[-1], dict) else ""
+            if not thumb:
                 thumb = thumbnails[0].get("url", "") if isinstance(thumbnails[0], dict) else ""
     return thumb.split("?")[0] if thumb else ""
 
@@ -206,38 +203,30 @@ async def _cached_playlist_get(playlist_url: str) -> Optional[Dict]:
 
 @capture_internal_err
 async def _get_live_video_info(link: str, video_id: str) -> Optional[Dict]:
-    """
-    Get live video info using VideosSearch and yt-dlp.
-    This function is specifically for live YouTube videos as Video.get() doesn't work for them.
-    """
     normalized_url = f"https://www.youtube.com/watch?v={video_id}"
-    
-    # Try VideosSearch first
+
     try:
         search = VideosSearch(normalized_url, limit=1)
         data = await search.next()
         results = data.get("result", [])
         if results:
             result = results[0]
-            # Convert VideosSearch result to compatible format
             info = {
                 "id": result.get("id", video_id),
                 "title": result.get("title", ""),
-                "duration": None,  # Live videos don't have duration
+                "duration": None,
                 "thumbnails": result.get("thumbnails", []),
                 "thumbnail": result.get("thumbnails", [{}])[0].get("url", "") if result.get("thumbnails") else "",
                 "link": normalized_url,
                 "webpage_url": normalized_url,
                 "viewCount": result.get("viewCount", {}),
             }
-            # Verify it's actually live using yt-dlp and merge better data
             try:
                 stdout, _ = await _exec_ytdlp_command(
                     "yt-dlp", *(_cookies_args()), "--dump-json", "--no-warnings", normalized_url
                 )
                 if stdout:
                     yt_dlp_info = json.loads(stdout.decode())
-                    # Merge yt-dlp info for more complete data (even if not currently live)
                     info["title"] = yt_dlp_info.get("title", info["title"])
                     info["thumbnail"] = yt_dlp_info.get("thumbnail", info["thumbnail"])
                     info["thumbnails"] = yt_dlp_info.get("thumbnails", info["thumbnails"])
@@ -247,24 +236,21 @@ async def _get_live_video_info(link: str, video_id: str) -> Optional[Dict]:
                     return info
             except Exception:
                 pass
-            # If VideosSearch found it, return it anyway (might be upcoming live or live URL)
             return info
     except Exception:
         pass
-    
-    # Fallback to yt-dlp only
+
     try:
         stdout, stderr = await _exec_ytdlp_command(
             "yt-dlp", *(_cookies_args()), "--dump-json", "--no-warnings", normalized_url
         )
         if stdout:
             info = json.loads(stdout.decode())
-            # Return info if it's a live video or if the URL is a live URL pattern
             if info.get("is_live") or "/live/" in link.lower():
                 return info
     except Exception:
         pass
-    
+
     return None
 
 
@@ -300,14 +286,8 @@ class YouTubeAPI:
         link = link.strip()
         url_type, video_id, playlist_id = self._classify_url(link)
 
-        if url_type == "video" and video_id:
-            return f"{self.video_url}{video_id}"
-        elif url_type == "playlist" and playlist_id:
+        if url_type == "playlist" and playlist_id:
             return f"{self.playlist_url}{playlist_id}"
-        elif url_type == "live" and video_id:
-            return f"{self.video_url}{video_id}"
-
-        video_id = _extract_video_id_from_url(link)
         if video_id:
             return f"{self.video_url}{video_id}"
 
@@ -511,12 +491,6 @@ class YouTubeAPI:
 
     @capture_internal_err
     async def live_track(self, link: str, videoid: Union[str, bool, None] = None) -> Tuple[Dict, str]:
-        """
-        Get track details specifically for live videos.
-        This method uses _get_live_video_info() and ensures duration_min is None for live streams.
-        Reuses cached info from is_live() if available to avoid redundant API calls.
-        """
-        # Extract video ID from link or videoid
         if isinstance(videoid, str) and videoid.strip():
             video_id = videoid.strip()
         else:
@@ -555,7 +529,6 @@ class YouTubeAPI:
                 except json.JSONDecodeError as json_err:
                     raise ValueError(f"Failed to parse live video info: {json_err}")
 
-        # Ensure live video structure
         if not info.get("duration_sec"):
             info["duration_sec"] = 0
         info["duration"] = None
@@ -567,7 +540,7 @@ class YouTubeAPI:
             "title": info.get("title", ""),
             "link": info.get("webpage_url") or info.get("link") or f"{self.video_url}{vidid}",
             "vidid": vidid,
-            "duration_min": None,  # Explicitly None for live videos
+            "duration_min": None,
             "thumb": thumb,
         }
 
@@ -731,18 +704,12 @@ class YouTubeAPI:
                     return stream_url, None
                 return None, None
 
-            if not title:
-                info = await self._get_video_info(normalized_link)
-                title = info.get("title", "") if info else ""
-
-            p = await yt_dlp_download(normalized_link, type="video", title=title)
-            return (p, True) if p else (None, None)
-
         if not title:
             info = await self._get_video_info(normalized_link)
             title = info.get("title", "") if info else ""
 
-        p = await yt_dlp_download(normalized_link, type="audio", title=title)
+        download_type = "video" if video else "audio"
+        p = await yt_dlp_download(normalized_link, type=download_type, title=title)
         return (p, True) if p else (None, None)
 
 

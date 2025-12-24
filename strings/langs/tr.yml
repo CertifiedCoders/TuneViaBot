@@ -90,6 +90,7 @@ admin_41 : "Döngü {0} tarafından **{1}** kez etkinleştirildi. Bot artık şu
 admin_42 : "Karıştırılacak parça yok."
 admin_43 : "Karıştırma başarısız oldu.\n\nKuyruğu kontrol et: /queue"
 admin_44 : "**Kuyruk {0} tarafından karıştırıldı**\n\nKarışık kuyruğu kontrol et: /queue"
+admin_45 : "» Bot zaten {0}x hızda oynatılıyor."
 
 start_1 : "{0} hayatta bebeğim.\n\n<b>✫ Çalışma Süresi :</b> {1}"
 start_2 : "Mᴇʀʜᴀʙᴀ {0}, 🥀\n\n ʙᴇɴɪᴍ ᴀᴅıᴍ {1} !\n\n┏━━━━━━━━━━━━━━━━━⧫\n┠ ◆ Dᴇsᴛᴇᴋʟᴇɴᴇɴ ᴘʟᴀᴛғᴏʀᴍʟᴀʀ: YouTube, Spotify,\n┠ ◆ Apple Music, SoundCloud vb.\n┗━━━━━━━━━━━━━━━━━⧫\n┏━━━━━━━━━━━━━━━━━⧫\n┠ ➥ Çᴀʟışᴍᴀ Sᴜ̈ʀᴇsɪ: {2}\n┠ ➥ Sᴇʀᴠᴇʀ Dᴇᴘᴏʟᴀᴍᴀsı: {3}\n┠ ➥ CPU Yᴜ̈ᴋᴜ: {4}\n┠ ➥ RAM Tᴜ̈ᴋᴇᴛɪᴍɪ: {5}\n┠ ➥ Kᴜʟʟᴀɴıᴄıʟᴀʀ: {6}\n┠ ➥ Sᴏʜʙᴇᴛʟᴇʀ: {7}\n┗━━━━━━━━━━━━━━━━━⧫\n\n🫧 Gᴇʟɪşᴛɪʀɪᴄɪ 🪽 ➪ [Sᴇʀᴛɪғɪᴋᴀʟı Kᴏᴅʟᴀʏıᴄı ✔︎](https://t.me/CertifiedCoder)"

@@ -91,6 +91,7 @@ admin_41 : "Loop enabled by {0} for **{1}** times. Bot will now repeat the curre
 admin_42 : "Nothing inside queue to shuffle"
 admin_43 : "Failed to shuffle.\n\nCheck queue : /queue"
 admin_44 : "**Queue Shuffled by {0}**\n\nCheck shuffled queue : /queue"
+admin_45 : "» ʙᴏᴛ ɪs ᴀʟʀᴇᴀᴅʏ ᴘʟᴀʏɪɴɢ ᴀᴛ {0}x sᴘᴇᴇᴅ."
 
 start_1 : "{0} ɪs ᴀʟɪᴠᴇ ʙᴀʙʏ.\n\n<b>✫ ᴜᴘᴛɪᴍᴇ :</b> {1}"
 start_2 : "ʜᴇʟʟᴏ {0}, 🥀\n\n ɪᴛ'ꜱ ᴍᴇ {1} !\n\n┏━━━━━━━━━━━━━━━━━⧫\n┠ ◆ ꜱᴜᴘᴘᴏʀᴛɪɴɢ ᴘʟᴀᴛꜰᴏʀᴍꜱ : ʏᴏᴜᴛᴜʙᴇ, ꜱᴘᴏᴛɪꜰʏ,\n┠ ◆ ᴀᴘᴘʟᴇᴍᴜꜱɪᴄ , ꜱᴏᴜɴᴅᴄʟᴏᴜᴅ ᴇᴛᴄ.\n┗━━━━━━━━━━━━━━━━━⧫\n┏━━━━━━━━━━━━━━━━━⧫\n┠ ➥ Uᴘᴛɪᴍᴇ : {2}\n┠ ➥ SᴇʀᴠᴇʀSᴛᴏʀᴀɢᴇ : {3}\n┠ ➥ CPU Lᴏᴀᴅ : {4}\n┠ ➥ RAM Cᴏɴsᴜᴘᴛɪᴏɴ : {5}\n┠ ➥ ᴜꜱᴇʀꜱ : {6}\n┠ ➥ ᴄʜᴀᴛꜱ : {7}\n┗━━━━━━━━━━━━━━━━━⧫\n\n🫧 ᴅᴇᴠᴇʟᴏᴩᴇʀ 🪽 ➪ [ᴄᴇʀᴛɪғɪᴇᴅ ᴄᴏᴅᴇʀ ✔︎](https://t.me/CertifiedCoder)"
