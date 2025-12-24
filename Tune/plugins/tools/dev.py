@@ -37,16 +37,15 @@ async def executor(client: Client, message: Message):
     if len(message.command) < 2:
         return await edit_or_reply(message, text="<b>ᴡʜᴀᴛ ʏᴏᴜ ᴡᴀɴɴᴀ ᴇxᴇᴄᴜᴛᴇ ʙᴀʙʏ ?</b>")
 
-    try:
-        cmd = message.text.split(" ", maxsplit=1)[1]
-    except IndexError:
-        return await message.delete()
+    cmd = message.text.split(" ", maxsplit=1)[1]
 
     t1 = time()
     old_stderr = sys.stderr
     old_stdout = sys.stdout
-    redirected_output = sys.stdout = StringIO()
-    redirected_error = sys.stderr = StringIO()
+    redirected_output = StringIO()
+    redirected_error = StringIO()
+    sys.stdout = redirected_output
+    sys.stderr = redirected_error
     stdout, stderr, exc = None, None, None
 
     try:
@@ -106,27 +105,50 @@ async def executor(client: Client, message: Message):
 
 @app.on_callback_query(filters.regex(r"runtime"))
 async def runtime_func_cq(_, cq):
-    runtime = cq.data.split(None, 1)[1]
-    await cq.answer(runtime, show_alert=True)
+    try:
+        runtime = cq.data.split(None, 1)[1]
+        await cq.answer(runtime, show_alert=True)
+    except (IndexError, Exception):
+        pass
 
 
 @app.on_callback_query(filters.regex("forceclose"))
 async def forceclose_command(_, CallbackQuery):
-    callback_data = CallbackQuery.data.strip()
-    callback_request = callback_data.split(None, 1)[1]
-    query, user_id = callback_request.split("|")
-    if CallbackQuery.from_user.id != int(user_id):
-        try:
-            return await CallbackQuery.answer(
-                "» ɪᴛ'ʟʟ ʙᴇ ʙᴇᴛᴛᴇʀ ɪғ ʏᴏᴜ sᴛᴀʏ ɪɴ ʏᴏᴜʀ ʟɪᴍɪᴛs ʙᴀʙʏ.", show_alert=True
-            )
-        except:
-            return
-    await CallbackQuery.message.delete()
     try:
-        await CallbackQuery.answer()
-    except:
-        return
+        callback_data = CallbackQuery.data.strip()
+        callback_request = callback_data.split(None, 1)[1]
+        query, user_id = callback_request.split("|")
+        if CallbackQuery.from_user.id != int(user_id):
+            try:
+                return await CallbackQuery.answer(
+                    "» ɪᴛ'ʟʟ ʙᴇ ʙᴇᴛᴛᴇʀ ɪғ ʏᴏᴜ sᴛᴀʏ ɪɴ ʏᴏᴜʀ ʟɪᴍɪᴛs ʙᴀʙʏ.", show_alert=True
+                )
+            except Exception:
+                return
+        await CallbackQuery.message.delete()
+        try:
+            await CallbackQuery.answer()
+        except Exception:
+            pass
+    except (IndexError, ValueError, Exception):
+        pass
+
+
+async def _run_shell_command(shell_cmd, multiline=False):
+    shell = re.split(r""" (?=(?:[^'"]|'[^']*'|"[^"]*")*$)""", shell_cmd)
+    if not multiline:
+        shell = [arg.replace('"', "") for arg in shell]
+    try:
+        process = subprocess.Popen(
+            shell,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        stdout, stderr = process.communicate()
+        return stdout.decode(), stderr.decode()
+    except Exception as err:
+        error_msg = traceback.format_exception(type(err), err, err.__traceback__)
+        raise Exception(''.join(error_msg))
 
 
 @app.on_message(
@@ -145,39 +167,20 @@ async def shellrunner(_, message: Message):
         code = text.split("\n")
         output = ""
         for x in code:
-            shell = re.split(r""" (?=(?:[^'"]|'[^']*'|"[^"]*")*$)""", x)
             try:
-                process = subprocess.Popen(
-                    shell,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                )
-                stdout, stderr = process.communicate()
-                output += f"<b>{x}</b>\n{stdout.decode()}\n{stderr.decode()}"
+                stdout, stderr = await _run_shell_command(x, multiline=True)
+                output += f"<b>{x}</b>\n{stdout}\n{stderr}"
             except Exception as err:
                 return await edit_or_reply(
                     message, text=f"<b>ERROR :</b>\n<pre>{err}</pre>"
                 )
     else:
-        shell = re.split(r""" (?=(?:[^'"]|'[^']*'|"[^"]*")*$)""", text)
-        shell = [arg.replace('"', "") for arg in shell]
         try:
-            process = subprocess.Popen(
-                shell,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-            )
-            stdout, stderr = process.communicate()
-            output = stdout.decode() + stderr.decode()
+            stdout, stderr = await _run_shell_command(text, multiline=False)
+            output = stdout + stderr
         except Exception as err:
-            exc_type, exc_obj, exc_tb = sys.exc_info()
-            errors = traceback.format_exception(
-                etype=exc_type,
-                value=exc_obj,
-                tb=exc_tb,
-            )
             return await edit_or_reply(
-                message, text=f"<b>ERROR :</b>\n<pre>{''.join(errors)}</pre>"
+                message, text=f"<b>ERROR :</b>\n<pre>{err}</pre>"
             )
 
     if not output.strip():
@@ -195,5 +198,3 @@ async def shellrunner(_, message: Message):
         os.remove("output.txt")
     else:
         await edit_or_reply(message, text=f"<b>OUTPUT :</b>\n<pre>{output}</pre>")
-
-    await message.stop_propagation()

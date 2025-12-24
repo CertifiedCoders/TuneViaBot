@@ -8,11 +8,13 @@ from Tune import app
 async def extract_user(m: Message) -> User:
     if m.reply_to_message:
         return m.reply_to_message.from_user
-    msg_entities = m.entities[1] if m.text.startswith("/") else m.entities[0]
-    return await app.get_users(
-        msg_entities.user.id
-        if msg_entities.type == MessageEntityType.TEXT_MENTION
-        else int(m.command[1])
-        if m.command[1].isdecimal()
-        else m.command[1]
-    )
+
+    if m.entities:
+        entity_index = 1 if m.text and m.text.startswith("/") else 0
+        if entity_index < len(m.entities):
+            entity = m.entities[entity_index]
+            if entity.type == MessageEntityType.TEXT_MENTION:
+                return await app.get_users(entity.user.id)
+
+    user_arg = m.command[1]
+    return await app.get_users(int(user_arg) if user_arg.isdecimal() else user_arg)

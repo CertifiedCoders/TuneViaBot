@@ -57,7 +57,6 @@ counter = {}
 def dynamic_media_stream(
     path: str, video: bool = False, ffmpeg_params: str = None
 ) -> MediaStream:
-
     if video:
         return MediaStream(
             media_path=path,
@@ -108,7 +107,6 @@ class Call:
         from Tune.core.userbot import get_available_sessions
         
         available_sessions = get_available_sessions()
-        self.session_count = len(available_sessions)
         max_sessions = 5
         self.userbots = [None] * max_sessions
         self.assistants_list = [None] * max_sessions
@@ -136,7 +134,7 @@ class Call:
         if chat_id in self.active_calls:
             try:
                 await client.leave_call(chat_id)
-            except (NoActiveGroupCall, Exception):
+            except Exception:
                 pass
             finally:
                 self.active_calls.discard(chat_id)
@@ -409,7 +407,7 @@ class Call:
         thumb_task = get_thumb(videoid)
         try:
             download_result, img = await asyncio.gather(download_task, thumb_task, return_exceptions=False)
-            file_path, direct = download_result
+            file_path, _ = download_result
         except Exception as e:
             LOGGER(__name__).error(f"YouTube download failed in play: {e}")
             return await mystic.edit_text(_["call_6"], disable_web_page_preview=True)
@@ -557,11 +555,6 @@ class Call:
             await self._cleanup_and_leave(chat_id, client)
             return
         
-        check = db.get(chat_id) or []
-        if not check:
-            await self._cleanup_and_leave(chat_id, client)
-            return
-        
         try:
             current = check[0]
         except (IndexError, KeyError, AttributeError):
@@ -599,10 +592,8 @@ class Call:
                 try:
                     await assistant.start()
                     started_count += 1
-                    LOGGER(__name__).info(f"✅ Assistant {idx} started successfully")
-                except Exception as e:
+                except Exception:
                     failed_count += 1
-                    LOGGER(__name__).error(f"❌ Failed to start Assistant {idx}: {e}")
         LOGGER(__name__).info(f"PyTgCalls startup complete: {started_count} started, {failed_count} failed")
 
     @capture_internal_err

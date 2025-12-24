@@ -18,8 +18,7 @@ async def get_id(client, message: Message, _):
 
     if len(message.command) == 2:
         try:
-            target = message.text.split(maxsplit=1)[1]
-            tgt_user = await client.get_users(target)
+            tgt_user = await client.get_users(message.command[1])
             out.append(_["id_5"].format(tgt_user.id))
         except Exception:
             return await message.reply_text(_["id_4"], quote=True)

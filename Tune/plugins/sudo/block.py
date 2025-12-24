@@ -12,7 +12,7 @@ from config import BANNED_USERS
 
 @app.on_message(filters.command(["block"]) & SUDOERS)
 @language_no_delete
-async def useradd(client, message: Message, _):
+async def block_user(client, message: Message, _):
     if not message.reply_to_message and len(message.command) != 2:
         return await message.reply_text(_["general_1"])
 
@@ -29,7 +29,7 @@ async def useradd(client, message: Message, _):
 
 @app.on_message(filters.command(["unblock"]) & SUDOERS)
 @language_no_delete
-async def userdel(client, message: Message, _):
+async def unblock_user(client, message: Message, _):
     if not message.reply_to_message and len(message.command) != 2:
         return await message.reply_text(_["general_1"])
 
@@ -46,7 +46,7 @@ async def userdel(client, message: Message, _):
 
 @app.on_message(filters.command(["blocked", "blockedusers", "blusers"]) & SUDOERS)
 @language_no_delete
-async def sudoers_list(client, message: Message, _):
+async def blocked_list(client, message: Message, _):
     if not BANNED_USERS:
         return await message.reply_text(_["block_5"])
 
@@ -60,7 +60,7 @@ async def sudoers_list(client, message: Message, _):
             mention = user.mention if user.mention else user.first_name
             count += 1
             msg += f"{count}➤ {mention}\n"
-        except:
+        except Exception:
             continue
 
     return await mystic.edit_text(_["block_5"] if count == 0 else msg)

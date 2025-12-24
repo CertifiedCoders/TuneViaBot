@@ -21,6 +21,29 @@ from Tune.utils.extraction import extract_user
 from config import BANNED_USERS
 
 
+async def _get_served_chat_ids():
+    chats = await get_served_chats()
+    return [int(chat["chat_id"]) for chat in chats]
+
+
+async def _process_chats(chat_ids, action_func, user_id):
+    count = 0
+    for chat_id in chat_ids:
+        try:
+            await action_func(chat_id, user_id)
+            count += 1
+        except FloodWait as fw:
+            await asyncio.sleep(int(fw.value))
+            try:
+                await action_func(chat_id, user_id)
+                count += 1
+            except Exception:
+                continue
+        except Exception:
+            continue
+    return count
+
+
 @app.on_message(filters.command(["gban", "globalban"]) & SUDOERS)
 @language_no_delete
 async def global_ban(client, message: Message, _):
@@ -39,21 +62,10 @@ async def global_ban(client, message: Message, _):
         return await message.reply_text(_["gban_4"].format(user.mention))
     if user.id not in BANNED_USERS:
         BANNED_USERS.add(user.id)
-    served_chats = []
-    chats = await get_served_chats()
-    for chat in chats:
-        served_chats.append(int(chat["chat_id"]))
+    served_chats = await _get_served_chat_ids()
     time_expected = get_readable_time(len(served_chats))
     mystic = await message.reply_text(_["gban_5"].format(user.mention, time_expected))
-    number_of_chats = 0
-    for chat_id in served_chats:
-        try:
-            await app.ban_chat_member(chat_id, user.id)
-            number_of_chats += 1
-        except FloodWait as fw:
-            await asyncio.sleep(int(fw.value))
-        except:
-            continue
+    number_of_chats = await _process_chats(served_chats, app.ban_chat_member, user.id)
     await add_banned_user(user.id)
     await message.reply_text(
         _["gban_6"].format(
@@ -81,21 +93,10 @@ async def global_un(client, message: Message, _):
         return await message.reply_text(_["gban_7"].format(user.mention))
     if user.id in BANNED_USERS:
         BANNED_USERS.remove(user.id)
-    served_chats = []
-    chats = await get_served_chats()
-    for chat in chats:
-        served_chats.append(int(chat["chat_id"]))
+    served_chats = await _get_served_chat_ids()
     time_expected = get_readable_time(len(served_chats))
     mystic = await message.reply_text(_["gban_8"].format(user.mention, time_expected))
-    number_of_chats = 0
-    for chat_id in served_chats:
-        try:
-            await app.unban_chat_member(chat_id, user.id)
-            number_of_chats += 1
-        except FloodWait as fw:
-            await asyncio.sleep(int(fw.value))
-        except:
-            continue
+    number_of_chats = await _process_chats(served_chats, app.unban_chat_member, user.id)
     await remove_banned_user(user.id)
     await message.reply_text(_["gban_9"].format(user.mention, number_of_chats))
     await mystic.delete()
@@ -119,8 +120,4 @@ async def gbanned_list(client, message: Message, _):
             msg += f"{count}➤ {user}\n"
         except Exception:
             msg += f"{count}➤ {user_id}\n"
-            continue
-    if count == 0:
-        return await mystic.edit_text(_["gban_10"])
-    else:
-        return await mystic.edit_text(msg)
+    return await mystic.edit_text(msg)

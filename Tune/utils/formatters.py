@@ -86,11 +86,11 @@ def seconds_to_min(seconds):
 def speed_converter(seconds, speed):
     if str(speed) == str("0.5"):
         seconds = seconds * 2
-    if str(speed) == str("0.75"):
+    elif str(speed) == str("0.75"):
         seconds = seconds + ((50 * seconds) // 100)
-    if str(speed) == str("1.5"):
+    elif str(speed) == str("1.5"):
         seconds = seconds - ((25 * seconds) // 100)
-    if str(speed) == str("2.0"):
+    elif str(speed) == str("2.0"):
         seconds = seconds - ((50 * seconds) // 100)
     collect = seconds
     if seconds is not None:
@@ -141,7 +141,7 @@ def check_duration(file_path):
             if "duration" in s:
                 return float(s["duration"])
 
-    return "Unknown"
+    return None
 
 
 formats = [
@@ -170,16 +170,14 @@ formats = [
     "mpeg",
     "mpe",
     "mpv",
-    "m4v",
     "svi",
     "3gp",
     "3g2",
     "mxf",
     "roq",
     "nsv",
-    "flv",
     "f4v",
     "f4p",
     "f4a",
     "f4b",
-  ]
+]

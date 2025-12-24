@@ -51,9 +51,8 @@ async def open_stats(client, message: Message, _):
 async def handle_back_to_stats(client, callback_query, _):
     is_sudo = callback_query.from_user and (callback_query.from_user.id in SUDOERS)
     keyboard = build_stats_keyboard(_, is_sudo)
-    await callback_query.edit_message_text(
-        text=_["gstats_2"].format(app.mention), reply_markup=keyboard
-    )
+    caption = _["gstats_2"].format(app.mention)
+    await _edit_media_or_reply_with_video(callback_query, caption, keyboard)
 
 
 @app.on_callback_query(filters.regex(f"^{StatsCallbacks.SHOW_OVERVIEW}$") & ~BANNED_USERS)
@@ -61,7 +60,6 @@ async def handle_back_to_stats(client, callback_query, _):
 async def handle_show_overview(client, callback_query, _):
     await callback_query.answer()
     back_keyboard = build_back_keyboard(_)
-    await callback_query.edit_message_text(_["gstats_1"].format(app.mention))
     served_chats = len(await get_served_chats())
     served_users = len(await get_served_users())
     caption = _["gstats_3"].format(
@@ -83,12 +81,8 @@ async def handle_show_overview(client, callback_query, _):
 async def handle_show_bot_stats(client, callback_query, _):
     if callback_query.from_user.id not in SUDOERS:
         return await callback_query.answer(_["gstats_4"], show_alert=True)
+    await callback_query.answer()
     back_keyboard = build_back_keyboard(_)
-    try:
-        await callback_query.answer()
-    except Exception:
-        pass
-    await callback_query.edit_message_text(_["gstats_1"].format(app.mention))
     physical_cores = psutil.cpu_count(logical=False)
     total_cores = psutil.cpu_count(logical=True)
     ram_total_gb = f"{round(psutil.virtual_memory().total / (1024.0 ** 3))} ɢʙ"

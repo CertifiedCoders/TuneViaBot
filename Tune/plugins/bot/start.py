@@ -38,8 +38,9 @@ async def delete_sticker_after_delay(message, delay):
 @LanguageStart
 async def start_pm(client, message: Message, _):
     await add_served_user(message.from_user.id)
-    if len(message.text.split()) > 1:
-        name = message.text.split(None, 1)[1]
+    parts = message.text.split(None, 1)
+    if len(parts) > 1:
+        name = parts[1]
         if name.startswith("help"):
             keyboard = help_keyboard(_)
             await message.reply_photo(
@@ -56,18 +57,22 @@ async def start_pm(client, message: Message, _):
                 )
         elif name.startswith("inf"):
             m = await message.reply_text("🔎")
-            query = str(name).replace("info_", "", 1)
-            query = f"https://www.youtube.com/watch?v={query}"
+            videoid = name.replace("info_", "", 1)
+            query = f"https://www.youtube.com/watch?v={videoid}"
             results = VideosSearch(query, limit=1)
-            for result in (await results.next())["result"]:
-                title = result["title"]
-                duration = result["duration"]
-                views = result["viewCount"]["short"]
-                thumbnail = result["thumbnails"][0]["url"].split("?")[0]
-                channellink = result["channel"]["link"]
-                channel = result["channel"]["name"]
-                link = result["link"]
-                published = result["publishedTime"]
+            search_results = (await results.next())["result"]
+            if not search_results:
+                await m.delete()
+                return
+            result = search_results[0]
+            title = result["title"]
+            duration = result["duration"]
+            views = result["viewCount"]["short"]
+            thumbnail = result["thumbnails"][0]["url"].split("?")[0]
+            channellink = result["channel"]["link"]
+            channel = result["channel"]["name"]
+            link = result["link"]
+            published = result["publishedTime"]
             searched_text = _["start_6"].format(
                 title, duration, views, published, channellink, channel, app.mention
             )
@@ -122,7 +127,7 @@ async def start_gp(client, message: Message, _):
             caption=_["start_1"].format(app.mention, get_readable_time(uptime)),
             reply_markup=InlineKeyboardMarkup(out),
         )
-    except:
+    except Exception:
         pass    
     return await add_served_chat(message.chat.id)
 
@@ -135,7 +140,7 @@ async def welcome(client, message: Message):
             if await is_banned_user(member.id):
                 try:
                     await message.chat.ban_member(member.id)
-                except:
+                except Exception:
                     pass
             if member.id == app.id:
                 if message.chat.type != ChatType.SUPERGROUP:

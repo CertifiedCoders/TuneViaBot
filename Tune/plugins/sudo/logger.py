@@ -1,5 +1,6 @@
 ﻿# Authored By Certified Coders © 2025
 from pyrogram import filters
+from pyrogram.types import Message
 
 from Tune import app
 from Tune.misc import SUDOERS
@@ -9,11 +10,11 @@ from Tune.utils.decorators.language import language_no_delete
 
 @app.on_message(filters.command(["logger"]) & SUDOERS)
 @language_no_delete
-async def logger(client, message, _):
+async def logger(client, message: Message, _):
     usage = _["log_1"]
     if len(message.command) != 2:
         return await message.reply_text(usage)
-    state = message.text.split(None, 1)[1].strip().lower()
+    state = message.command[1].strip().lower()
     if state == "enable":
         await add_on(2)
         await message.reply_text(_["log_2"])

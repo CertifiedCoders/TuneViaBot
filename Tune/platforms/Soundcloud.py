@@ -16,7 +16,7 @@ _cache_max_age = 300
 
 
 def is_soundcloud_url(url: str) -> bool:
-    return bool(url and "soundcloud.com" in str(url))
+    return bool(url and _SC_RE.match(url))
 
 
 def _get_cached_info(url: str) -> Optional[Dict[str, Any]]:
@@ -64,8 +64,10 @@ class SoundAPI:
 
     async def _extract_info(self, url: str, allow_playlist: bool = False, use_cache: bool = True) -> Optional[Dict[str, Any]]:
         if use_cache:
-            if cached := _get_cached_info(url):
-                if allow_playlist or cached.get("_type") != "playlist":
+            cached = _get_cached_info(url)
+            if cached:
+                cached_type = cached.get("_type")
+                if allow_playlist or cached_type != "playlist":
                     return cached
         
         def _run(u: str):
@@ -86,8 +88,8 @@ class SoundAPI:
             if not info:
                 return None
 
-            _type = str(info.get("_type", ""))
-            if _type in ("url", "url_transparent") and info.get("url"):
+            info_type = info.get("_type", "")
+            if info_type in ("url", "url_transparent") and info.get("url"):
                 try:
                     info = await loop.run_in_executor(None, _run, info["url"])
                 except Exception:
@@ -117,16 +119,18 @@ class SoundAPI:
         if not out_path:
             return False
 
-        details = {
-            "title": title,
-            "duration_sec": duration_sec,
-            "duration_min": seconds_to_min(max(duration_sec, 0)),
-            "uploader": uploader,
-            "thumb": thumb,
-            "filepath": out_path,
-            "link": url,
-        }
-        return details, out_path
+        return (
+            {
+                "title": title,
+                "duration_sec": duration_sec,
+                "duration_min": seconds_to_min(max(duration_sec, 0)),
+                "uploader": uploader,
+                "thumb": thumb,
+                "filepath": out_path,
+                "link": url,
+            },
+            out_path,
+        )
 
     async def details(self, url: str) -> Tuple[str, Optional[str], int, str, str]:
         try:
@@ -154,12 +158,11 @@ class SoundAPI:
             if not entries:
                 return []
 
-            track_urls = []
-            for entry in entries[:limit]:
-                if entry and entry.get("webpage_url"):
-                    track_urls.append(entry["webpage_url"])
-            
-            return track_urls
+            return [
+                entry["webpage_url"]
+                for entry in entries[:limit]
+                if entry and entry.get("webpage_url")
+            ]
         except Exception:
             return []
 

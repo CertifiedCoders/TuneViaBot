@@ -33,13 +33,8 @@ async def set_volume(client, message: Message):
     except ValueError:
         return await message.reply_text("❌ Invalid volume value. Please provide a number between 0 and 200.")
     
-    if not (0 <= volume <= 200):
-        return await message.reply_text("❌ Volume must be between 0 and 200.\n\n**Examples:**\n• `0` = Muted\n• `100` = 50%\n• `200` = 100%")
-    
     try:
         await StreamController.change_volume_call(chat_id, volume)
-        
-        # Convert to percentage for display
         volume_percent = round(volume / 2, 1)
         await message.reply_text(
             f"✅ **Volume changed successfully!**\n\n"

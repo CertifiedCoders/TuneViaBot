@@ -31,7 +31,7 @@ async def _get_lang_strings(chat_id):
     try:
         language = await get_lang(chat_id)
         return get_string(language)
-    except:
+    except Exception:
         return get_string("en")
 
 
@@ -83,17 +83,10 @@ async def join_userbot(app, chat_id, chat_username=None, _=None):
             return _["assistant_4"]
 
     try:
-        await userbot.join_chat(invite)
+        await _handle_flood_wait(userbot.join_chat, invite)
         return _["assistant_5"]
     except UserAlreadyParticipant:
         return _["assistant_6"]
-    except FloodWait as e:
-        await asyncio.sleep(e.value)
-        try:
-            await userbot.join_chat(invite)
-            return _["assistant_5"]
-        except Exception as ex:
-            return _["assistant_7"].format(str(ex))
     except Exception as e:
         return _["assistant_8"].format(str(e))
 
@@ -111,16 +104,13 @@ async def approve_join_request(client, chat_join_request: ChatJoinRequest):
         if await _is_participant(client, chat_id, userbot.id):
             return
         
-        try:
-            await _handle_flood_wait(client.approve_chat_join_request, chat_id, userbot.id)
-        except UserAlreadyParticipant:
-            return
+        await _handle_flood_wait(client.approve_chat_join_request, chat_id, userbot.id)
         
         try:
             await client.send_message(chat_id, _["assistant_9"])
         except ChatWriteForbidden:
             pass
-    except (ChatAdminRequired, PeerIdInvalid, Exception):
+    except (UserAlreadyParticipant, ChatAdminRequired, PeerIdInvalid):
         return
 
 
@@ -167,24 +157,18 @@ async def leave_one(app, message, _):
     chat_id = message.chat.id
     try:
         userbot = await get_assistant(chat_id)
-        try:
-            member = await userbot.get_chat_member(chat_id, userbot.id)
-            if member.status in [ChatMemberStatus.LEFT, ChatMemberStatus.BANNED]:
-                await message.reply(_["assistant_14"])
-                return
-        except UserNotParticipant:
+        
+        if not await _is_participant(userbot, chat_id, userbot.id):
             await message.reply(_["assistant_14"])
             return
 
-        await userbot.leave_chat(chat_id)
+        await _handle_flood_wait(userbot.leave_chat, chat_id)
         try:
             await app.send_message(chat_id, _["assistant_15"])
         except ChatWriteForbidden:
             pass
     except ChannelPrivate:
         await message.reply(_["assistant_16"])
-    except UserNotParticipant:
-        await message.reply(_["assistant_14"])
     except FloodWait as e:
         await asyncio.sleep(e.value)
         await message.reply(_["assistant_17"])

@@ -17,6 +17,4 @@ CHAT_SEMAPHORE_LOCK = asyncio.Lock()
 
 async def get_chat_semaphore(chat_id: int):
     async with CHAT_SEMAPHORE_LOCK:
-        if chat_id not in CHAT_SEMAPHORES:
-            CHAT_SEMAPHORES[chat_id] = asyncio.Semaphore(3)
-        return CHAT_SEMAPHORES[chat_id]
+        return CHAT_SEMAPHORES.setdefault(chat_id, asyncio.Semaphore(3))

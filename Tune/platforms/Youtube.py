@@ -117,17 +117,8 @@ async def _exec_ytdlp_command(*args: str) -> Tuple[bytes, bytes]:
 
 def _evict_oldest_cache(cache: Dict, max_size: int):
     if len(cache) >= max_size:
-        if len(cache) == 0:
-            return
         oldest_key = min(cache.keys(), key=lambda k: cache[k][0] if isinstance(cache[k], tuple) else float('inf'))
         cache.pop(oldest_key, None)
-
-
-def _update_cache_access(cache: Dict, key: str, now: float):
-    if key in cache and isinstance(cache[key], tuple):
-        old_val = cache[key]
-        if len(old_val) >= 2:
-            cache[key] = (now, old_val[1]) + old_val[2:]
 
 
 @capture_internal_err
@@ -281,7 +272,6 @@ class YouTubeAPI:
     def __init__(self) -> None:
         self.video_url = "https://www.youtube.com/watch?v="
         self.playlist_url = "https://youtube.com/playlist?list="
-        self.live_url = "https://www.youtube.com/watch?v="
         self._url_pattern = _YOUTUBE_URL_PATTERN
 
     def _classify_url(self, url: str) -> Tuple[str, Optional[str], Optional[str]]:
@@ -315,16 +305,11 @@ class YouTubeAPI:
         elif url_type == "playlist" and playlist_id:
             return f"{self.playlist_url}{playlist_id}"
         elif url_type == "live" and video_id:
-            return f"{self.live_url}{video_id}"
+            return f"{self.video_url}{video_id}"
 
-        if "youtu.be" in link:
-            vid = link.split("/")[-1].split("?")[0].split("&")[0]
-            if vid:
-                return f"{self.video_url}{vid}"
-        elif "youtube.com/shorts/" in link or "youtube.com/live/" in link:
-            vid = link.split("/")[-1].split("?")[0]
-            if vid:
-                return f"{self.video_url}{vid}"
+        video_id = _extract_video_id_from_url(link)
+        if video_id:
+            return f"{self.video_url}{video_id}"
 
         return link.split("&")[0]
 

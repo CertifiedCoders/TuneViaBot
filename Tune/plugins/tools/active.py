@@ -23,7 +23,7 @@ async def _format_active_chats(chat_ids, remove_func, include_id=False):
             link = f"<a href=https://t.me/{chat.username}>{title}</a>" if chat.username else title
             suffix = f" [<code>{chat_id}</code>]" if include_id else ""
             text += f"<b>{idx}.</b> {link}{suffix}\n"
-        except:
+        except Exception:
             await remove_func(chat_id)
     return text
 
@@ -44,7 +44,7 @@ async def activevc(client: Client, message: Message, _):
 
 @app.on_message(filters.command(["activev", "activevideo", "avc"]) & SUDOERS)
 @language_no_delete
-async def activevi_(client: Client, message: Message, _):
+async def activevideo(client: Client, message: Message, _):
     mystic = await message.reply_text(_["active_4"])
     text = await _format_active_chats(await get_active_video_chats(), remove_active_video_chat, include_id=True)
     if not text:

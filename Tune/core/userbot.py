@@ -37,11 +37,9 @@ class Userbot:
         available_sessions = get_available_sessions()
         self.session_count = len(available_sessions)
         self.assistants = []
-        self.string_sessions = [s for _, s in available_sessions]
         self._assistant_dict = {}
         max_sessions = 5
         
-        # Initialize list with None values for all possible session indices
         self._assistants_list = [None] * max_sessions
         
         for idx, session_string in available_sessions:
@@ -54,10 +52,8 @@ class Userbot:
             )
             self.assistants.append((idx, client))
             self._assistant_dict[idx] = client
-            # Set assistant at correct index (idx is 1-based, list is 0-based)
             self._assistants_list[idx - 1] = client
         
-        # Set attributes for all session positions (one through five)
         assistant_names = ["one", "two", "three", "four", "five"]
         for i in range(max_sessions):
             setattr(self, assistant_names[i], self._assistants_list[i])
@@ -66,7 +62,7 @@ class Userbot:
         return self._assistant_dict.get(index)
     
     def get_assistants_list(self):
-        return [client for _, client in self.assistants]
+        return [client for client in self._assistants_list if client is not None]
     
     def get_assistant_indices(self):
         return [idx for idx, _ in self.assistants]

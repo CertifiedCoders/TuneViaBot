@@ -1,7 +1,7 @@
 # Authored By Certified Coders © 2025
 
 import random
-from typing import Dict, List, Union
+from typing import Dict, List, Optional, Union
 
 from Tune import userbot
 from Tune.core.mongo import mongodb
@@ -44,7 +44,7 @@ skipmode = {}
 mute = {}
 
 
-async def get_assistant_number(chat_id: int) -> str:
+async def get_assistant_number(chat_id: int) -> Optional[str]:
     return assistantdict.get(chat_id)
 
 
@@ -90,7 +90,7 @@ async def set_calls_assistant(chat_id):
     return ran_assistant
 
 
-async def get_assistant(chat_id: int) -> str:
+async def get_assistant(chat_id: int):
     from Tune.core.userbot import assistants
     assistant = assistantdict.get(chat_id)
     if assistant and assistant in assistants:
@@ -135,7 +135,8 @@ async def group_assistant(self, chat_id: int):
             if available:
                 result = available[0]
         if result is None:
-            available = [a for a in [self.one, self.two, self.three, self.four, self.five] if a]
+            assistants_attrs = [self.one, self.two, self.three, self.four, self.five]
+            available = [a for a in assistants_attrs if a]
             if available:
                 result = available[0]
             else:
@@ -205,7 +206,7 @@ async def set_loop(chat_id: int, mode: int):
     loop[chat_id] = mode
 
 
-async def get_cmode(chat_id: int) -> int:
+async def get_cmode(chat_id: int) -> Optional[int]:
     mode = channelconnect.get(chat_id)
     if mode is not None:
         return mode
@@ -294,7 +295,7 @@ async def is_muted(chat_id: int) -> bool:
     return bool(mute.get(chat_id))
 
 
-async def get_active_chats() -> list:
+async def get_active_chats() -> List[int]:
     return active
 
 
@@ -312,7 +313,7 @@ async def remove_active_chat(chat_id: int):
         active.remove(chat_id)
 
 
-async def get_active_video_chats() -> list:
+async def get_active_video_chats() -> List[int]:
     return activevideo
 
 
@@ -399,7 +400,7 @@ async def is_served_user(user_id: int) -> bool:
     return user is not None
 
 
-async def get_served_users() -> list:
+async def get_served_users() -> List[dict]:
     users_list = []
     async for user in usersdb.find({"user_id": {"$gt": 0}}):
         users_list.append(user)
@@ -411,7 +412,7 @@ async def add_served_user(user_id: int):
         return await usersdb.insert_one({"user_id": user_id})
 
 
-async def get_served_chats() -> list:
+async def get_served_chats() -> List[dict]:
     chats_list = []
     async for chat in chatsdb.find({"chat_id": {"$lt": 0}}):
         chats_list.append(chat)
@@ -438,7 +439,7 @@ async def remove_served_user(user_id: int):
         await usersdb.delete_one({"user_id": user_id})
 
 
-async def blacklisted_chats() -> list:
+async def blacklisted_chats() -> List[int]:
     chats_list = []
     async for chat in blacklist_chatdb.find({"chat_id": {"$lt": 0}}):
         chats_list.append(chat["chat_id"])
@@ -459,7 +460,7 @@ async def whitelist_chat(chat_id: int) -> bool:
     return False
 
 
-async def _get_authusers(chat_id: int) -> Dict[str, int]:
+async def _get_authusers(chat_id: int) -> Dict[str, dict]:
     _notes = await authuserdb.find_one({"chat_id": chat_id})
     if not _notes:
         return {}
@@ -496,7 +497,7 @@ async def delete_authuser(chat_id: int, name: str) -> bool:
     return False
 
 
-async def get_gbanned() -> list:
+async def get_gbanned() -> List[int]:
     results = []
     async for user in gbansdb.find({"user_id": {"$gt": 0}}):
         results.append(user["user_id"])
@@ -518,7 +519,7 @@ async def remove_gban_user(user_id: int):
         return await gbansdb.delete_one({"user_id": user_id})
 
 
-async def get_sudoers() -> list:
+async def get_sudoers() -> List[int]:
     sudoers = await sudoersdb.find_one({"sudo": "sudo"})
     if not sudoers:
         return []
@@ -536,6 +537,8 @@ async def add_sudo(user_id: int) -> bool:
 
 async def remove_sudo(user_id: int) -> bool:
     sudoers = await get_sudoers()
+    if user_id not in sudoers:
+        return False
     sudoers.remove(user_id)
     await sudoersdb.update_one(
         {"sudo": "sudo"}, {"$set": {"sudoers": sudoers}}, upsert=True
@@ -543,7 +546,7 @@ async def remove_sudo(user_id: int) -> bool:
     return True
 
 
-async def get_banned_users() -> list:
+async def get_banned_users() -> List[int]:
     results = []
     async for user in blockeddb.find({"user_id": {"$gt": 0}}):
         results.append(user["user_id"])
@@ -551,9 +554,7 @@ async def get_banned_users() -> list:
 
 
 async def get_banned_count() -> int:
-    users = blockeddb.find({"user_id": {"$gt": 0}})
-    users = await users.to_list(length=100000)
-    return len(users)
+    return await blockeddb.count_documents({"user_id": {"$gt": 0}})
 
 
 async def is_banned_user(user_id: int) -> bool:
@@ -623,7 +624,7 @@ async def remove_spam_blocked_user(user_id: int) -> bool:
     return result.deleted_count > 0
 
 
-async def get_spam_blocked_users() -> list:
+async def get_spam_blocked_users() -> List[int]:
     results = []
     async for user in antispamblockeddb.find({}):
         user_id = user.get("user_id")

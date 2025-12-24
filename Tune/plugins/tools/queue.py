@@ -1,7 +1,6 @@
 # Authored By Certified Coders © 2025
 
 import asyncio
-import os
 
 from pyrogram import filters
 from pyrogram.errors import FloodWait
@@ -58,19 +57,40 @@ async def _update_queue_loop(_, chat_id, videoid, DUR, cplay, mystic):
             if not await is_music_playing(chat_id):
                 continue
             try:
+                current = db[chat_id][0]
                 buttons = queue_markup(
                     _,
                     DUR,
                     cplay,
                     videoid,
-                    seconds_to_min(db[chat_id][0]["played"]),
-                    db[chat_id][0]["dur"],
+                    seconds_to_min(current["played"]),
+                    current["dur"],
                 )
                 await mystic.edit_reply_markup(reply_markup=buttons)
             except FloodWait:
                 pass
     except Exception:
         return
+
+
+def _build_queue_display_data(got):
+    current = got[0]
+    return {
+        "file": current["file"],
+        "videoid": current["vidid"],
+        "user": current["by"],
+        "title": current["title"].title(),
+        "typo": current["streamtype"].title(),
+        "dur": get_duration(got),
+    }
+
+
+def _create_queue_markup(_, DUR, cplay, videoid, got=None):
+    if DUR == "Unknown":
+        return queue_markup(_, DUR, cplay, videoid)
+    played = seconds_to_min(got[0]["played"])
+    dur = got[0]["dur"]
+    return queue_markup(_, DUR, cplay, videoid, played, dur)
 
 
 @app.on_message(
@@ -88,10 +108,10 @@ async def get_queue(client, message: Message, _):
             await app.get_chat(chat_id)
         except Exception as e:
             return await message.reply_text(_["cplay_4"].format(e))
-        cplay = True
+        cplay = "c"
     else:
         chat_id = message.chat.id
-        cplay = False
+        cplay = "g"
 
     if not await is_active_chat(chat_id):
         return await message.reply_text(_["general_5"])
@@ -100,28 +120,18 @@ async def get_queue(client, message: Message, _):
     if not got:
         return await message.reply_text(_["queue_2"])
 
-    file = got[0]["file"]
-    videoid = got[0]["vidid"]
-    user = got[0]["by"]
-    title = got[0]["title"].title()
-    typo = got[0]["streamtype"].title()
-    DUR = get_duration(got)
+    data = _build_queue_display_data(got)
+    IMAGE = await _get_queue_image(data["file"], data["videoid"], data["typo"])
+    send = _["queue_6"] if data["dur"] == "Unknown" else _["queue_7"]
+    cap = _["queue_8"].format(app.mention, data["title"], data["typo"], data["user"], send)
 
-    IMAGE = await _get_queue_image(file, videoid, typo)
-    send = _["queue_6"] if DUR == "Unknown" else _["queue_7"]
-    cap = _["queue_8"].format(app.mention, title, typo, user, send)
+    upl = _create_queue_markup(_, data["dur"], cplay, data["videoid"], got)
 
-    cplay_str = "c" if cplay else "g"
-    if DUR == "Unknown":
-        upl = queue_markup(_, DUR, cplay_str, videoid)
-    else:
-        upl = queue_markup(_, DUR, cplay_str, videoid, seconds_to_min(got[0]["played"]), got[0]["dur"])
-
-    basic[videoid] = True
+    basic[data["videoid"]] = True
     mystic = await message.reply_photo(IMAGE, caption=cap, reply_markup=upl)
 
-    if DUR != "Unknown":
-        await _update_queue_loop(_, chat_id, videoid, DUR, cplay_str, mystic)
+    if data["dur"] != "Unknown":
+        await _update_queue_loop(_, chat_id, data["videoid"], data["dur"], cplay, mystic)
 
 
 @app.on_callback_query(filters.regex("GetTimer") & ~BANNED_USERS)
@@ -203,25 +213,16 @@ async def queue_back(client, CallbackQuery: CallbackQuery, _):
 
     await CallbackQuery.answer(_["set_cb_5"], show_alert=True)
 
-    file = got[0]["file"]
-    videoid = got[0]["vidid"]
-    user = got[0]["by"]
-    title = got[0]["title"].title()
-    typo = got[0]["streamtype"].title()
-    DUR = get_duration(got)
+    data = _build_queue_display_data(got)
+    IMAGE = await _get_queue_image(data["file"], data["videoid"], data["typo"])
+    send = _["queue_6"] if data["dur"] == "Unknown" else _["queue_7"]
+    cap = _["queue_8"].format(app.mention, data["title"], data["typo"], data["user"], send)
 
-    IMAGE = await _get_queue_image(file, videoid, typo)
-    send = _["queue_6"] if DUR == "Unknown" else _["queue_7"]
-    cap = _["queue_8"].format(app.mention, title, typo, user, send)
+    upl = _create_queue_markup(_, data["dur"], cplay, data["videoid"], got)
 
-    if DUR == "Unknown":
-        upl = queue_markup(_, DUR, cplay, videoid)
-    else:
-        upl = queue_markup(_, DUR, cplay, videoid, seconds_to_min(got[0]["played"]), got[0]["dur"])
-
-    basic[videoid] = True
+    basic[data["videoid"]] = True
     med = InputMediaPhoto(media=IMAGE, caption=cap)
     mystic = await CallbackQuery.edit_message_media(media=med, reply_markup=upl)
 
-    if DUR != "Unknown":
-        await _update_queue_loop(_, chat_id, videoid, DUR, cplay, mystic)
+    if data["dur"] != "Unknown":
+        await _update_queue_loop(_, chat_id, data["videoid"], data["dur"], cplay, mystic)

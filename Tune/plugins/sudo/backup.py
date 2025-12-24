@@ -6,27 +6,27 @@ import shutil
 import zipfile
 import asyncio
 from datetime import datetime, timedelta
-from motor.motor_asyncio import AsyncIOMotorClient
 from pyrogram import Client, filters
 from pyrogram.types import Message
 from Tune import app
-from config import MONGO_DB_URI, LOGGER_ID, OWNER_ID
+from config import LOGGER_ID, OWNER_ID
 from Tune.logging import LOGGER
 from Tune.core.dir import BACKUP_DIR
+from Tune.core.mongo import mongodb
 from Tune.utils.decorators.language import language_no_delete
 from strings import get_string
 
-DB_NAME = "Tune"
 TEMP_DIR = os.path.join(BACKUP_DIR, "tmp")
 
 async def _dump_collection(collection, path: str):
     data = []
     async for doc in collection.find({}):
-        doc.pop("_id", None)
-        for key, value in doc.items():
+        doc_dict = dict(doc)
+        doc_dict.pop("_id", None)
+        for key, value in doc_dict.items():
             if isinstance(value, datetime):
-                doc[key] = value.isoformat()
-        data.append(doc)
+                doc_dict[key] = value.isoformat()
+        data.append(doc_dict)
     if data:
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
@@ -35,16 +35,14 @@ async def _dump_collection(collection, path: str):
 async def _create_backup_zip() -> str:
     LOGGER(__name__).info("🗂️ Starting backup process for all collections…")
 
-    client = AsyncIOMotorClient(MONGO_DB_URI)
-    db = client[DB_NAME]
-    collections = await db.list_collection_names()
+    collections = await mongodb.list_collection_names()
 
     for fname in os.listdir(BACKUP_DIR):
         fpath = os.path.join(BACKUP_DIR, fname)
         if os.path.isfile(fpath) and fname.endswith(".zip"):
             try:
                 os.remove(fpath)
-            except Exception:
+            except OSError:
                 pass
 
     if os.path.exists(TEMP_DIR):
@@ -52,7 +50,7 @@ async def _create_backup_zip() -> str:
     os.makedirs(TEMP_DIR, exist_ok=True)
 
     tasks = [
-        _dump_collection(db[coll], os.path.join(TEMP_DIR, f"{coll}.json"))
+        _dump_collection(mongodb[coll], os.path.join(TEMP_DIR, f"{coll}.json"))
         for coll in collections
     ]
     await asyncio.gather(*tasks)
@@ -78,7 +76,7 @@ async def _send_backup(zip_path: str, chat_id: int, caption: str):
     if os.path.exists(zip_path):
         try:
             os.remove(zip_path)
-        except Exception:
+        except OSError:
             pass
 
 @app.on_message(filters.command("backup") & filters.user(OWNER_ID))
@@ -97,9 +95,7 @@ async def manual_backup(client: Client, message: Message, _):
 async def daily_backup_task():
     while True:
         now = datetime.now()
-        target = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        if now >= target:
-            target += timedelta(days=1)
+        target = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
         await asyncio.sleep((target - now).total_seconds())
         try:
             zip_path = await _create_backup_zip()

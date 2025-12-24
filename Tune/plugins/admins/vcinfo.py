@@ -30,8 +30,7 @@ async def vc_info(client, message: Message):
             except Exception:
                 name = f"<code>{p.user_id}</code>"
 
-            # Check mute status - PyTgCalls participant object has 'is_muted' attribute
-            is_muted = getattr(p, "is_muted", False) or getattr(p, "muted", False)
+            is_muted = getattr(p, "is_muted", getattr(p, "muted", False))
             if is_muted:
                 muted_count += 1
                 mute_status = "🔇"
@@ -39,14 +38,11 @@ async def vc_info(client, message: Message):
                 unmuted_count += 1
                 mute_status = "🔊"
             
-            # Check for screen sharing
             screen_status = "🖥️" if getattr(p, "screen_sharing", False) or getattr(p, "video", False) else ""
             
-            # Get volume level (typically 0-200, where 100 = 50%)
             volume_level = getattr(p, "volume", None)
-            if volume_level is not None:
-                # Convert to percentage (0-200 -> 0-100%)
-                volume_percent = round(volume_level / 2, 1) if volume_level <= 200 else "N/A"
+            if volume_level is not None and volume_level <= 200:
+                volume_percent = round(volume_level / 2, 1)
                 volume_display = f"{volume_percent}%"
             else:
                 volume_display = "N/A"

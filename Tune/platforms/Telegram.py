@@ -19,12 +19,10 @@ from Tune.utils.formatters import (
 class TeleAPI:
     def __init__(self):
         self.chars_limit = 4096
-        self.sleep = 5
 
     async def send_split_text(self, message, string: str) -> bool:
-        n = self.chars_limit
-        out = [string[i : i + n] for i in range(0, len(string), n)]
-        for j, x in enumerate(out[:3], 1):
+        out = [string[i : i + self.chars_limit] for i in range(0, len(string), self.chars_limit)]
+        for x in out[:3]:
             await message.reply_text(x, disable_web_page_preview=True)
         return True
 
@@ -32,11 +30,8 @@ class TeleAPI:
         return message.link
 
     async def get_filename(self, file, audio: Union[bool, str] = None) -> str:
-        try:
-            file_name = getattr(file, "file_name", None)
-            if not file_name:
-                file_name = "ᴛᴇʟᴇɢʀᴀᴍ ᴀᴜᴅɪᴏ" if audio else "ᴛᴇʟᴇɢʀᴀᴍ ᴠɪᴅᴇᴏ"
-        except Exception:
+        file_name = getattr(file, "file_name", None)
+        if not file_name:
             file_name = "ᴛᴇʟᴇɢʀᴀᴍ ᴀᴜᴅɪᴏ" if audio else "ᴛᴇʟᴇɢʀᴀᴍ ᴠɪᴅᴇᴏ"
         return file_name
 
@@ -65,19 +60,20 @@ class TeleAPI:
     ) -> str:
         base = os.path.realpath("downloads")
         if audio:
-            try:
-                ext = (audio.file_name.split(".")[-1]) if not isinstance(audio, Voice) else "ogg"
-            except Exception:
+            if isinstance(audio, Voice):
                 ext = "ogg"
-            file_name = f"{audio.file_unique_id}.{ext}"
-            return os.path.join(base, file_name)
+            else:
+                try:
+                    ext = audio.file_name.split(".")[-1]
+                except Exception:
+                    ext = "ogg"
+            return os.path.join(base, f"{audio.file_unique_id}.{ext}")
         if video:
             try:
                 ext = video.file_name.split(".")[-1]
             except Exception:
                 ext = "mp4"
-            file_name = f"{video.file_unique_id}.{ext}"
-            return os.path.join(base, file_name)
+            return os.path.join(base, f"{video.file_unique_id}.{ext}")
         return os.path.join(base, f"{int(time.time())}.dat")
 
     async def download(self, _, message, mystic, fname: str) -> bool:
@@ -115,7 +111,7 @@ class TeleAPI:
                 percentage_i = int(percentage)
 
                 for counter in range(7):
-                    low, high, check = int(lower[counter]), int(higher[counter]), int(checker[counter])
+                    low, high, check = lower[counter], higher[counter], checker[counter]
                     if low < percentage_i <= high and high == check:
                         try:
                             await mystic.edit_text(

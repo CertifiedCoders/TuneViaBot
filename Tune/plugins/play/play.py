@@ -13,7 +13,7 @@ import config
 from config import AYU, BANNED_USERS, lyrical
 from Tune import Apple, SoundCloud, Spotify, Telegram, YouTube, app
 from Tune.core.call import StreamController
-from Tune.utils import seconds_to_min, time_to_seconds
+from Tune.utils import time_to_seconds
 from Tune.utils.channelplay import get_channeplayCB
 from Tune.utils.decorators.language import languageCB
 from Tune.utils.decorators.play import PlayWrapper
@@ -43,11 +43,13 @@ async def _create_mystic_message(message_or_callback, channel, _):
 
 
 def _format_error(e, _):
-    return e if type(e).__name__ == "AssistantErr" else _["general_2"].format(type(e).__name__)
+    if type(e).__name__ == "AssistantErr":
+        return e
+    return _["general_2"].format(type(e).__name__)
 
 
 async def _handle_stream_error(_, mystic, e):
-    err = _format_error(e, _) or _["general_2"].format(type(e).__name__)
+    err = _format_error(e, _)
     return await mystic.edit_text(err)
 
 
@@ -98,7 +100,7 @@ async def _process_telegram_audio(_, message, mystic, user_id, user_name, chat_i
             user_name,
             message.chat.id,
             streamtype="telegram",
-            forceplay=bool(fplay),
+            forceplay=fplay,
         )
     except Exception as e:
         await _handle_stream_error(_, mystic, e)
@@ -160,7 +162,7 @@ async def _process_telegram_video(_, message, mystic, user_id, user_name, chat_i
             message.chat.id,
             video=True,
             streamtype="telegram",
-            forceplay=bool(fplay),
+            forceplay=fplay,
         )
     except Exception as e:
         await _handle_stream_error(_, mystic, e)
@@ -204,7 +206,7 @@ async def play_command(
     mystic = await _create_mystic_message(message, channel, _)
 
     plist_id, plist_type, spotify, slider = None, None, None, None
-    internal_type, log_label = None, None
+    internal_type, log_label, track_id = None, None, None
     user_id = message.from_user.id
     user_name = message.from_user.first_name
 
@@ -380,7 +382,7 @@ async def play_command(
                         user_name,
                         message.chat.id,
                         streamtype=internal_type,
-                        forceplay=bool(fplay),
+                        forceplay=fplay,
                     )
                 except Exception as e:
                     await _handle_stream_error(_, mystic, e)
@@ -413,9 +415,9 @@ async def play_command(
                     chat_id,
                     user_name,
                     message.chat.id,
-                    video=bool(video),
+                    video=video,
                     streamtype=internal_type,
-                    forceplay=bool(fplay),
+                    forceplay=fplay,
                 )
             except Exception as e:
                 await _handle_stream_error(_, mystic, e)
@@ -443,9 +445,7 @@ async def play_command(
 
     if str(playmode) == "Direct":
         if not plist_type:
-            # Check if it's a live stream (internal_type is already set)
-            if internal_type == "live":
-                # Show live stream confirmation panel
+            if internal_type == "live" or not details.get("duration_min"):
                 buttons = livestream_markup(
                     _,
                     track_id,
@@ -455,27 +455,12 @@ async def play_command(
                     "f" if fplay else "d",
                 )
                 return await mystic.edit_text(_["play_13"], reply_markup=InlineKeyboardMarkup(buttons))
-            elif details.get("duration_min"):
-                duration_sec = time_to_seconds(details["duration_min"])
-                if _check_duration_limit(duration_sec):
-                    return await mystic.edit_text(_["play_6"].format(config.DURATION_LIMIT_MIN, app.mention))
-            else:
-                # No duration_min but not explicitly live - show confirmation panel
-                buttons = livestream_markup(
-                    _,
-                    track_id,
-                    user_id,
-                    "v" if video else "a",
-                    "c" if channel else "g",
-                    "f" if fplay else "d",
-                )
-                return await mystic.edit_text(_["play_13"], reply_markup=InlineKeyboardMarkup(buttons))
+            
+            duration_sec = time_to_seconds(details["duration_min"])
+            if _check_duration_limit(duration_sec):
+                return await mystic.edit_text(_["play_6"].format(config.DURATION_LIMIT_MIN, app.mention))
         else:
-            # Handle playlists in Direct mode
-            if not details or (isinstance(details, list) and len(details) == 0):
-                return await mystic.edit_text(_["play_3"])
-            # Ensure details is a list for playlist streaming
-            if not isinstance(details, list):
+            if not isinstance(details, list) or not details:
                 return await mystic.edit_text(_["play_3"])
 
         try:
@@ -487,10 +472,10 @@ async def play_command(
                 chat_id,
                 user_name,
                 message.chat.id,
-                video=bool(video),
+                video=video,
                 streamtype=internal_type,
                 spotify=spotify,
-                forceplay=bool(fplay),
+                forceplay=fplay,
             )
         except Exception as e:
             await _handle_stream_error(_, mystic, e)
@@ -567,9 +552,6 @@ async def play_music(client, CallbackQuery, _):
             buttons = livestream_markup(_, track_id, CallbackQuery.from_user.id, mode, "c" if cplay == "c" else "g", "f" if fplay else "d")
             return await mystic.edit_text(_["play_13"], reply_markup=InlineKeyboardMarkup(buttons))
 
-        video = mode == "v"
-        forceplay = fplay == "f"
-
         await stream(
             _,
             mystic,
@@ -578,9 +560,9 @@ async def play_music(client, CallbackQuery, _):
             chat_id,
             user_name,
             CallbackQuery.message.chat.id,
-            bool(video),
+            mode == "v",
             streamtype="youtube",
-            forceplay=bool(forceplay),
+            forceplay=fplay == "f",
         )
 
         await mystic.delete()
@@ -624,8 +606,6 @@ async def play_playlists_command(client, CallbackQuery, _):
         mystic = await _create_mystic_message(CallbackQuery.message, channel, _)
 
         videoid = lyrical.get(videoid)
-        video = mode == "v"
-        forceplay = fplay == "f"
         spotify = True
 
         if ptype == "yt":
@@ -639,15 +619,15 @@ async def play_playlists_command(client, CallbackQuery, _):
             internal_type = "playlist"
             log_label = "SoundCloud playlist"
         elif ptype == "spplay":
-            result, _ = await Spotify.playlist(videoid)
+            result, _plist_id = await Spotify.playlist(videoid)
             internal_type = "playlist"
             log_label = "Spotify playlist"
         elif ptype == "spalbum":
-            result, _ = await Spotify.album(videoid)
+            result, _plist_id = await Spotify.album(videoid)
             internal_type = "playlist"
             log_label = "Spotify album"
         elif ptype == "spartist":
-            result, _ = await Spotify.artist(videoid)
+            result, _plist_id = await Spotify.artist(videoid)
             internal_type = "playlist"
             log_label = "Spotify artist"
         elif ptype == "apple":
@@ -655,7 +635,7 @@ async def play_playlists_command(client, CallbackQuery, _):
             if playlist_result is False:
                 await mystic.edit_text(f"{_['play_3']}\nʀᴇᴀsᴏɴ: Unable to fetch playlist details from Apple Music.")
                 return
-            result, _ = playlist_result
+            result, _plist_id = playlist_result
             internal_type = "playlist"
             log_label = "Apple Music playlist"
         else:
@@ -669,10 +649,10 @@ async def play_playlists_command(client, CallbackQuery, _):
             chat_id,
             user_name,
             CallbackQuery.message.chat.id,
-            bool(video),
+            mode == "v",
             streamtype=internal_type,
             spotify=spotify,
-            forceplay=bool(forceplay),
+            forceplay=fplay == "f",
         )
 
         await play_logs(CallbackQuery.message, streamtype=log_label)

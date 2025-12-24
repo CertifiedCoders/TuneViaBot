@@ -37,18 +37,19 @@ def _cleanup_old_entries(user_id: int, current_time: float, time_window: int):
         user_history.popleft()
 
 
-def get_user_command_count(user_id: int) -> int:
+def _get_cleaned_history(user_id: int):
     current_time = time.time()
     user_history = _user_command_history[user_id]
     _cleanup_old_entries(user_id, current_time, TIME_WINDOW_SECONDS)
-    return len(user_history)
+    return user_history
+
+
+def get_user_command_count(user_id: int) -> int:
+    return len(_get_cleaned_history(user_id))
 
 
 def get_user_command_history(user_id: int) -> list:
-    current_time = time.time()
-    user_history = _user_command_history[user_id]
-    _cleanup_old_entries(user_id, current_time, TIME_WINDOW_SECONDS)
-    return [(t, cmd) for t, cmd in user_history]
+    return list(_get_cleaned_history(user_id))
 
 
 async def track_command(user_id: int, command_name: str) -> Tuple[bool, int, list]:
@@ -67,9 +68,7 @@ async def track_command(user_id: int, command_name: str) -> Tuple[bool, int, lis
         return True, 0, []
     
     current_time = time.time()
-    user_history = _user_command_history[user_id]
-    _cleanup_old_entries(user_id, current_time, TIME_WINDOW_SECONDS)
-    
+    user_history = _get_cleaned_history(user_id)
     user_history.append((current_time, command_name))
     command_count = len(user_history)
     is_spamming = command_count >= COMMAND_RATE_LIMIT

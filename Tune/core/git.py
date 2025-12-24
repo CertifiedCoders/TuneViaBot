@@ -11,27 +11,21 @@ import config
 from Tune.logging import LOGGER
 
 
-class _AsyncContextError(RuntimeError):
-    """Custom exception to indicate we're in an async context"""
-    pass
-
-
 def install_req(cmd: str) -> Tuple[str, str, int, int]:
     try:
         asyncio.get_running_loop()
-        raise _AsyncContextError("Cannot use run_until_complete in async context")
-    except _AsyncContextError:
-        # We're in an async context, cannot use run_until_complete
         raise RuntimeError("install_req cannot be called from an async context")
+    except RuntimeError as e:
+        if "cannot be called from an async context" in str(e):
+            raise
+
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            raise RuntimeError("Loop is closed")
     except RuntimeError:
-        # No running loop, safe to proceed
-        try:
-            loop = asyncio.get_event_loop()
-            if loop.is_closed():
-                raise RuntimeError("Loop is closed")
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
 
     async def install_requirements():
         args = shlex.split(cmd)
@@ -61,15 +55,12 @@ def _build_upstream_url(repo_url: str, token: str = None) -> str:
             LOGGER(__name__).warning(f"Invalid repository URL format: {repo_url}")
             return repo_url
 
-        if "com/" in parsed.path:
-            username = parsed.path.split("com/")[1].split("/")[0]
-        else:
-            username = parsed.path.strip("/").split("/")[0] if parsed.path else ""
-
-        if not username:
+        path_parts = [p for p in parsed.path.strip("/").split("/") if p]
+        if not path_parts:
             LOGGER(__name__).warning(f"Could not extract username from URL: {repo_url}")
             return repo_url
 
+        username = path_parts[0]
         netloc = f"{username}:{token}@{parsed.netloc}"
         return urlunparse((parsed.scheme, netloc, parsed.path, parsed.params, parsed.query, parsed.fragment))
     except Exception as e:
@@ -77,8 +68,31 @@ def _build_upstream_url(repo_url: str, token: str = None) -> str:
         return repo_url
 
 
+def _setup_remote(repo: Repo, upstream_url: str):
+    if "origin" in repo.remotes:
+        origin = repo.remote("origin")
+        if origin.url != upstream_url:
+            origin.set_url(upstream_url)
+    else:
+        origin = repo.create_remote("origin", upstream_url)
+    return origin
+
+
+def _setup_branch(repo: Repo, origin, branch_name: str):
+    if branch_name not in origin.refs:
+        LOGGER(__name__).error(f"Branch {branch_name} not found in remote")
+        return False
+
+    if branch_name not in repo.heads:
+        repo.create_head(branch_name, origin.refs[branch_name])
+    else:
+        repo.heads[branch_name].set_tracking_branch(origin.refs[branch_name])
+
+    repo.heads[branch_name].checkout(True)
+    return True
+
+
 def git():
-    repo = None
     UPSTREAM_REPO = _build_upstream_url(config.UPSTREAM_REPO, config.GIT_TOKEN)
 
     try:
@@ -96,42 +110,17 @@ def git():
             return
 
         try:
-            if "origin" in repo.remotes:
-                origin = repo.remote("origin")
-                origin.set_url(UPSTREAM_REPO)
-            else:
-                origin = repo.create_remote("origin", UPSTREAM_REPO)
-
+            origin = _setup_remote(repo, UPSTREAM_REPO)
             origin.fetch()
         except Exception as e:
             LOGGER(__name__).error(f"Failed to setup remote origin: {e}")
             return
 
-        try:
-            branch_name = config.UPSTREAM_BRANCH
-            if branch_name not in origin.refs:
-                LOGGER(__name__).error(f"Branch {branch_name} not found in remote")
-                return
-
-            if branch_name not in repo.heads:
-                repo.create_head(branch_name, origin.refs[branch_name])
-            else:
-                repo.heads[branch_name].set_tracking_branch(origin.refs[branch_name])
-
-            repo.heads[branch_name].checkout(True)
-        except Exception as e:
-            LOGGER(__name__).error(f"Failed to checkout branch {config.UPSTREAM_BRANCH}: {e}")
+        if not _setup_branch(repo, origin, config.UPSTREAM_BRANCH):
             return
 
-    if repo is None:
-        LOGGER(__name__).error("Repository object is None")
-        return
-
     try:
-        origin = repo.remote("origin")
-        if origin.url != UPSTREAM_REPO:
-            origin.set_url(UPSTREAM_REPO)
-
+        origin = _setup_remote(repo, UPSTREAM_REPO)
         origin.fetch(config.UPSTREAM_BRANCH)
     except Exception as e:
         LOGGER(__name__).error(f"Failed to fetch updates: {e}")

@@ -12,6 +12,7 @@ from Tune.logging import LOGGER
 SUDOERS = filters.user()
 HAPP = None
 _boot_ = time.time()
+db = {}
 
 XCB = [
     "/",
@@ -41,13 +42,13 @@ def dbb():
 
 
 def set_current_message(chat_id: int, mystic, markup: str) -> None:
-    try:
-        queue = db.get(chat_id)
-        if queue:
+    queue = db.get(chat_id)
+    if queue:
+        try:
             queue[0]["mystic"] = mystic
             queue[0]["markup"] = markup
-    except Exception:
-        return
+        except (KeyError, IndexError, TypeError):
+            return
 
 
 async def sudo():
@@ -76,7 +77,7 @@ def heroku():
                 Heroku = heroku3.from_key(config.HEROKU_API_KEY)
                 HAPP = Heroku.app(config.HEROKU_APP_NAME)
                 LOGGER(__name__).info(f"ʜᴇʀᴏᴋᴜ ᴀᴘᴘ ᴄᴏɴғɪɢᴜʀᴇᴅ..")
-            except BaseException:
+            except Exception:
                 LOGGER(__name__).warning(
                     f"ʏᴏᴜ sʜᴏᴜʟᴅ ʜᴀᴠᴇ ɴᴏᴛ ғɪʟʟᴇᴅ ʜᴇʀᴏᴋᴜ ᴀᴘᴘ ɴᴀᴍᴇ ᴏʀ ᴀᴘɪ ᴋᴇʏ ᴄᴏʀʀᴇᴄᴛʟʏ ᴘʟᴇᴀsᴇ ᴄʜᴇᴄᴋ ɪᴛ..."
                 )

@@ -10,7 +10,7 @@ import config
 
 class SpotifyAPI:
     def __init__(self):
-        self.regex = r"^https:\/\/open\.spotify\.com\/.+"
+        self.regex = r"^https://open\.spotify\.com/.+"
         self.client_id = config.SPOTIFY_CLIENT_ID
         self.client_secret = config.SPOTIFY_CLIENT_SECRET
         if self.client_id and self.client_secret:
@@ -23,6 +23,14 @@ class SpotifyAPI:
         else:
             self.spotify = None
 
+    def _build_track_query(self, track_name: str, artists: list) -> str:
+        query = track_name
+        for artist in artists:
+            artist_name = f' {artist["name"]}'
+            if "Various Artists" not in artist_name:
+                query += artist_name
+        return query
+
     async def valid(self, link: str) -> bool:
         return bool(re.search(self.regex, link or ""))
 
@@ -30,12 +38,8 @@ class SpotifyAPI:
         if not self.spotify:
             raise RuntimeError("Spotify credentials not configured")
         track = self.spotify.track(link)
-        info = track["name"]
-        for artist in track["artists"]:
-            fetched = f' {artist["name"]}'
-            if "Various Artists" not in fetched:
-                info += fetched
-        results = VideosSearch(info, limit=1)
+        query = self._build_track_query(track["name"], track["artists"])
+        results = VideosSearch(query, limit=1)
         data = await results.next()
         r = data["result"][0]
         track_details = {
@@ -54,13 +58,11 @@ class SpotifyAPI:
         playlist_id = playlist["id"]
         results = []
         for item in playlist["tracks"]["items"]:
-            music_track = item["track"]
-            info = music_track["name"]
-            for artist in music_track["artists"]:
-                fetched = f' {artist["name"]}'
-                if "Various Artists" not in fetched:
-                    info += fetched
-            results.append(info)
+            music_track = item.get("track")
+            if not music_track:
+                continue
+            query = self._build_track_query(music_track["name"], music_track["artists"])
+            results.append(query)
         return results, playlist_id
 
     async def album(self, url):
@@ -70,12 +72,8 @@ class SpotifyAPI:
         album_id = album["id"]
         results = []
         for item in album["tracks"]["items"]:
-            info = item["name"]
-            for artist in item["artists"]:
-                fetched = f' {artist["name"]}'
-                if "Various Artists" not in fetched:
-                    info += fetched
-            results.append(info)
+            query = self._build_track_query(item["name"], item["artists"])
+            results.append(query)
         return results, album_id
 
     async def artist(self, url):
@@ -86,10 +84,6 @@ class SpotifyAPI:
         results = []
         artisttoptracks = self.spotify.artist_top_tracks(url)
         for item in artisttoptracks["tracks"]:
-            info = item["name"]
-            for artist in item["artists"]:
-                fetched = f' {artist["name"]}'
-                if "Various Artists" not in fetched:
-                    info += fetched
-            results.append(info)
+            query = self._build_track_query(item["name"], item["artists"])
+            results.append(query)
         return results, artist_id

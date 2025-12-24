@@ -16,8 +16,11 @@ from config import AYU, BANNED_USERS
 @languageCB
 @capture_callback_err
 async def play_live_stream(client, CallbackQuery, _):
-    data = CallbackQuery.data.strip().split(None, 1)[1]
-    vidid, user_id, mode, cplay, fplay = data.split("|")
+    try:
+        data = CallbackQuery.data.strip().split(None, 1)[1]
+        vidid, user_id, mode, cplay, fplay = data.split("|")
+    except (IndexError, ValueError):
+        return
 
     if CallbackQuery.from_user.id != int(user_id):
         try:
@@ -48,31 +51,29 @@ async def play_live_stream(client, CallbackQuery, _):
     )
 
     try:
-        # Use live_track() method specifically for live videos
-        details, track_id = await YouTube.live_track("", videoid=vidid)
+        details, _ = await YouTube.live_track("", videoid=vidid)
     except Exception as e:
         return await mystic.edit_text(f"{_['play_3']}\nʀᴇᴀsᴏɴ: {e}")
 
-    # Live videos should have duration_min as None
-    if details.get("duration_min") is None:
-        try:
-            await stream(
-                _,
-                mystic,
-                int(user_id),
-                details,
-                chat_id,
-                user_name,
-                CallbackQuery.message.chat.id,
-                is_video,
-                streamtype="live",
-                forceplay=forceplay,
-            )
-        except Exception as e:
-            ex_type = type(e).__name__
-            err = e if ex_type == "AssistantErr" else _["general_2"].format(ex_type)
-            return await mystic.edit_text(err)
-    else:
+    if details.get("duration_min") is not None:
         return await mystic.edit_text("» ɴᴏᴛ ᴀ ʟɪᴠᴇ sᴛʀᴇᴀᴍ.")
+
+    try:
+        await stream(
+            _,
+            mystic,
+            int(user_id),
+            details,
+            chat_id,
+            user_name,
+            CallbackQuery.message.chat.id,
+            is_video,
+            streamtype="live",
+            forceplay=forceplay,
+        )
+    except Exception as e:
+        ex_type = type(e).__name__
+        err = e if ex_type == "AssistantErr" else _["general_2"].format(ex_type)
+        return await mystic.edit_text(err)
 
     await mystic.delete()

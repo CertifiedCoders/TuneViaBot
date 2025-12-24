@@ -7,6 +7,15 @@ from Tune.utils.formatters import check_duration, seconds_to_min
 from config import autoclean, time_to_seconds
 
 
+def _insert_queue_item(chat_id, item: dict, forceplay: Union[bool, str] = None):
+    if chat_id not in db:
+        db[chat_id] = []
+    if forceplay:
+        db[chat_id].insert(0, item)
+    else:
+        db[chat_id].append(item)
+
+
 async def put_queue(
     chat_id,
     original_chat_id,
@@ -24,6 +33,7 @@ async def put_queue(
         duration_in_seconds = time_to_seconds(duration) - 3
     except Exception:
         duration_in_seconds = 0
+    
     put = {
         "title": title,
         "dur": duration,
@@ -36,16 +46,7 @@ async def put_queue(
         "seconds": duration_in_seconds,
         "played": 0,
     }
-    if forceplay:
-        check = db.get(chat_id)
-        if check:
-            check.insert(0, put)
-        else:
-            db[chat_id] = [put]
-    else:
-        if chat_id not in db:
-            db[chat_id] = []
-        db[chat_id].append(put)
+    _insert_queue_item(chat_id, put, forceplay)
     autoclean.append(file)
 
 
@@ -60,19 +61,17 @@ async def put_queue_index(
     stream,
     forceplay: Union[bool, str] = None,
 ):
-    """Add an index/M3U8 stream to the playback queue for a chat."""
     if "20.212.146.162" in vidid:
         try:
             loop = asyncio.get_running_loop()
-            dur = await loop.run_in_executor(
-                None, check_duration, vidid
-            )
+            dur = await loop.run_in_executor(None, check_duration, vidid)
             duration = seconds_to_min(dur)
         except Exception:
             duration = "ᴜʀʟ sᴛʀᴇᴀᴍ"
             dur = 0
     else:
         dur = 0
+    
     put = {
         "title": title,
         "dur": duration,
@@ -84,13 +83,4 @@ async def put_queue_index(
         "seconds": dur,
         "played": 0,
     }
-    if forceplay:
-        check = db.get(chat_id)
-        if check:
-            check.insert(0, put)
-        else:
-            db[chat_id] = [put]
-    else:
-        if chat_id not in db:
-            db[chat_id] = []
-        db[chat_id].append(put)
+    _insert_queue_item(chat_id, put, forceplay)

@@ -68,6 +68,3 @@ def is_ignored_error(err: Union[Exception, BaseException]) -> bool:
         is_graceful_error(err)
     )
 
-
-def should_log_error(err: Union[Exception, BaseException]) -> bool:
-    return not is_ignored_error(err)

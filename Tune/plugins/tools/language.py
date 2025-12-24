@@ -43,30 +43,38 @@ def languages_keyboard(_):
     return InlineKeyboardMarkup(rows)
 
 
+async def _handle_flood_wait(func, *args, **kwargs):
+    try:
+        return await func(*args, **kwargs)
+    except FloodWait as e:
+        await asyncio.sleep(e.value)
+        return await func(*args, **kwargs)
+
+
+async def _safe_callback_answer(callback: CallbackQuery):
+    try:
+        await callback.answer()
+    except Exception:
+        pass
+
+
 @app.on_message(filters.command(["lang", "setlang", "language"]) & ~BANNED_USERS)
 @language
 async def langs_command(client, message: Message, _):
     keyboard = languages_keyboard(_)
-    try:
-        await message.reply_text(_["lang_1"], reply_markup=keyboard)
-    except FloodWait as e:
-        await asyncio.sleep(e.value)
-        await message.reply_text(_["lang_1"], reply_markup=keyboard)
+    await _handle_flood_wait(
+        message.reply_text, _["lang_1"], reply_markup=keyboard
+    )
 
 
 @app.on_callback_query(filters.regex("LG") & ~BANNED_USERS)
 @languageCB
 async def languagecb(client, CallbackQuery: CallbackQuery, _):
-    try:
-        await CallbackQuery.answer()
-    except:
-        pass
+    await _safe_callback_answer(CallbackQuery)
     keyboard = languages_keyboard(_)
-    try:
-        await CallbackQuery.edit_message_reply_markup(reply_markup=keyboard)
-    except FloodWait as e:
-        await asyncio.sleep(e.value)
-        await CallbackQuery.edit_message_reply_markup(reply_markup=keyboard)
+    await _handle_flood_wait(
+        CallbackQuery.edit_message_reply_markup, reply_markup=keyboard
+    )
 
 
 @app.on_callback_query(filters.regex(r"languages:(.*?)") & ~BANNED_USERS)
@@ -78,16 +86,14 @@ async def language_markup(client, CallbackQuery: CallbackQuery, _):
         return await CallbackQuery.answer(_["lang_4"], show_alert=True)
 
     try:
-        _ = get_string(lang_code)
-        await CallbackQuery.answer(_["lang_2"], show_alert=True)
-    except:
-        _ = get_string(old_lang)
-        return await CallbackQuery.answer(_["lang_3"], show_alert=True)
+        new_lang_strings = get_string(lang_code)
+        await CallbackQuery.answer(new_lang_strings["lang_2"], show_alert=True)
+    except Exception:
+        await CallbackQuery.answer(_["lang_3"], show_alert=True)
+        return
 
     await set_lang(CallbackQuery.message.chat.id, lang_code)
-    keyboard = languages_keyboard(_)
-    try:
-        await CallbackQuery.edit_message_reply_markup(reply_markup=keyboard)
-    except FloodWait as e:
-        await asyncio.sleep(e.value)
-        await CallbackQuery.edit_message_reply_markup(reply_markup=keyboard)
+    keyboard = languages_keyboard(new_lang_strings)
+    await _handle_flood_wait(
+        CallbackQuery.edit_message_reply_markup, reply_markup=keyboard
+    )

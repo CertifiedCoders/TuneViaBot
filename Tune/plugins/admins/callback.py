@@ -38,9 +38,8 @@ checker = {}
 
 def parse_chat_info(chat_info: str):
     if "_" in chat_info:
-        parts = chat_info.split("_")
-        return int(parts[0]), parts[1]
-    return int(chat_info), None
+        return int(chat_info.split("_")[0])
+    return int(chat_info)
 
 
 async def _send_stream_message(message, _, chat_id, videoid, title, duration, user, streamtype, msg_type, queued=None):
@@ -94,7 +93,7 @@ async def unban_assistant(_, callback: CallbackQuery):
 async def manage_callback(client, callback: CallbackQuery, _):
     data = callback.data.strip().split(None, 1)[1]
     command, chat_info = data.split("|", 1)
-    chat_id, counter = parse_chat_info(chat_info)
+    chat_id = parse_chat_info(chat_info)
     if not await is_active_chat(chat_id):
         return await callback.answer(_["general_5"], show_alert=True)
     user_mention = callback.from_user.mention
@@ -131,12 +130,11 @@ async def manage_callback(client, callback: CallbackQuery, _):
         playlist = db.get(chat_id)
         if not playlist:
             return await callback.answer(_["admin_42"], show_alert=True)
+        if len(playlist) < 2:
+            return await callback.answer(_["admin_43"], show_alert=True)
         try:
             popped = playlist.pop(0)
         except Exception:
-            return await callback.answer(_["admin_43"], show_alert=True)
-        if not playlist:
-            playlist.insert(0, popped)
             return await callback.answer(_["admin_43"], show_alert=True)
         await callback.answer()
         random.shuffle(playlist)
@@ -170,11 +168,7 @@ async def handle_skip_replay(callback: CallbackQuery, _, chat_id: int, command: 
             )
             return await StreamController.stop_stream(chat_id)
     else:
-        # Replay command
         text_msg = f"➻ sᴛʀᴇᴀᴍ ʀᴇᴩʟᴀʏᴇᴅ 🎄\n│ \n└ʙʏ : {user_mention} 🥀"
-        # Defensive check: ensure playlist is still valid before proceeding
-        if not playlist:
-            return await callback.answer(_["queue_2"], show_alert=True)
 
     await callback.answer()
 
@@ -253,9 +247,10 @@ async def handle_seek(callback: CallbackQuery, _, chat_id: int, command: str, us
         return await callback.answer(_["admin_22"], show_alert=True)
     
     duration_played = int(playing[0]["played"])
-    duration_to_skip = 10 if int(command) in [1, 2] else 30
+    command_int = int(command)
+    duration_to_skip = 10 if command_int in [1, 2] else 30
     duration = playing[0]["dur"]
-    is_backward = int(command) in [1, 3]
+    is_backward = command_int in [1, 3]
     
     bet = seconds_to_min(duration_played)
     error_msg = (
@@ -264,13 +259,15 @@ async def handle_seek(callback: CallbackQuery, _, chat_id: int, command: str, us
     )
     
     if is_backward:
-        if (duration_played - duration_to_skip) <= 10:
+        new_position = duration_played - duration_to_skip
+        if new_position <= 10:
             return await callback.answer(error_msg, show_alert=True)
-        to_seek = duration_played - duration_to_skip + 1
+        to_seek = new_position + 1
     else:
-        if (duration_seconds - (duration_played + duration_to_skip)) <= 10:
+        new_position = duration_played + duration_to_skip
+        if (duration_seconds - new_position) <= 10:
             return await callback.answer(error_msg, show_alert=True)
-        to_seek = duration_played + duration_to_skip + 1
+        to_seek = new_position + 1
     
     await callback.answer()
     mystic = await callback.message.reply_text(_["admin_24"])
@@ -291,7 +288,7 @@ async def handle_seek(callback: CallbackQuery, _, chat_id: int, command: str, us
     except Exception:
         return await mystic.edit_text(_["admin_26"])
     
-    db[chat_id][0]["played"] = db[chat_id][0]["played"] - duration_to_skip if is_backward else db[chat_id][0]["played"] + duration_to_skip
+    db[chat_id][0]["played"] = new_position
     seek_message = _["admin_25"].format(seconds_to_min(to_seek))
     await mystic.edit_text(f"{seek_message}\n\nᴄʜᴀɴɢᴇs ᴅᴏɴᴇ ʙʏ : {user_mention} !")
 

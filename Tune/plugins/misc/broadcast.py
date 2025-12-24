@@ -214,7 +214,7 @@ async def _broadcast_to_users(message, is_forward: bool, source_chat: int, msg_i
     users_data = await get_served_users()
     user_ids = [int(user["user_id"]) for user in users_data if user.get("user_id")]
     
-    sent, _pinned, failed, to_remove, failed_ids = await _broadcast_to_targets(
+    sent, _, failed, to_remove, failed_ids = await _broadcast_to_targets(
         user_ids, is_forward, source_chat, msg_id, query, None, track_failed=True
     )
     
@@ -313,7 +313,8 @@ async def broadcast_message(client, message, _):
 
 
 async def auto_clean():
-    while not await asyncio.sleep(10):
+    while True:
+        await asyncio.sleep(10)
         try:
             served_chats = await get_active_chats()
             for chat_id in served_chats:
@@ -335,6 +336,16 @@ async def auto_clean():
             continue
 
 
+def _get_chat_id(entity: dict):
+    chat_id = int(entity.get("chat_id", 0))
+    return chat_id if chat_id < 0 else None
+
+
+def _get_user_id(entity: dict):
+    user_id = int(entity.get("user_id", 0))
+    return user_id if user_id > 0 else None
+
+
 async def _cleanup_entities(entities_data: list, get_id_func, validate_func, remove_func, entity_type: str):
     cleaned = 0
     for entity in entities_data:
@@ -353,12 +364,13 @@ async def _cleanup_entities(entities_data: list, get_id_func, validate_func, rem
 
 
 async def periodic_cleanup():
-    while not await asyncio.sleep(43200):
+    while True:
+        await asyncio.sleep(43200)
         try:
             served_chats = await get_served_chats()
             cleaned_chats = await _cleanup_entities(
                 served_chats,
-                lambda c: int(c.get("chat_id", 0)) if int(c.get("chat_id", 0)) < 0 else None,
+                _get_chat_id,
                 app.get_chat,
                 remove_served_chat,
                 "chat"
@@ -367,7 +379,7 @@ async def periodic_cleanup():
             served_users = await get_served_users()
             cleaned_users = await _cleanup_entities(
                 served_users,
-                lambda u: int(u.get("user_id", 0)) if int(u.get("user_id", 0)) > 0 else None,
+                _get_user_id,
                 app.get_users,
                 remove_served_user,
                 "user"

@@ -56,16 +56,6 @@ def get_cookie_file() -> Optional[str]:
     return None
 
 
-def find_cached_file(video_id: str) -> Optional[str]:
-    if not video_id:
-        return None
-    for ext in ("mp3", "m4a", "webm", "mp4", "mkv"):
-        path = f"{DOWNLOAD_DIR}/{video_id}.{ext}"
-        if os.path.exists(path):
-            return path
-    return None
-
-
 def get_ytdlp_base_opts(is_soundcloud: bool = False) -> Dict[str, object]:
     opts = {
         "quiet": True,
@@ -205,7 +195,7 @@ def get_final_path_from_info(info: Dict) -> Optional[str]:
     return matches[0] if matches else None
 
 
-def download_with_ytdlp_sync(link: str, fmt: str, is_soundcloud: bool = False, cache_id: Optional[str] = None) -> Optional[str]:
+def download_with_ytdlp_sync(link: str, fmt: str, is_soundcloud: bool = False) -> Optional[str]:
     try:
         opts = get_ytdlp_base_opts(is_soundcloud=is_soundcloud)
         opts["format"] = fmt
@@ -252,15 +242,19 @@ async def race_ytdlp_and_api(yt_task, api_task, title: str, media_type: str):
         {yt_task, api_task}, return_when=asyncio.FIRST_COMPLETED
     )
     for task in done:
-        result = task.result()
-        if result and os.path.exists(result):
-            source = "yt-dlp" if task is yt_task else "API"
-            log_download_source(media_type, title, source)
-            for p in pending:
-                p.cancel()
-                with contextlib.suppress(asyncio.CancelledError):
-                    await p
-            return result
+        try:
+            result = task.result()
+            if result and os.path.exists(result):
+                source = "yt-dlp" if task is yt_task else "API"
+                log_download_source(media_type, title, source)
+                for p in pending:
+                    p.cancel()
+                    with contextlib.suppress(asyncio.CancelledError):
+                        await p
+                return result
+        except Exception:
+            pass
+    
     for task in pending:
         try:
             result = await task
@@ -282,7 +276,7 @@ async def _download_media(link: str, fmt: str, api_func, title: str, is_soundclo
     async def run():
         ytdlp_task = asyncio.create_task(
             run_with_semaphore(
-                loop.run_in_executor(None, download_with_ytdlp_sync, link, fmt, is_soundcloud, None)
+                loop.run_in_executor(None, download_with_ytdlp_sync, link, fmt, is_soundcloud)
             )
         )
         use_api = (USE_AUDIO_API if media_type == "audio" else USE_VIDEO_API) and not is_soundcloud

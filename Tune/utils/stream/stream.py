@@ -42,6 +42,10 @@ def _get_file_identifier(vidid: str, file_path: str = None, direct: bool = False
     return f"vid_{vidid}"
 
 
+def _format_duration(duration_min) -> str:
+    return duration_min if duration_min is not None else "Live Track"
+
+
 async def _download_track(_, vidid: str, mystic, is_video: bool, title: str, chat_id: int = None):
     is_soundcloud = is_soundcloud_url(vidid)
     sem = await get_chat_semaphore(chat_id) if chat_id else None
@@ -69,14 +73,12 @@ async def _download_track(_, vidid: str, mystic, is_video: bool, title: str, cha
 
 
 async def _queue_and_notify(_, chat_id, original_chat_id, file_identifier, title, duration_min, user_name, vidid, user_id, stream_type):
-    # Handle None duration_min (for live videos)
-    display_duration = duration_min if duration_min is not None else "Live Track"
     await put_queue(chat_id, original_chat_id, file_identifier, title, duration_min, user_name, vidid, user_id, stream_type)
     position = len(db.get(chat_id) or []) - 1
     button = aq_markup(_, chat_id)
     await app.send_message(
         chat_id=original_chat_id,
-        text=_["queue_4"].format(position, title[:27], display_duration, user_name),
+        text=_["queue_4"].format(position, title[:27], _format_duration(duration_min), user_name),
         reply_markup=InlineKeyboardMarkup(button),
     )
 
@@ -90,6 +92,33 @@ async def _send_stream_photo(_, original_chat_id, photo, caption, chat_id, marku
         reply_markup=InlineKeyboardMarkup(button),
     )
     set_current_message(chat_id, run, markup)
+
+
+async def _ensure_queue_initialized(chat_id: int, forceplay: bool):
+    if not forceplay:
+        db[chat_id] = []
+
+
+async def _handle_new_chat_stream(_, chat_id, original_chat_id, file_path, title, duration_min, user_name, vidid, user_id, stream_type, forceplay, is_video, thumbnail=None, file_identifier=None, direct=False):
+    await _ensure_queue_initialized(chat_id, forceplay)
+    await StreamController.join_call(chat_id, original_chat_id, file_path, video=is_video, image=thumbnail)
+    if file_identifier is None:
+        file_identifier = _get_file_identifier(vidid, file_path, direct) if not is_soundcloud_url(vidid) else file_path
+    await put_queue(
+        chat_id, original_chat_id, file_identifier, title, duration_min,
+        user_name, vidid, user_id, stream_type, forceplay=forceplay
+    )
+
+
+async def _manage_download_task(chat_id: int, download_coro):
+    download_task = asyncio.create_task(download_coro)
+    async with _downloads_lock:
+        _active_downloads[chat_id] = download_task
+    try:
+        return await download_task
+    finally:
+        async with _downloads_lock:
+            _active_downloads.pop(chat_id, None)
 
 
 @capture_internal_err
@@ -139,8 +168,8 @@ async def stream(
         metadata_tasks = [fetch_metadata(item) for item in items_to_process]
         metadata_results = await asyncio.gather(*metadata_tasks, return_exceptions=True)
 
-        for idx, (search, metadata_result) in enumerate(zip(items_to_process, metadata_results)):
-            if int(count) == config.PLAYLIST_FETCH_LIMIT:
+        for search, metadata_result in zip(items_to_process, metadata_results):
+            if count == config.PLAYLIST_FETCH_LIMIT:
                 continue
             
             if isinstance(metadata_result, Exception) or metadata_result is None:
@@ -151,32 +180,28 @@ async def stream(
             except (ValueError, TypeError):
                 continue
 
-            if str(duration_min) == "None":
+            if duration_min is None or str(duration_min) == "None":
                 continue
             if duration_sec and duration_sec > config.DURATION_LIMIT:
                 continue
 
+            stream_type = "video" if is_video else "audio"
+            file_identifier = vidid if is_soundcloud_url(vidid) else f"vid_{vidid}"
+
             if is_chat_active:
-                file_identifier = vidid if is_soundcloud_url(vidid) else f"vid_{vidid}"
                 await put_queue(
-                    chat_id, original_chat_id, file_identifier, title, duration_min, user_name, vidid, user_id,
-                    "video" if is_video else "audio"
+                    chat_id, original_chat_id, file_identifier, title, duration_min, user_name, vidid, user_id, stream_type
                 )
                 position = len(db.get(chat_id) or []) - 1
                 count += 1
                 msg += f"{count}. {title[:70]}\n"
                 msg += f"{_['play_20']} {position}\n\n"
             elif not first_song_played:
-                if not forceplay:
-                    db[chat_id] = []
-                download_task_coro = _download_track(_, vidid, mystic, is_video, title, chat_id)
-                download_task = asyncio.create_task(download_task_coro)
-                async with _downloads_lock:
-                    _active_downloads[chat_id] = download_task
+                download_coro = _download_track(_, vidid, mystic, is_video, title, chat_id)
                 thumb_task = get_thumb(vidid)
                 try:
                     download_result, img = await asyncio.gather(
-                        download_task, thumb_task, return_exceptions=False
+                        _manage_download_task(chat_id, download_coro), thumb_task, return_exceptions=False
                     )
                     file_path, direct = download_result
                 except asyncio.CancelledError:
@@ -185,20 +210,15 @@ async def stream(
                     raise
                 except Exception:
                     raise AssistantErr(_["play_14"])
-                finally:
-                    async with _downloads_lock:
-                        _active_downloads.pop(chat_id, None)
 
-                await StreamController.join_call(chat_id, original_chat_id, file_path, video=is_video, image=thumbnail)
-                await put_queue(
-                    chat_id, original_chat_id, _get_file_identifier(vidid, file_path, direct), title, duration_min,
-                    user_name, vidid, user_id, "video" if is_video else "audio", forceplay=forceplay
+                await _handle_new_chat_stream(
+                    _, chat_id, original_chat_id, file_path, title, duration_min,
+                    user_name, vidid, user_id, stream_type, forceplay, is_video, thumbnail, direct=direct
                 )
                 info_url = vidid if is_soundcloud_url(vidid) else f"https://t.me/{app.username}?start=info_{vidid}"
-                display_duration = duration_min if duration_min is not None else "Live Track"
                 await _send_stream_photo(
                     _, original_chat_id, img,
-                    _["stream_1"].format(info_url, title[:23], display_duration, user_name), chat_id
+                    _["stream_1"].format(info_url, title[:23], _format_duration(duration_min), user_name), chat_id
                 )
                 first_song_played = True
                 count += 1
@@ -228,19 +248,15 @@ async def stream(
         link = result["link"]
         vidid = result["vidid"]
         title = result["title"].title()
-        duration_min = result.get("duration_min")  # Use .get() to safely handle None
+        duration_min = result.get("duration_min")
         thumbnail = result["thumb"]
-        
-        # Handle None duration_min for display (shouldn't happen for normal youtube videos, but safety check)
-        display_duration = duration_min if duration_min is not None else "Unknown"
 
-        download_task_coro = YouTube.download(vidid, mystic, video=is_video, videoid=vidid, title=title)
-        download_task = asyncio.create_task(download_task_coro)
-        async with _downloads_lock:
-            _active_downloads[chat_id] = download_task
+        download_coro = YouTube.download(vidid, mystic, video=is_video, videoid=vidid, title=title)
         thumb_task = get_thumb(vidid)
         try:
-            download_result, img = await asyncio.gather(download_task, thumb_task, return_exceptions=False)
+            download_result, img = await asyncio.gather(
+                _manage_download_task(chat_id, download_coro), thumb_task, return_exceptions=False
+            )
             file_path, direct = download_result
             if not file_path:
                 raise AssistantErr(_["play_14"])
@@ -250,9 +266,6 @@ async def stream(
             raise
         except Exception:
             raise AssistantErr(_["play_14"])
-        finally:
-            async with _downloads_lock:
-                _active_downloads.pop(chat_id, None)
 
         stream_type = "video" if is_video else "audio"
         file_identifier = _get_file_identifier(vidid, file_path, direct)
@@ -262,16 +275,13 @@ async def stream(
                 _, chat_id, original_chat_id, file_identifier, title, duration_min, user_name, vidid, user_id, stream_type
             )
         else:
-            if not forceplay:
-                db[chat_id] = []
-            await StreamController.join_call(chat_id, original_chat_id, file_path, video=is_video, image=thumbnail)
-            await put_queue(
-                chat_id, original_chat_id, file_identifier, title, duration_min, user_name, vidid, user_id,
-                stream_type, forceplay=forceplay
+            await _handle_new_chat_stream(
+                _, chat_id, original_chat_id, file_path, title, duration_min,
+                user_name, vidid, user_id, stream_type, forceplay, is_video, thumbnail, direct=direct
             )
             await _send_stream_photo(
                 _, original_chat_id, img,
-                _["stream_1"].format(f"https://t.me/{app.username}?start=info_{vidid}", title[:23], display_duration, user_name),
+                _["stream_1"].format(f"https://t.me/{app.username}?start=info_{vidid}", title[:23], _format_duration(duration_min), user_name),
                 chat_id
             )
 
@@ -288,17 +298,14 @@ async def stream(
                 _, chat_id, original_chat_id, file_path, title, duration_min, user_name, vidid, user_id, "audio"
             )
         else:
-            if not forceplay:
-                db[chat_id] = []
-            await StreamController.join_call(chat_id, original_chat_id, file_path, video=False)
-            await put_queue(
-                chat_id, original_chat_id, file_path, title, duration_min, user_name, vidid, user_id, "audio",
-                forceplay=forceplay
+            await _handle_new_chat_stream(
+                _, chat_id, original_chat_id, file_path, title, duration_min,
+                user_name, vidid, user_id, "audio", forceplay, False
             )
             img = await get_thumb(vidid)
             await _send_stream_photo(
                 _, original_chat_id, img,
-                _["stream_1"].format(config.SUPPORT_CHAT, title[:23], duration_min, user_name), chat_id, "tg"
+                _["stream_1"].format(config.SUPPORT_CHAT, title[:23], _format_duration(duration_min), user_name), chat_id, "tg"
             )
 
     elif streamtype == "telegram":
@@ -316,18 +323,15 @@ async def stream(
                 _, chat_id, original_chat_id, file_path, title, duration_min, user_name, streamtype, user_id, stream_type
             )
         else:
-            if not forceplay:
-                db[chat_id] = []
-            await StreamController.join_call(chat_id, original_chat_id, file_path, video=is_video)
-            await put_queue(
-                chat_id, original_chat_id, file_path, title, duration_min, user_name, streamtype, user_id, stream_type,
-                forceplay=forceplay
+            await _handle_new_chat_stream(
+                _, chat_id, original_chat_id, file_path, title, duration_min,
+                user_name, streamtype, user_id, stream_type, forceplay, is_video
             )
             if is_video:
                 await add_active_video_chat(chat_id)
             photo = config.TELEGRAM_VIDEO_URL if is_video else config.TELEGRAM_AUDIO_URL
             await _send_stream_photo(
-                _, original_chat_id, photo, _["stream_1"].format(link, title[:23], duration_min, user_name), chat_id, "tg"
+                _, original_chat_id, photo, _["stream_1"].format(link, title[:23], _format_duration(duration_min), user_name), chat_id, "tg"
             )
 
     elif streamtype == "live":
@@ -335,7 +339,7 @@ async def stream(
         vidid = result["vidid"]
         title = result["title"].title()
         thumbnail = result["thumb"]
-        duration_min = "Live Track"
+        duration_min = None
 
         if await is_active_chat(chat_id):
             await _queue_and_notify(
@@ -343,8 +347,6 @@ async def stream(
                 "video" if is_video else "audio"
             )
         else:
-            if not forceplay:
-                db[chat_id] = []
             try:
                 n, file_path = await YouTube.video(link)
                 if n == 0 or not file_path:
@@ -354,15 +356,15 @@ async def stream(
             except Exception:
                 raise AssistantErr(_["str_3"])
 
-            await StreamController.join_call(chat_id, original_chat_id, file_path, video=is_video, image=thumbnail or None)
-            await put_queue(
-                chat_id, original_chat_id, f"live_{vidid}", title, duration_min, user_name, vidid, user_id,
-                "video" if is_video else "audio", forceplay=forceplay
+            await _handle_new_chat_stream(
+                _, chat_id, original_chat_id, file_path, title, duration_min,
+                user_name, vidid, user_id, "video" if is_video else "audio", forceplay, is_video, thumbnail or None,
+                file_identifier=f"live_{vidid}"
             )
             img = await get_thumb(vidid)
             await _send_stream_photo(
                 _, original_chat_id, img,
-                _["stream_1"].format(f"https://t.me/{app.username}?start=info_{vidid}", title[:23], duration_min, user_name),
+                _["stream_1"].format(f"https://t.me/{app.username}?start=info_{vidid}", title[:23], _format_duration(duration_min), user_name),
                 chat_id, "tg"
             )
 
@@ -383,8 +385,7 @@ async def stream(
                 reply_markup=InlineKeyboardMarkup(button),
             )
         else:
-            if not forceplay:
-                db[chat_id] = []
+            await _ensure_queue_initialized(chat_id, forceplay)
             await StreamController.join_call(chat_id, original_chat_id, link, video=is_video)
             await put_queue_index(
                 chat_id, original_chat_id, "index_url", title, duration_min, user_name, link,

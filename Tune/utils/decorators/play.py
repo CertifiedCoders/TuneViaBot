@@ -29,6 +29,12 @@ from Tune.utils.inline import botplaylist_markup
 links = {}
 
 
+def _normalize_invite_link(link):
+    if link.startswith("https://t.me/+"):
+        return link.replace("https://t.me/+", "https://t.me/joinchat/")
+    return link
+
+
 def PlayWrapper(command):
     async def wrapper(client, message):
         language = await get_lang(message.chat.id)
@@ -47,7 +53,7 @@ def PlayWrapper(command):
             )
             return await message.reply_text(_["general_3"], reply_markup=upl)
 
-        if await is_maintenance() is False:
+        if not await is_maintenance():
             if message.from_user.id not in SUDOERS:
                 return await message.reply_text(
                     text=f"{app.mention} ɪs ᴜɴᴅᴇʀ ᴍᴀɪɴᴛᴇɴᴀɴᴄᴇ, ᴠɪsɪᴛ <a href={SUPPORT_CHAT}>sᴜᴘᴘᴏʀᴛ ᴄʜᴀᴛ</a> ғᴏʀ ᴋɴᴏᴡɪɴɢ ᴛʜᴇ ʀᴇᴀsᴏɴ.",
@@ -104,13 +110,15 @@ def PlayWrapper(command):
                 elif message.from_user.id not in admins:
                     return await message.reply_text(_["play_4"])
 
-        if message.command[0][0] == "v":
+        command_name = message.command[0]
+        if command_name[0] == "v":
+            video = True
+        elif "-v" in message.text:
+            video = True
+        elif len(command_name) > 1 and command_name[1] == "v":
             video = True
         else:
-            if "-v" in message.text:
-                video = True
-            else:
-                video = True if message.command[0][1] == "v" else None
+            video = None
 
         if message.command[0][-1] == "e":
             if not await is_active_chat(chat_id):
@@ -122,30 +130,9 @@ def PlayWrapper(command):
         if not await is_active_chat(chat_id):
             userbot = await get_assistant(chat_id)
             try:
-                try:
-                    member = await app.get_chat_member(chat_id, userbot.id)
-                except ChatAdminRequired:
-                    return await message.reply_text(_["call_1"])
-
-                if member.status in (
-                    ChatMemberStatus.BANNED,
-                    ChatMemberStatus.RESTRICTED,
-                ):
-                    return await message.reply_text(
-                        _["call_2"].format(
-                            app.mention, userbot.id, userbot.name, userbot.username
-                        ),
-                        reply_markup=InlineKeyboardMarkup(
-                            [
-                                [
-                                    InlineKeyboardButton(
-                                        text="๏ 𝗨ɴʙᴀɴ 𝗔ssɪsᴛᴀɴᴛ ๏",
-                                        callback_data="unban_assistant",
-                                    )
-                                ]
-                            ]
-                        ),
-                    )
+                member = await app.get_chat_member(chat_id, userbot.id)
+            except ChatAdminRequired:
+                return await message.reply_text(_["call_1"])
             except UserNotParticipant:
                 if chat_id in links:
                     invitelink = links[chat_id]
@@ -166,10 +153,7 @@ def PlayWrapper(command):
                                 _["call_3"].format(app.mention, type(e).__name__)
                             )
 
-                if invitelink.startswith("https://t.me/+"):
-                    invitelink = invitelink.replace(
-                        "https://t.me/+", "https://t.me/joinchat/"
-                    )
+                invitelink = _normalize_invite_link(invitelink)
 
                 myu = await message.reply_text(_["call_4"].format(app.mention))
                 try:
@@ -186,10 +170,7 @@ def PlayWrapper(command):
                         return await message.reply_text(
                             _["call_3"].format(app.mention, type(e).__name__)
                         )
-                    if invitelink.startswith("https://t.me/+"):
-                        invitelink = invitelink.replace(
-                            "https://t.me/+", "https://t.me/joinchat/"
-                        )
+                    invitelink = _normalize_invite_link(invitelink)
                     links[chat_id] = invitelink
                     await userbot.join_chat(invitelink)
                 except InviteRequestSent:
@@ -214,6 +195,26 @@ def PlayWrapper(command):
                     await userbot.resolve_peer(chat_id)
                 except Exception:
                     pass
+            else:
+                if member.status in (
+                    ChatMemberStatus.BANNED,
+                    ChatMemberStatus.RESTRICTED,
+                ):
+                    return await message.reply_text(
+                        _["call_2"].format(
+                            app.mention, userbot.id, userbot.name, userbot.username
+                        ),
+                        reply_markup=InlineKeyboardMarkup(
+                            [
+                                [
+                                    InlineKeyboardButton(
+                                        text="๏ 𝗨ɴʙᴀɴ 𝗔ssɪsᴛᴀɴᴛ ๏",
+                                        callback_data="unban_assistant",
+                                    )
+                                ]
+                            ]
+                        ),
+                    )
 
         return await command(
             client, message, _, chat_id, video, channel, playmode, url, fplay

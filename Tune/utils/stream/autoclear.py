@@ -8,8 +8,9 @@ async def auto_clean(popped):
     try:
         if not popped or not isinstance(popped, dict):
             return
+        
         rem = popped.get("file")
-        if not rem:
+        if not rem or not isinstance(rem, str):
             return
         
         if rem in autoclean:
@@ -18,15 +19,14 @@ async def auto_clean(popped):
             except (ValueError, AttributeError):
                 pass
         
-        count = autoclean.count(rem) if hasattr(autoclean, 'count') else 0
-        if count == 0:
-            if isinstance(rem, str):
-                if "vid_" in rem or "live_" in rem or "index_" in rem:
-                    return
-                if os.path.exists(rem) and os.path.isfile(rem):
-                    try:
-                        os.remove(rem)
-                    except (OSError, PermissionError, FileNotFoundError):
-                        pass
+        if autoclean.count(rem) == 0:
+            if "vid_" in rem or "live_" in rem or "index_" in rem:
+                return
+            
+            if os.path.exists(rem) and os.path.isfile(rem):
+                try:
+                    os.remove(rem)
+                except (OSError, PermissionError, FileNotFoundError):
+                    pass
     except Exception:
         pass

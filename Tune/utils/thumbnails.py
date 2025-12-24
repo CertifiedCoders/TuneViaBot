@@ -36,6 +36,10 @@ ICONS_Y = BAR_Y + 48
 MAX_TITLE_WIDTH = 580
 
 
+def _normalize_title(title: str) -> str:
+    return re.sub(r"\W+", " ", title).title()
+
+
 def trim_to_width(text: str, font: ImageFont.FreeTypeFont, max_w: int) -> str:
     ellipsis = "…"
     if font.getlength(text) <= max_w:
@@ -46,7 +50,7 @@ def trim_to_width(text: str, font: ImageFont.FreeTypeFont, max_w: int) -> str:
     return ellipsis
 
 
-def _load_fonts():
+def _load_fonts() -> tuple[ImageFont.FreeTypeFont, ImageFont.FreeTypeFont]:
     try:
         title_font = ImageFont.truetype("Tune/assets/thumb/font2.ttf", 32)
         regular_font = ImageFont.truetype("Tune/assets/thumb/font.ttf", 18)
@@ -80,7 +84,7 @@ async def _create_decorated_thumbnail(
     is_live: bool = False,
 ) -> str:
     thumb_path = os.path.join(CACHE_DIR, f"thumb{cache_id}.png")
-    
+
     if not await _download_thumbnail(thumbnail_url, thumb_path):
         if not await _download_thumbnail(fallback_url, thumb_path):
             return fallback_url
@@ -149,7 +153,7 @@ async def get_soundcloud_thumb(url: str) -> str:
     except Exception:
         return SOUNCLOUD_IMG_URL
 
-    title = re.sub(r"\W+", " ", title).title()
+    title = _normalize_title(title)
 
     try:
         info = await SoundCloud._extract_info(url)
@@ -192,7 +196,7 @@ async def get_thumb(videoid: str) -> str:
         if not result_items:
             raise ValueError("No results found.")
         data = result_items[0]
-        title = re.sub(r"\W+", " ", data.get("title", "Unsupported Title")).title()
+        title = _normalize_title(data.get("title", "Unsupported Title"))
         thumbnail = data.get("thumbnails", [{}])[0].get("url", YOUTUBE_IMG_URL)
         duration = data.get("duration")
         views = data.get("viewCount", {}).get("short", "Unknown Views")

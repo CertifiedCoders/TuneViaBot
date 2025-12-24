@@ -29,8 +29,6 @@ async def link_command_handler(client: Client, message: Message, _):
 
     try:
         chat = await client.get_chat(int(group_id))
-        if not chat:
-            return await message.reply(_["invitelink_4"])
 
         try:
             invite_link = await client.export_chat_invite_link(chat.id)
@@ -41,7 +39,7 @@ async def link_command_handler(client: Client, message: Message, _):
 
         group_data = {
             "id": chat.id,
-            "type": str(chat.type),
+            "type": chat.type,
             "title": chat.title,
             "members_count": chat.members_count,
             "description": chat.description,

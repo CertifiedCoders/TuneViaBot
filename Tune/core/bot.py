@@ -38,18 +38,18 @@ class MusicBotClient(Client):
             )
         except (errors.ChannelInvalid, errors.PeerIdInvalid):
             LOGGER(__name__).error("❌ Bot cannot access the log group/channel – add & promote it first!")
-            sys.exit()
+            sys.exit(1)
         except Exception as exc:
             LOGGER(__name__).error(f"❌ Bot has failed to access the log group.\nReason: {type(exc).__name__}")
-            sys.exit()
+            sys.exit(1)
 
         try:
             member = await self.get_chat_member(config.LOGGER_ID, self.id)
             if member.status != ChatMemberStatus.ADMINISTRATOR:
                 LOGGER(__name__).error("❌ Promote the bot as admin in the log group/channel.")
-                sys.exit()
+                sys.exit(1)
         except Exception as e:
             LOGGER(__name__).error(f"❌ Could not check admin status: {e}")
-            sys.exit()
+            sys.exit(1)
 
         LOGGER(__name__).info(f"Music Bot started as {self.name} (@{self.username})")

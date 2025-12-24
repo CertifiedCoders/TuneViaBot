@@ -6,18 +6,8 @@ from config import BANNED_USERS, OWNER_ID
 from Tune import app
 from Tune.misc import SUDOERS
 from Tune.utils.database import add_sudo, remove_sudo
-from Tune.utils.decorators.language import language_no_delete
+from Tune.utils.decorators.language import language_no_delete, languageCB
 from Tune.utils.extraction import extract_user
-from strings import get_string
-
-
-async def get_language_string(chat_id):
-    try:
-        from Tune.utils.database import get_lang
-        language = await get_lang(chat_id)
-        return get_string(language)
-    except:
-        return get_string("en")
 
 
 @app.on_message(filters.command(["addsudo"], prefixes=["/", "!", "."]) & filters.user(OWNER_ID))
@@ -55,8 +45,8 @@ async def remove_sudo_user(client, message: Message, _):
 
 
 @app.on_message(filters.command(["sudolist", "listsudo", "sudoers"], prefixes=["/", "!", "."]) & ~BANNED_USERS)
-async def sudoers_list(client, message: Message):
-    _ = await get_language_string(message.chat.id)
+@language_no_delete
+async def sudoers_list(client, message: Message, _):
     keyboard = [[InlineKeyboardButton("๏ ᴠɪᴇᴡ sᴜᴅᴏʟɪsᴛ ๏", callback_data="sudo_list_view")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -68,9 +58,8 @@ async def sudoers_list(client, message: Message):
 
 
 @app.on_callback_query(filters.regex("^sudo_list_view$"))
-async def view_sudo_list_callback(client, callback_query: CallbackQuery):
-    _ = await get_language_string(callback_query.message.chat.id)
-    
+@languageCB
+async def view_sudo_list_callback(client, callback_query: CallbackQuery, _):
     if callback_query.from_user.id not in SUDOERS:
         return await callback_query.answer(_["sudo_10"], show_alert=True)
 
@@ -100,8 +89,8 @@ async def view_sudo_list_callback(client, callback_query: CallbackQuery):
 
 
 @app.on_callback_query(filters.regex("^sudo_list_back$"))
-async def back_to_sudo_list_menu(client, callback_query: CallbackQuery):
-    _ = await get_language_string(callback_query.message.chat.id)
+@languageCB
+async def back_to_sudo_list_menu(client, callback_query: CallbackQuery, _):
     keyboard = [[InlineKeyboardButton("๏ ᴠɪᴇᴡ sᴜᴅᴏʟɪsᴛ ๏", callback_data="sudo_list_view")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await callback_query.message.edit_caption(

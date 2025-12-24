@@ -18,9 +18,12 @@ from Tune.utils import bot_sys_stats
 @LanguageStart
 async def helper_private(client: Client, update: Union[Message, types.CallbackQuery], _):
     is_cb = isinstance(update, types.CallbackQuery)
-    language = await get_lang(update.from_user.id)
-    _ = get_string(language)
-
+    if is_cb:
+        try:
+            language = await get_lang(update.message.chat.id)
+            _ = get_string(language)
+        except:
+            pass
     keyboard = help_keyboard(_)
     caption = _["help_1"].format(SUPPORT_CHAT)
 
@@ -48,7 +51,11 @@ async def help_com_group(client: Client, message: Message, _):
 @app.on_callback_query(filters.regex(r"help_callback hb(\d+)") & ~BANNED_USERS)
 @languageCB
 async def helper_cb(client: Client, CallbackQuery: types.CallbackQuery, _):
-    number = int(CallbackQuery.data.split("hb")[1])
+    match = re.match(r"help_callback hb(\d+)", CallbackQuery.data)
+    if not match:
+        return await CallbackQuery.answer("Invalid help topic.", show_alert=True)
+    
+    number = int(match.group(1))
     help_text = getattr(helpers, f"HELP_{number}", None)
     if not help_text:
         return await CallbackQuery.answer("Invalid help topic.", show_alert=True)

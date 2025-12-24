@@ -1,23 +1,21 @@
 ﻿# Authored By Certified Coders © 2025
-import aiohttp
-
-
 import socket
 from asyncio import get_running_loop
 from functools import partial
 
+import aiohttp
+
 
 def _netcat(host, port, content):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.connect((host, port))
-    s.sendall(content.encode())
-    s.shutdown(socket.SHUT_WR)
-    while True:
+    try:
+        s.connect((host, port))
+        s.sendall(content.encode())
+        s.shutdown(socket.SHUT_WR)
         data = s.recv(4096).decode("utf-8").strip("\n\x00")
-        if not data:
-            break
-        return data
-    s.close()
+        return data if data else None
+    finally:
+        s.close()
 
 
 async def paste(content):
@@ -36,12 +34,12 @@ async def post(url: str, *args, **kwargs):
                 data = await resp.json()
             except Exception:
                 data = await resp.text()
-        return data
+            return data
 
 
 async def TuneBin(text):
     resp = await post(f"{BASE}api/v2/paste", data=text)
     if not resp["success"]:
-        return
+        return None
     link = BASE + resp["message"]
     return link

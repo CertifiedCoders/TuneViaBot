@@ -1,42 +1,49 @@
 ﻿# Authored By Certified Coders © 2025
 from Tune import app
-from config import SUPPORT_CHAT, OWNER_ID
+from config import SUPPORT_CHAT
 from Tune.misc import SUDOERS
 from Tune.utils.database import get_lang, is_maintenance
 from strings import get_string
 
 
+async def _get_language_strings(chat_id):
+    try:
+        language = await get_lang(chat_id)
+        return get_string(language)
+    except Exception:
+        return get_string("en")
+
+
+async def _check_maintenance_message(user_id):
+    if not await is_maintenance():
+        if user_id not in SUDOERS:
+            return f"{app.mention} ɪs ᴜɴᴅᴇʀ ᴍᴀɪɴᴛᴇɴᴀɴᴄᴇ, ᴠɪsɪᴛ <a href={SUPPORT_CHAT}>sᴜᴘᴘᴏʀᴛ ᴄʜᴀᴛ</a> ғᴏʀ ᴋɴᴏᴡɪɴɢ ᴛʜᴇ ʀᴇᴀsᴏɴ."
+    return None
+
+
 def language(mystic):
     async def wrapper(_, message, **kwargs):
-        if await is_maintenance() is False:
-            if message.from_user.id not in SUDOERS:
-                return await message.reply_text(
-                    text=f"{app.mention} ɪs ᴜɴᴅᴇʀ ᴍᴀɪɴᴛᴇɴᴀɴᴄᴇ, ᴠɪsɪᴛ <a href={SUPPORT_CHAT}>sᴜᴘᴘᴏʀᴛ ᴄʜᴀᴛ</a> ғᴏʀ ᴋɴᴏᴡɪɴɢ ᴛʜᴇ ʀᴇᴀsᴏɴ.",
-                    disable_web_page_preview=True,
-                )
-        try:
-            await message.delete()
-        except:
-            pass
+        maintenance_msg = await _check_maintenance_message(message.from_user.id)
+        if maintenance_msg:
+            return await message.reply_text(
+                text=maintenance_msg,
+                disable_web_page_preview=True,
+            )
 
         try:
-            language = await get_lang(message.chat.id)
-            language = get_string(language)
-        except:
-            language = get_string("en")
+            await message.delete()
+        except Exception:
+            pass
+
+        language = await _get_language_strings(message.chat.id)
         return await mystic(_, message, language)
 
     return wrapper
 
 
 def language_no_delete(mystic):
-    """Language decorator for antispam commands - no message deletion, no maintenance checks"""
     async def wrapper(_, message, **kwargs):
-        try:
-            language = await get_lang(message.chat.id)
-            language = get_string(language)
-        except:
-            language = get_string("en")
+        language = await _get_language_strings(message.chat.id)
         return await mystic(_, message, language)
 
     return wrapper
@@ -44,17 +51,14 @@ def language_no_delete(mystic):
 
 def languageCB(mystic):
     async def wrapper(_, CallbackQuery, **kwargs):
-        if await is_maintenance() is False:
-            if CallbackQuery.from_user.id not in SUDOERS:
-                return await CallbackQuery.answer(
-                    f"{app.mention} ɪs ᴜɴᴅᴇʀ ᴍᴀɪɴᴛᴇɴᴀɴᴄᴇ, ᴠɪsɪᴛ sᴜᴘᴘᴏʀᴛ ᴄʜᴀᴛ ғᴏʀ ᴋɴᴏᴡɪɴɢ ᴛʜᴇ ʀᴇᴀsᴏɴ.",
-                    show_alert=True,
-                )
-        try:
-            language = await get_lang(CallbackQuery.message.chat.id)
-            language = get_string(language)
-        except:
-            language = get_string("en")
+        maintenance_msg = await _check_maintenance_message(CallbackQuery.from_user.id)
+        if maintenance_msg:
+            return await CallbackQuery.answer(
+                f"{app.mention} ɪs ᴜɴᴅᴇʀ ᴍᴀɪɴᴛᴇɴᴄᴇ, ᴠɪsɪᴛ sᴜᴘᴘᴏʀᴛ ᴄʜᴀᴛ ғᴏʀ ᴋɴᴏᴡɪɴɢ ᴛʜᴇ ʀᴇᴀsᴏɴ.",
+                show_alert=True,
+            )
+
+        language = await _get_language_strings(CallbackQuery.message.chat.id)
         return await mystic(_, CallbackQuery, language)
 
     return wrapper
@@ -62,11 +66,7 @@ def languageCB(mystic):
 
 def LanguageStart(mystic):
     async def wrapper(_, message, **kwargs):
-        try:
-            language = await get_lang(message.chat.id)
-            language = get_string(language)
-        except:
-            language = get_string("en")
+        language = await _get_language_strings(message.chat.id)
         return await mystic(_, message, language)
 
     return wrapper

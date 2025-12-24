@@ -34,7 +34,7 @@ def _validate_playing(chat_id):
 )
 @AdminRightsCheck
 async def playback(cli, message: Message, _, chat_id):
-    playing, file_path = _validate_playing(chat_id)
+    playing, _ = _validate_playing(chat_id)
     if not playing:
         return await message.reply_text(_["queue_2"])
     return await message.reply_text(
@@ -47,18 +47,19 @@ def _check_admin_permission(user_id, chat_id, is_non_admin):
     if is_non_admin or user_id in SUDOERS:
         return True
     admins = adminlist.get(chat_id)
-    if not admins or user_id not in admins:
-        return False
-    return True
+    return admins and user_id in admins
 
 
 @app.on_callback_query(filters.regex("SpeedUP") & ~BANNED_USERS)
 @languageCB
 async def manage_callback(client, CallbackQuery, _):
-    callback_data = CallbackQuery.data.strip()
-    callback_request = callback_data.split(None, 1)[1]
-    chat, speed = callback_request.split("|")
-    chat_id = int(chat)
+    try:
+        callback_data = CallbackQuery.data.strip()
+        callback_request = callback_data.split(None, 1)[1]
+        chat, speed = callback_request.split("|")
+        chat_id = int(chat)
+    except (ValueError, IndexError):
+        return
     
     if not await is_active_chat(chat_id):
         return await CallbackQuery.answer(_["general_5"], show_alert=True)
@@ -73,14 +74,8 @@ async def manage_callback(client, CallbackQuery, _):
         return await CallbackQuery.answer(_["queue_2"], show_alert=True)
     
     current_speed = playing[0].get("speed")
-    # Block if the requested speed matches the current speed
-    # For 1.0x, also treat None/unset as 1.0x (default normal speed)
-    if str(speed) == "1.0":
-        # Block only if already at normal speed (1.0x or unset/None)
-        if not current_speed or str(current_speed) == "1.0":
-            return await CallbackQuery.answer(_["admin_29"], show_alert=True)
-    elif current_speed and str(current_speed) == str(speed):
-        # For other speeds, block if already at that speed
+    current_speed_str = str(current_speed) if current_speed else "1.0"
+    if str(speed) == current_speed_str:
         return await CallbackQuery.answer(_["admin_29"], show_alert=True)
     
     if chat_id in checker:
@@ -90,7 +85,7 @@ async def manage_callback(client, CallbackQuery, _):
     try:
         try:
             await CallbackQuery.answer(_["admin_31"])
-        except:
+        except Exception:
             pass
         
         mystic = await CallbackQuery.edit_message_text(
@@ -103,7 +98,7 @@ async def manage_callback(client, CallbackQuery, _):
                 text=_["admin_34"].format(speed, CallbackQuery.from_user.mention),
                 reply_markup=close_markup(_),
             )
-        except:
+        except Exception:
             await mystic.edit_text(_["admin_33"], reply_markup=close_markup(_))
     finally:
         if chat_id in checker:

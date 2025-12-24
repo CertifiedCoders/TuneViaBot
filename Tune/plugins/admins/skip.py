@@ -25,8 +25,22 @@ async def stop_stream_on_empty(message: Message, _, chat_id):
             reply_markup=close_markup(_),
         )
         await StreamController.stop_stream(chat_id)
-    except:
+    except Exception:
         pass
+
+
+async def pop_track(chat_id):
+    check = db.get(chat_id)
+    if not check:
+        return None
+    
+    try:
+        popped = check.pop(0)
+        if popped:
+            await auto_clean(popped)
+        return check if check else None
+    except (IndexError, KeyError, AttributeError):
+        return None
 
 
 async def skip_multiple_tracks(message: Message, _, chat_id, count: int):
@@ -46,15 +60,13 @@ async def skip_multiple_tracks(message: Message, _, chat_id, count: int):
     if not (1 <= count <= max_skip):
         return await message.reply_text(_["admin_11"].format(max_skip))
     
-    for _unused in range(count):
+    for _ in range(count):
         try:
-            popped = check.pop(0)
-            if popped:
-                await auto_clean(popped)
-            if not check:
+            remaining = await pop_track(chat_id)
+            if remaining is None:
                 await stop_stream_on_empty(message, _, chat_id)
                 return True
-        except:
+        except Exception:
             return await message.reply_text(_["admin_12"])
     
     return False
@@ -62,6 +74,7 @@ async def skip_multiple_tracks(message: Message, _, chat_id, count: int):
 
 async def send_stream_message(message: Message, _, chat_id, check, queued, title, user, streamtype, videoid, status):
     button = stream_markup(_, chat_id)
+    duration = check[0]["dur"]
     
     if "live_" in queued:
         n, link = await YouTube.video(videoid, True)
@@ -70,7 +83,7 @@ async def send_stream_message(message: Message, _, chat_id, check, queued, title
         
         try:
             await StreamController.skip_stream(chat_id, link, video=status)
-        except:
+        except Exception:
             return await message.reply_text(_["call_6"])
         
         img = await get_thumb(videoid)
@@ -79,7 +92,7 @@ async def send_stream_message(message: Message, _, chat_id, check, queued, title
             caption=_["stream_1"].format(
                 f"https://t.me/{app.username}?start=info_{videoid}",
                 title[:23],
-                check[0]["dur"],
+                duration,
                 user,
             ),
             reply_markup=InlineKeyboardMarkup(button),
@@ -96,12 +109,12 @@ async def send_stream_message(message: Message, _, chat_id, check, queued, title
                 video=status,
                 title=title,
             )
-        except:
+        except Exception:
             return await mystic.edit_text(_["call_6"])
         
         try:
             await StreamController.skip_stream(chat_id, file_path, video=status)
-        except:
+        except Exception:
             return await mystic.edit_text(_["call_6"])
         
         img = await get_thumb(videoid)
@@ -110,7 +123,7 @@ async def send_stream_message(message: Message, _, chat_id, check, queued, title
             caption=_["stream_1"].format(
                 f"https://t.me/{app.username}?start=info_{videoid}",
                 title[:23],
-                check[0]["dur"],
+                duration,
                 user,
             ),
             reply_markup=InlineKeyboardMarkup(button),
@@ -121,7 +134,7 @@ async def send_stream_message(message: Message, _, chat_id, check, queued, title
     elif "index_" in queued:
         try:
             await StreamController.skip_stream(chat_id, videoid, video=status)
-        except:
+        except Exception:
             return await message.reply_text(_["call_6"])
         
         run = await message.reply_photo(
@@ -134,24 +147,24 @@ async def send_stream_message(message: Message, _, chat_id, check, queued, title
     else:
         try:
             await StreamController.skip_stream(chat_id, queued, video=status)
-        except:
+        except Exception:
             return await message.reply_text(_["call_6"])
         
         if videoid == "telegram":
             photo = config.TELEGRAM_AUDIO_URL if str(streamtype) == "audio" else config.TELEGRAM_VIDEO_URL
-            caption = _["stream_1"].format(config.SUPPORT_CHAT, title[:23], check[0]["dur"], user)
+            caption = _["stream_1"].format(config.SUPPORT_CHAT, title[:23], duration, user)
             msg_type = "tg"
         elif videoid == "soundcloud":
             thumb_source = queued if is_soundcloud_url(queued) else (videoid if is_soundcloud_url(videoid) else "soundcloud")
             photo = await get_thumb(thumb_source)
-            caption = _["stream_1"].format(config.SUPPORT_CHAT, title[:23], check[0]["dur"], user)
+            caption = _["stream_1"].format(config.SUPPORT_CHAT, title[:23], duration, user)
             msg_type = "tg"
         else:
             photo = await get_thumb(videoid)
             caption = _["stream_1"].format(
                 f"https://t.me/{app.username}?start=info_{videoid}",
                 title[:23],
-                check[0]["dur"],
+                duration,
                 user,
             )
             msg_type = "stream"
@@ -169,7 +182,9 @@ async def send_stream_message(message: Message, _, chat_id, check, queued, title
 )
 @AdminRightsCheck
 async def skip(cli, message: Message, _, chat_id):
-    if len(message.command) >= 2:
+    has_count = len(message.command) >= 2
+    
+    if has_count:
         state = message.text.split(None, 1)[1].strip()
         if not state.isnumeric():
             return await message.reply_text(_["admin_9"])
@@ -177,25 +192,17 @@ async def skip(cli, message: Message, _, chat_id):
         stopped = await skip_multiple_tracks(message, _, chat_id, int(state))
         if stopped:
             return
-        # If skip_multiple_tracks returned False, it already popped N items
-        # Continue to play the next track (which is now at index 0)
     
-    check = db.get(chat_id)
-    if not check:
-        return await message.reply_text(_["queue_2"])
-    
-    # Only pop if we didn't use skip_multiple_tracks (simple /skip command)
-    if len(message.command) < 2:
-        try:
-            popped = check.pop(0)
-            if popped:
-                await auto_clean(popped)
-            if not check:
-                await stop_stream_on_empty(message, _, chat_id)
-                return
-        except:
+    if not has_count:
+        remaining = await pop_track(chat_id)
+        if remaining is None:
             await stop_stream_on_empty(message, _, chat_id)
             return
+        check = remaining
+    else:
+        check = db.get(chat_id)
+        if not check:
+            return await message.reply_text(_["queue_2"])
     
     queued = check[0]["file"]
     title = check[0]["title"].title()

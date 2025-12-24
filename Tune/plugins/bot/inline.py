@@ -14,24 +14,38 @@ from Tune import app
 @app.on_inline_query(~BANNED_USERS)
 async def inline_query_handler(client, query):
     text = query.query.strip().lower()
-    answers = []
-    if text.strip() == "":
+    if not text:
         try:
             await client.answer_inline_query(query.id, results=answer, cache_time=10)
-        except:
+        except Exception:
             return
-    else:
-        a = VideosSearch(text, limit=20)
-        result = (await a.next()).get("result")
-        for x in range(15):
-            title = (result[x]["title"]).title()
-            duration = result[x]["duration"]
-            views = result[x]["viewCount"]["short"]
-            thumbnail = result[x]["thumbnails"][0]["url"].split("?")[0]
-            channellink = result[x]["channel"]["link"]
-            channel = result[x]["channel"]["name"]
-            link = result[x]["link"]
-            published = result[x]["publishedTime"]
+        return
+
+    videos_search = VideosSearch(text, limit=20)
+    search_result = await videos_search.next()
+    results = search_result.get("result") if search_result else None
+
+    if not results:
+        return
+
+    answers = []
+    for video in results[:15]:
+        try:
+            title = video.get("title", "").title()
+            duration = video.get("duration", "")
+            views = video.get("viewCount", {}).get("short", "")
+            thumbnails = video.get("thumbnails", [])
+            thumbnail_url = thumbnails[0].get("url", "") if thumbnails else ""
+            thumbnail = thumbnail_url.split("?")[0] if thumbnail_url else ""
+            channel_info = video.get("channel", {})
+            channellink = channel_info.get("link", "")
+            channel = channel_info.get("name", "")
+            link = video.get("link", "")
+            published = video.get("publishedTime", "")
+
+            if not all([title, link, thumbnail]):
+                continue
+
             description = f"{views} | {duration} ᴍɪɴᴜᴛᴇs | {channel}  | {published}"
             buttons = InlineKeyboardMarkup(
                 [
@@ -63,7 +77,11 @@ async def inline_query_handler(client, query):
                     reply_markup=buttons,
                 )
             )
+        except (KeyError, IndexError, TypeError):
+            continue
+
+    if answers:
         try:
-            return await client.answer_inline_query(query.id, results=answers)
-        except:
+            await client.answer_inline_query(query.id, results=answers)
+        except Exception:
             return

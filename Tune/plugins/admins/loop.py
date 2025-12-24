@@ -17,24 +17,24 @@ async def admins(cli, message: Message, _, chat_id):
         return await message.reply_text(usage)
     state = message.text.split(None, 1)[1].strip()
     if state.isnumeric():
-        state = int(state)
-        if 1 <= state <= 10:
-            got = await get_loop(chat_id)
-            if got != 0:
-                state = got + state
-            if int(state) > 10:
-                state = 10
-            await set_loop(chat_id, state)
+        loop_count = int(state)
+        if 1 <= loop_count <= 10:
+            current_loop = await get_loop(chat_id)
+            if current_loop != 0:
+                loop_count = current_loop + loop_count
+            if loop_count > 10:
+                loop_count = 10
+            await set_loop(chat_id, loop_count)
             return await message.reply_text(
-                text=_["admin_18"].format(state, message.from_user.mention),
+                text=_["admin_18"].format(loop_count, message.from_user.mention),
                 reply_markup=close_markup(_),
             )
         else:
-            return await message.reply_text(_["admin_17"])
+            return await message.reply_text(usage)
     elif state.lower() == "enable":
         await set_loop(chat_id, 10)
         return await message.reply_text(
-            text=_["admin_18"].format(state, message.from_user.mention),
+            text=_["admin_18"].format(10, message.from_user.mention),
             reply_markup=close_markup(_),
         )
     elif state.lower() == "disable":

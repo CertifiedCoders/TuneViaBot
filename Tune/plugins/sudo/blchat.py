@@ -14,7 +14,10 @@ from config import BANNED_USERS
 async def blacklist_chat_func(client, message: Message, _):
     if len(message.command) != 2:
         return await message.reply_text(_["black_1"])
-    chat_id = int(message.text.strip().split()[1])
+    try:
+        chat_id = int(message.command[1])
+    except ValueError:
+        return await message.reply_text(_["black_1"])
     if chat_id in await blacklisted_chats():
         return await message.reply_text(_["black_2"])
     blacklisted = await blacklist_chat(chat_id)
@@ -24,7 +27,7 @@ async def blacklist_chat_func(client, message: Message, _):
         await message.reply_text(_["black_9"])
     try:
         await app.leave_chat(chat_id)
-    except:
+    except Exception:
         pass
 
 
@@ -32,10 +35,13 @@ async def blacklist_chat_func(client, message: Message, _):
     filters.command(["whitelistchat", "unblacklistchat", "unblchat"]) & SUDOERS
 )
 @language_no_delete
-async def white_funciton(client, message: Message, _):
+async def whitelist_function(client, message: Message, _):
     if len(message.command) != 2:
         return await message.reply_text(_["black_4"])
-    chat_id = int(message.text.strip().split()[1])
+    try:
+        chat_id = int(message.command[1])
+    except ValueError:
+        return await message.reply_text(_["black_4"])
     if chat_id not in await blacklisted_chats():
         return await message.reply_text(_["black_5"])
     whitelisted = await whitelist_chat(chat_id)
@@ -47,16 +53,14 @@ async def white_funciton(client, message: Message, _):
 @app.on_message(filters.command(["blchats", "blacklistedchats"]) & ~BANNED_USERS)
 @language_no_delete
 async def all_chats(client, message: Message, _):
+    blacklisted = await blacklisted_chats()
+    if not blacklisted:
+        return await message.reply_text(_["black_8"].format(app.mention))
     text = _["black_7"]
-    j = 0
-    for count, chat_id in enumerate(await blacklisted_chats(), 1):
+    for count, chat_id in enumerate(blacklisted, 1):
         try:
             title = (await app.get_chat(chat_id)).title
-        except:
+        except Exception:
             title = "ᴘʀɪᴠᴀᴛᴇ ᴄʜᴀᴛ"
-        j = 1
         text += f"{count}. {title}[<code>{chat_id}</code>]\n"
-    if j == 0:
-        await message.reply_text(_["black_8"].format(app.mention))
-    else:
-        await message.reply_text(text)
+    await message.reply_text(text)

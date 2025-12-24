@@ -52,11 +52,19 @@ async def _safe_send_photo(chat_id: int, photo: str, caption: str, reply_markup=
         except errors.FloodWait as e:
             await asyncio.sleep(e.value + 1)
         except errors.ButtonUrlInvalid:
-            return await app.send_photo(
-                chat_id=chat_id,
-                photo=photo,
-                caption=caption
-            )
+            for fallback_attempt in range(max_retries):
+                try:
+                    return await app.send_photo(
+                        chat_id=chat_id,
+                        photo=photo,
+                        caption=caption
+                    )
+                except errors.FloodWait as e:
+                    await asyncio.sleep(e.value + 1)
+                except Exception:
+                    if fallback_attempt == max_retries - 1:
+                        raise
+                    await asyncio.sleep(1)
         except Exception:
             if attempt == max_retries - 1:
                 raise
@@ -66,7 +74,7 @@ async def _safe_send_message(chat_id: int, text: str, max_retries=3):
     for attempt in range(max_retries):
         try:
             await app.send_message(chat_id, text)
-            break
+            return
         except errors.FloodWait as e:
             await asyncio.sleep(e.value + 1)
         except Exception:
@@ -97,7 +105,10 @@ async def join_watcher(_, message: Message):
                 member_count = await app.get_chat_members_count(chat.id)
             except errors.FloodWait as fw:
                 await asyncio.sleep(fw.value + 1)
-                member_count = await app.get_chat_members_count(chat.id)
+                try:
+                    member_count = await app.get_chat_members_count(chat.id)
+                except Exception:
+                    pass
             except Exception:
                 pass
 

@@ -6,10 +6,12 @@ from datetime import datetime
 from functools import wraps
 
 import aiofiles
+from pyrogram.enums import ParseMode
 from pyrogram.errors.exceptions.forbidden_403 import ChatWriteForbidden
 
 from Tune import app
 from config import DEBUG_IGNORE_LOG, LOGGER_ID
+from Tune.core.dir import LOGS_DIR
 from Tune.utils.exceptions import (
     is_expected_error,
     is_graceful_error,
@@ -18,7 +20,7 @@ from Tune.utils.exceptions import (
 )
 from Tune.utils.pastebin import TuneBin
 
-DEBUG_LOG_FILE = "ignored_errors.log"
+DEBUG_LOG_FILE = os.path.join(LOGS_DIR, "ignored_errors.log")
 
 
 def _is_already_logged(err: BaseException) -> bool:
@@ -33,8 +35,6 @@ def _mark_logged(err: BaseException) -> None:
 
 
 def _get_error_severity(err: Exception) -> str:
-    if is_silent_error(err) or is_expected_error(err):
-        return "info"
     if is_graceful_error(err):
         return "warning"
     if isinstance(err, (SystemError, RuntimeError, MemoryError)):
@@ -46,23 +46,60 @@ def _should_skip_error(err: Exception) -> bool:
     return is_expected_error(err) or is_silent_error(err)
 
 
+def _get_severity_emoji(severity: str) -> str:
+    emoji_map = {
+        "warning": "⚠️",
+        "critical": "🔴",
+        "error": "❌"
+    }
+    return emoji_map.get(severity.lower(), "❌")
+
+
 def format_traceback(err, tb, label: str, extras: dict = None) -> str:
     exc_type = type(err).__name__
+    severity = _get_error_severity(err)
+    severity_emoji = _get_severity_emoji(severity)
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
     parts = [
-        f"🚨 <b>{label} Captured</b>",
-        f"📍 <b>Error Type:</b> <code>{exc_type}</code>"
+        f"<b>{severity_emoji} {label}</b>",
+        f"<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>",
+        f"",
+        f"<b>📋 Type:</b> <code>{exc_type}</code>",
+        f"<b>⚡ Severity:</b> <code>{severity.upper()}</code>",
+        f"<b>🕐 Time:</b> <code>{timestamp}</code>"
     ]
+    
     if extras:
-        parts.extend([f"📌 <b>{k}:</b> <code>{v}</code>" for k, v in extras.items()])
-    parts.append(f"\n<b>Traceback:</b>\n<pre>{tb}</pre>")
+        parts.append("")
+        for k, v in extras.items():
+            icon = "👤" if "User" in k else "💬" if "Command" in k else "🆔" if "Chat ID" in k else "⚙️" if "Function" in k else "📌"
+            parts.append(f"<b>{icon} {k}:</b> <code>{v}</code>")
+    
+    parts.extend([
+        "",
+        f"<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>",
+        f"",
+        f"<b>📜 Traceback:</b>",
+        f"<pre>{tb}</pre>"
+    ])
+    
     return "\n".join(parts)
 
 
 async def send_large_error(text: str, caption: str, filename: str):
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
     try:
         paste_url = await TuneBin(text)
         if paste_url:
-            await app.send_message(LOGGER_ID, f"{caption}\n\n🔗 Paste: {paste_url}")
+            enhanced_caption = (
+                f"{caption}\n\n"
+                f"<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n\n"
+                f"<b>📄 Full Traceback:</b> <a href='{paste_url}'>View on Pastebin</a>\n"
+                f"<b>🕐 Time:</b> <code>{timestamp}</code>"
+            )
+            await app.send_message(LOGGER_ID, enhanced_caption, parse_mode=ParseMode.HTML)
             return
     except Exception:
         pass
@@ -70,7 +107,14 @@ async def send_large_error(text: str, caption: str, filename: str):
     path = f"{filename}.txt"
     async with aiofiles.open(path, "w") as f:
         await f.write(text)
-    await app.send_document(LOGGER_ID, path, caption="❌ Error Log (Fallback)")
+    
+    fallback_caption = (
+        f"<b>📎 Error Log File</b>\n"
+        f"<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n\n"
+        f"<b>🕐 Time:</b> <code>{timestamp}</code>\n"
+        f"<b>📝 Filename:</b> <code>{filename}.txt</code>"
+    )
+    await app.send_document(LOGGER_ID, path, caption=fallback_caption, parse_mode=ParseMode.HTML)
     os.remove(path)
 
 
@@ -78,6 +122,7 @@ async def log_ignored_error(err, tb, label, extras=None):
     if not DEBUG_IGNORE_LOG:
         return
 
+    os.makedirs(LOGS_DIR, exist_ok=True)
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     lines = [
         f"\n--- Ignored Error | {label} @ {timestamp} ---",
@@ -100,12 +145,13 @@ async def handle_trace(err, tb, label, filename, extras=None):
         return
 
     severity = _get_error_severity(err)
-    caption = format_traceback(err, tb, f"{label} [{severity.upper()}]", extras)
+    caption = format_traceback(err, tb, label, extras)
 
     if len(caption) > 4096:
-        await send_large_error(tb, caption.split("\n\n")[0], filename)
+        header = f"<b>{_get_severity_emoji(severity)} {label} [{severity.upper()}]</b>"
+        await send_large_error(tb, header, filename)
     else:
-        await app.send_message(LOGGER_ID, caption)
+        await app.send_message(LOGGER_ID, caption, parse_mode=ParseMode.HTML)
 
     _mark_logged(err)
 

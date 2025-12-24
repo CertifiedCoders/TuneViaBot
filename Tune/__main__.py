@@ -6,15 +6,15 @@ from pyrogram import idle
 from pytgcalls.exceptions import NoActiveGroupCall
 
 import config
+from config import BANNED_USERS
 from Tune import LOGGER, app, userbot
 from Tune.core.call import StreamController
+from Tune.core.userbot import get_session_count
 from Tune.misc import sudo
 from Tune.plugins import ALL_MODULES
-from Tune.core.userbot import get_session_count
-from Tune.utils.database import get_banned_users, get_gbanned, get_spam_blocked_users
 from Tune.plugins.security.antispam_handler import get_spam_blocked_cache, log_antispam_status
-from Tune.utils.cookie_handler import fetch_and_store_cookies 
-from config import BANNED_USERS
+from Tune.utils.cookie_handler import fetch_and_store_cookies
+from Tune.utils.database import get_banned_users, get_gbanned, get_spam_blocked_users
 
 
 async def init():
@@ -61,15 +61,15 @@ async def init():
         await StreamController.stream_call("https://te.legra.ph/file/29f784eb49d230ab62e9e.mp4")
     except NoActiveGroupCall:
         LOGGER("Tune").error(
-            "ᴘʟᴇᴀsᴇ ᴛᴜʀɴ ᴏɴ ᴛʜᴇ ᴠᴏɪᴄᴇ ᴄʜᴀᴛ ᴏғ ʏᴏᴜʀ ʟᴏɢ ɢʀᴏᴜᴘ/ᴄʜᴀɴɴᴇʟ.\n\nᴀɴɴɪᴇ ʙᴏᴛ sᴛᴏᴘᴘᴇᴅ..."
+            "ᴘʟᴇᴀsᴇ ᴛᴜʀɴ ᴏɴ ᴛʜᴇ ᴠᴏɪᴄᴇ ᴄʜᴀᴛ ᴏғ ʏᴏᴜʀ ʟᴏɢ ɢʀᴏᴜᴘ/ᴄʜᴀɴɴᴇʟ.\n\nᴛᴜɴᴇ ʙᴏᴛ sᴛᴏᴘᴘᴇᴅ..."
         )
         exit()
-    except:
+    except Exception:
         pass
 
     await StreamController.decorators()
     LOGGER("Tune").info(
-        "\x54\x75\x6e\x65\x20\x56\x69\x61\x20\x4d\x75\x73\x69\x63\x20\x42\x6f\x74\x20\x53\x74\x61\x72\x74\x65\x64\x20\x53\x75\x63\x63\x65\x73\x73\x66\x75\x6c\x6c\x79\x2e"
+        "\xe1\xb4\x9b\xe1\xb4\x9c\xc9\xb4\xe1\xb4\x87\x20\xca\x99\xe1\xb4\x8f\xe1\xb4\x9b\x20\x73\xe1\xb4\x9b\xe1\xb4\x80\xca\x80\xe1\xb4\x9b\xe1\xb4\x87\xe1\xb4\x85\x20\x73\xe1\xb4\x9c\xe1\xb4\x84\xe1\xb4\x84\xe1\xb4\x87\x73\x73\xd2\x93\xe1\xb4\x9c\xca\x9f\xca\x9f\xca\x8f"
     )
     await idle()
     await app.stop()

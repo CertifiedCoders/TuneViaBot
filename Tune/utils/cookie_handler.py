@@ -18,6 +18,9 @@ def _extract_paste_id(url: str) -> str:
 
 def resolve_raw_cookie_url(url: str) -> str:
     url = (url or "").strip()
+    if not url:
+        return url
+
     low = url.lower()
 
     if "pastebin.com/" in low and "/raw/" not in low:
@@ -51,7 +54,7 @@ async def fetch_and_store_cookies():
     except Exception as e:
         raise ConnectionError(f"⚠️ ᴄᴀɴ'ᴛ ꜰᴇᴛᴄʜ ᴄᴏᴏᴋɪᴇs:\n{e}")
 
-    cookies = (response.text or "").strip()
+    cookies = response.text.strip()
 
     if not cookies.startswith("# Netscape"):
         raise ValueError("⚠️ ɪɴᴠᴀʟɪᴅ ᴄᴏᴏᴋɪᴇ ꜰᴏʀᴍᴀᴛ. ɴᴇᴇᴅs ɴᴇᴛsᴄᴀᴘᴇ ꜰᴏʀᴍᴀᴛ.")

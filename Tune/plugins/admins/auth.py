@@ -25,9 +25,7 @@ def _update_adminlist(chat_id, user_id, add=True):
 
 
 def _validate_command(message):
-    if not message.reply_to_message and len(message.command) != 2:
-        return False
-    return True
+    return message.reply_to_message or len(message.command) == 2
 
 
 @app.on_message(filters.command("auth") & filters.group & ~BANNED_USERS)
@@ -90,6 +88,9 @@ async def authusers(client, message: Message, _):
 
     for token in auth_tokens:
         auth_data = await get_authuser(message.chat.id, token)
+        if not auth_data:
+            continue
+
         user_id = auth_data["auth_user_id"]
         admin_id = auth_data["admin_id"]
         admin_name = auth_data["admin_name"]

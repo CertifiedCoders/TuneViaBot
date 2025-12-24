@@ -14,7 +14,6 @@ from Tune.utils.database import (
     remove_spam_blocked_user,
 )
 from Tune.utils.decorators.language import language_no_delete
-from Tune.utils.extraction import extract_user
 from Tune.plugins.security.antispam_handler import get_spam_blocked_cache, clear_user_notification, get_debug_file_path
 from Tune.utils.antispam import reset_user_tracking
 
@@ -52,37 +51,25 @@ async def antispam_command(client, message: Message, _):
         
         if message.reply_to_message and message.reply_to_message.from_user:
             user_id = int(message.reply_to_message.from_user.id)
-            try:
-                user = await app.get_users(user_id)
-                user_mention = user.mention or user.first_name or _["antispam_22"].format(user_id)
-            except:
-                user_mention = _["antispam_22"].format(user_id)
         elif len(message.command) >= 3:
             cmd_arg = message.command[2].strip()
-            if cmd_arg.lstrip('-').isdigit():
-                user_id = int(cmd_arg)
-                try:
-                    user = await app.get_users(user_id)
-                    user_mention = user.mention or user.first_name or _["antispam_22"].format(user_id)
-                except:
-                    user_mention = _["antispam_22"].format(user_id)
-            else:
-                try:
-                    user = await extract_user(message)
-                    user_id = int(user.id)
-                    user_mention = user.mention or user.first_name or _["antispam_22"].format(user_id)
-                except Exception as e:
-                    return await message.reply_text(_["antispam_9"].format(str(e)))
-        else:
             try:
-                user = await extract_user(message)
-                user_id = int(user.id)
-                user_mention = user.mention or user.first_name or _["antispam_22"].format(user_id)
+                if cmd_arg.lstrip('-').isdigit():
+                    user_id = int(cmd_arg)
+                else:
+                    user = await app.get_users(cmd_arg)
+                    user_id = int(user.id)
             except Exception as e:
                 return await message.reply_text(_["antispam_9"].format(str(e)))
         
         if user_id is None:
             return await message.reply_text(_["antispam_10"])
+        
+        try:
+            user = await app.get_users(user_id)
+            user_mention = user.mention or user.first_name or _["antispam_22"].format(user_id)
+        except:
+            user_mention = _["antispam_22"].format(user_id)
         
         cache = get_spam_blocked_cache()
         is_in_cache = user_id in cache

@@ -8,7 +8,7 @@ from pyrogram import filters, StopPropagation
 from pyrogram.types import Message
 
 from Tune import app
-from Tune.utils.antispam import track_command, reset_user_tracking, get_user_command_count, TIME_WINDOW_SECONDS
+from Tune.utils.antispam import track_command, get_user_command_count, TIME_WINDOW_SECONDS
 from Tune.utils.database import is_spam_blocked, is_antispam_enabled, get_lang
 from config import SUPPORT_CHAT, OWNER_ID
 from Tune.core.dir import LOGS_DIR
@@ -20,7 +20,7 @@ _user_notified_cache = set()
 _support_notified_cache = set()
 _debug_file_path = os.path.join(LOGS_DIR, "antispam_debug.txt")
 _COMMAND_PREFIXES = ["/", "!", ".", "#", "?"]
-_loaded_commands_cache = set()  # Cache of all loaded bot commands
+_loaded_commands_cache = set()
 
 
 def _write_debug_log(event_type: str, data: dict):
@@ -107,6 +107,8 @@ async def _notify_support_chat(user_id: int, user_name: str, username: str, chat
 
 def _extract_command_from_text(text: str) -> str:
     text = text.strip()
+    if not text or len(text) <= 1:
+        return "unknown"
     for prefix in _COMMAND_PREFIXES:
         if text.startswith(prefix):
             parts = text[1:].split(maxsplit=1)
@@ -116,10 +118,8 @@ def _extract_command_from_text(text: str) -> str:
 
 
 def _extract_commands_from_source():
-    """Extract all command names from source code files."""
     commands_set = set()
     try:
-        # Try multiple possible plugin directory paths
         possible_dirs = [
             os.path.join(os.getcwd(), "Tune", "plugins"),
             os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "plugins"),
@@ -135,7 +135,6 @@ def _extract_commands_from_source():
             _write_debug_log("EXTRACT_COMMANDS_ERROR", {"error": "plugins directory not found"})
             return commands_set
         
-        # Pattern to match filters.command(["cmd1", "cmd2"]) or filters.command("cmd")
         command_pattern = r'filters\.command\s*\(\s*(\[[^\]]+\]|["\'][^"\']+["\'])\s*\)'
         
         for root, dirs, files in os.walk(plugins_dir):
@@ -148,20 +147,16 @@ def _extract_commands_from_source():
                     with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
                         content = f.read()
                         
-                        # Find all command filter patterns
                         matches = re.finditer(command_pattern, content, re.IGNORECASE | re.MULTILINE)
                         for match in matches:
                             cmd_arg = match.group(1).strip()
                             
-                            # Check if it's a list of commands: ["cmd1", "cmd2"]
                             if cmd_arg.startswith('[') and cmd_arg.endswith(']'):
-                                # Extract all commands from the list
                                 list_content = cmd_arg[1:-1]
                                 cmd_matches = re.findall(r'["\']([^"\']+)["\']', list_content)
                                 for cmd in cmd_matches:
                                     if cmd and cmd.strip():
                                         commands_set.add(cmd.strip().lower())
-                            # Single command: "cmd" or 'cmd'
                             elif (cmd_arg.startswith('"') and cmd_arg.endswith('"')) or \
                                  (cmd_arg.startswith("'") and cmd_arg.endswith("'")):
                                 cmd = cmd_arg[1:-1].strip()
@@ -177,15 +172,13 @@ def _extract_commands_from_source():
 
 
 def _get_all_protected_commands():
-    """Get all registered bot commands from Pyrogram dispatcher and source files."""
     commands_set = set()
     try:
-        # Try to get commands from Pyrogram dispatcher (most reliable)
         dispatcher = app.dispatcher
         handler_groups = getattr(dispatcher, 'groups', None)
         
         if handler_groups and isinstance(handler_groups, dict):
-            for group_id, handlers in handler_groups.items():
+            for handlers in handler_groups.values():
                 if not isinstance(handlers, (list, tuple)):
                     continue
                 for handler in handlers:
@@ -194,16 +187,11 @@ def _get_all_protected_commands():
                         if not filter_obj:
                             continue
                         
-                        # Check if filter is a command filter
                         filter_str = str(filter_obj)
-                        
-                        # Try to extract command from filter
-                        # Pattern for single command: filters.command("cmd")
                         single_cmd = re.search(r'command\(["\']([^"\']+)["\']\)', filter_str, re.IGNORECASE)
                         if single_cmd:
                             commands_set.add(single_cmd.group(1).lower())
                         
-                        # Pattern for multiple commands: filters.command(["cmd1", "cmd2"])
                         list_match = re.search(r'command\(\[([^\]]+)\]\)', filter_str, re.IGNORECASE)
                         if list_match:
                             for cmd in re.findall(r'["\']([^"\']+)["\']', list_match.group(1)):
@@ -211,25 +199,21 @@ def _get_all_protected_commands():
                     except Exception:
                         continue
         
-        # If dispatcher method didn't work, fall back to source code extraction
         if not commands_set:
             commands_set = _extract_commands_from_source()
     except Exception as e:
         _write_debug_log("GET_COMMANDS_ERROR", {"error": str(e)})
-        # Fall back to source code extraction
         commands_set = _extract_commands_from_source()
     
     return sorted(commands_set) if commands_set else []
 
 
 def _load_and_cache_commands():
-    """Load all bot commands and cache them for fast lookup."""
     global _loaded_commands_cache
     try:
         commands_list = _get_all_protected_commands()
         _loaded_commands_cache = set(commands_list)
         
-        # Write all loaded commands to debug file
         try:
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             with open(_debug_file_path, "a", encoding="utf-8") as f:
@@ -246,7 +230,7 @@ def _load_and_cache_commands():
         
         _write_debug_log("COMMANDS_CACHED", {
             "command_count": len(_loaded_commands_cache),
-            "commands": list(_loaded_commands_cache)[:20]  # First 20 for debug
+            "commands": list(_loaded_commands_cache)[:20]
         })
         
         return _loaded_commands_cache
@@ -256,9 +240,7 @@ def _load_and_cache_commands():
 
 
 def _is_bot_command(command_name: str) -> bool:
-    """Check if a command is actually loaded in the bot."""
     if not _loaded_commands_cache:
-        # If cache is empty, try to load commands
         _load_and_cache_commands()
     return command_name.lower() in _loaded_commands_cache
 
@@ -326,10 +308,6 @@ async def antispam_command_handler(client, message: Message):
             "text_preview": message.text[:50]
         })
         
-        if user_id == OWNER_ID:
-            _write_debug_log("HANDLER_EXIT", {"reason": "owner_exempt"})
-            return
-        
         try:
             bot_me = await app.get_me()
             if user_id == bot_me.id:
@@ -348,18 +326,13 @@ async def antispam_command_handler(client, message: Message):
             _write_debug_log("ALREADY_BLOCKED_DB", {"user_id": user_id})
             raise StopPropagation()
         
-        if not await is_antispam_enabled():
-            _write_debug_log("HANDLER_EXIT", {"reason": "antispam_disabled"})
-            return
-        
-        # Check if this is actually a bot command (not just any text starting with /)
         if not _is_bot_command(command_name):
             _write_debug_log("HANDLER_EXIT", {
                 "reason": "not_bot_command",
                 "command": command_name,
                 "loaded_commands_count": len(_loaded_commands_cache)
             })
-            return  # Don't track commands that aren't in the bot
+            return
         
         _write_debug_log("BEFORE_TRACK", {
             "user_id": user_id,
@@ -414,10 +387,8 @@ async def antispam_command_handler(client, message: Message):
 
 
 async def log_antispam_status():
-    """Log antispam status and load/cache all bot commands."""
     try:
         enabled = await is_antispam_enabled()
-        # Load and cache all commands on startup
         loaded_commands = _load_and_cache_commands()
         cmd_count = len(loaded_commands)
         

@@ -3,7 +3,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 
 LOG_FILE = "log.txt"
-LOG_LEVEL = "INFO"
+LOG_LEVEL = logging.INFO
 
 FORMAT = "[%(asctime)s - %(levelname)s] - %(name)s - %(message)s"
 DATEFMT = "%d-%b-%y %H:%M:%S"
@@ -23,7 +23,7 @@ for lib, level in [
     ("pyrogram", logging.ERROR),
     ("pytgcalls", logging.ERROR),
     ("pymongo", logging.ERROR),
-    ("ntgcalls", logging.ERROR),
+    ("ntgcalls", logging.CRITICAL),
 ]:
     logging.getLogger(lib).setLevel(level)
 

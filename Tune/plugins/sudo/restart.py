@@ -26,6 +26,10 @@ from strings import get_string
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
+def _perform_restart():
+    os.execv(sys.executable, [sys.executable, "-m", "Tune"])
+
+
 def cleanup_storage():
     always_clean = ["raw_files", "logs"]
     
@@ -204,18 +208,12 @@ async def update_(client, message, _):
                 pass
             return
 
-    os.execv(sys.executable, [sys.executable, "-m", "Tune"])
+    _perform_restart()
 
 
 @app.on_message(filters.command(["restart"]) & SUDOERS)
-async def restart_(_, message):
-    try:
-        from Tune.utils.database import get_lang
-        language = await get_lang(message.chat.id)
-        _ = get_string(language)
-    except Exception:
-        _ = get_string("en")
-
+@language_no_delete
+async def restart_(client, message, _):
     response = await message.reply_text(_["server_16"])
     await notify_active_chats(_)
     cleanup_storage()
@@ -225,4 +223,4 @@ async def restart_(_, message):
     except Exception:
         pass
 
-    os.execv(sys.executable, [sys.executable, "-m", "Tune"])
+    _perform_restart()

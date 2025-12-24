@@ -4,7 +4,7 @@ import time
 
 from pyrogram import filters
 from pyrogram.enums import ChatMembersFilter
-from pyrogram.types import CallbackQuery, Message
+from pyrogram.types import Message
 
 from Tune import app
 from Tune.core.call import StreamController
@@ -12,11 +12,12 @@ from Tune.misc import db
 from Tune.utils.database import get_assistant, get_authuser_names, get_cmode
 from Tune.utils.decorators import AdminActual, language
 from Tune.utils.formatters import alpha_to_int, get_readable_time
-from config import BANNED_USERS, adminlist, lyrical
+from config import BANNED_USERS, adminlist
 
 
 
 rel = {}
+
 
 # ── /reload, /refresh, /admincache ──
 @app.on_message(
@@ -28,7 +29,7 @@ rel = {}
 async def reload_admin_cache(client, message: Message, _):
     try:
         if message.chat.id in rel and rel[message.chat.id] > time.time():
-            left = get_readable_time((int(rel[message.chat.id]) - int(time.time())))
+            left = get_readable_time(int(rel[message.chat.id] - time.time()))
             return await message.reply_text(_["reload_1"].format(left))
 
         adminlist[message.chat.id] = []
