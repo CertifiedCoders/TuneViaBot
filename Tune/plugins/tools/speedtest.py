@@ -1,7 +1,6 @@
 ﻿# Authored By Certified Coders © 2025
 import asyncio
 import json
-import re
 import shutil
 
 from pyrogram import filters
@@ -100,39 +99,7 @@ async def speedtest_function(_, message: Message, lang):
             result_url,
         )
 
-        result_id = result_info.get("id", "")
-        image_urls = []
-        
-        if result_id:
-            image_urls.append(f"https://www.speedtest.net/result/{result_id}.png")
-        
-        if result_url:
-            if "/result/c/" in result_url:
-                match = re.search(r"/result/c/([^/?#]+)", result_url)
-                if match:
-                    result_id_from_url = match.group(1)
-                    image_urls.append(f"https://www.speedtest.net/result/c/{result_id_from_url}.png")
-                    image_urls.append(f"https://www.speedtest.net/result/{result_id_from_url}.png")
-            elif "/result/" in result_url:
-                match = re.search(r"/result/([^/?#]+)", result_url)
-                if match:
-                    result_id_from_url = match.group(1)
-                    image_urls.append(f"https://www.speedtest.net/result/{result_id_from_url}.png")
-
-        await m.edit_text(lang["server_14"])
-        
-        image_sent = False
-        for image_url in image_urls:
-            try:
-                await message.reply_photo(photo=image_url, caption=output, disable_web_page_preview=True)
-                image_sent = True
-                break
-            except Exception:
-                continue
-        
-        if not image_sent:
-            await message.reply_text(output, disable_web_page_preview=True)
-        
+        await message.reply_text(output, disable_web_page_preview=True)
         await m.delete()
 
     except FileNotFoundError as e:
