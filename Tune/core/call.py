@@ -407,7 +407,7 @@ class Call:
         thumb_task = get_thumb(videoid)
         try:
             download_result, img = await asyncio.gather(download_task, thumb_task, return_exceptions=False)
-            file_path, _ = download_result
+            file_path, direct = download_result
         except Exception as e:
             LOGGER(__name__).error(f"YouTube download failed in play: {e}")
             return await mystic.edit_text(_["call_6"], disable_web_page_preview=True)

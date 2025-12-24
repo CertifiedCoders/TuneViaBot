@@ -60,7 +60,7 @@ async def skip_multiple_tracks(message: Message, _, chat_id, count: int):
     if not (1 <= count <= max_skip):
         return await message.reply_text(_["admin_11"].format(max_skip))
     
-    for _ in range(count):
+    for _i in range(count):
         try:
             remaining = await pop_track(chat_id)
             if remaining is None:

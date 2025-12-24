@@ -9,11 +9,11 @@ from pyrogram import filters
 load_dotenv()
 
 # ── Core bot config ────────────────────────────────────────────────────────────
-API_ID = int(getenv("API_ID", 27798659))
-API_HASH = getenv("API_HASH", "26100c77cee02e5e34b2bbee58440f86")
-BOT_TOKEN = getenv("BOT_TOKEN")
+API_ID = int(getenv("API_ID", 0))
+API_HASH = getenv("API_HASH", "")
+BOT_TOKEN = getenv("BOT_TOKEN", "")
 
-OWNER_ID = int(getenv("OWNER_ID", 7044783841))
+OWNER_ID = int(getenv("OWNER_ID", 0))
 OWNER_USERNAME = getenv("OWNER_USERNAME", "CertifiedCoder")
 BOT_USERNAME = getenv("BOT_USERNAME", "TuneviaBot")
 BOT_NAME = getenv("BOT_NAME", "˹ᴛᴜɴᴇ ᴠɪᴀ ʙᴏᴛ˼")
@@ -21,8 +21,8 @@ ASSUSERNAME = getenv("ASSUSERNAME", "tuneviaassis")
 EVALOP = list(map(int, getenv("EVALOP", "6797202080").split()))
 
 # ───── Mongo & Logging ───── #
-MONGO_DB_URI = getenv("MONGO_DB_URI")
-LOGGER_ID = int(getenv("LOGGER_ID", -1002014167331))
+MONGO_DB_URI = getenv("MONGO_DB_URI", "")
+LOGGER_ID = int(getenv("LOGGER_ID", 0))
 
 # ── Limits (durations in min/sec; sizes in bytes) ──────────────────────────────
 DURATION_LIMIT_MIN = int(getenv("DURATION_LIMIT", 300))
@@ -33,19 +33,19 @@ TG_VIDEO_FILESIZE_LIMIT = int(getenv("TG_VIDEO_FILESIZE_LIMIT", "1288490189"))
 PLAYLIST_FETCH_LIMIT = int(getenv("PLAYLIST_FETCH_LIMIT", "30"))
 
 # ── External APIs ──────────────────────────────────────────────────────────────
-COOKIE_URL = getenv("COOKIE_URL")  # required (paste link)
-API_URL = getenv("API_URL")        # optional
-VIDEO_API_URL = getenv("VIDEO_API_URL")  # optional
-API_KEY = getenv("API_KEY")        # optional
+COOKIE_URL = getenv("COOKIE_URL", "")
+API_URL = getenv("API_URL", "")
+VIDEO_API_URL = getenv("VIDEO_API_URL", "")
+API_KEY = getenv("API_KEY", "")
 
 # ───── Heroku Configuration ───── #
-HEROKU_APP_NAME = getenv("HEROKU_APP_NAME")
-HEROKU_API_KEY = getenv("HEROKU_API_KEY")
+HEROKU_APP_NAME = getenv("HEROKU_APP_NAME", "")
+HEROKU_API_KEY = getenv("HEROKU_API_KEY", "")
 
 # ───── Git & Updates ───── #
 UPSTREAM_REPO = getenv("UPSTREAM_REPO", "https://github.com/CertifiedCoders/TuneViaBot")
 UPSTREAM_BRANCH = getenv("UPSTREAM_BRANCH", "dev")
-GIT_TOKEN = getenv("GIT_TOKEN")
+GIT_TOKEN = getenv("GIT_TOKEN", "")
 
 # ───── Support & Community ───── #
 SUPPORT_CHANNEL = getenv("SUPPORT_CHANNEL", "https://t.me/CertifiedNetwork")
@@ -56,7 +56,7 @@ AUTO_LEAVING_ASSISTANT = False
 AUTO_LEAVE_ASSISTANT_TIME = int(getenv("ASSISTANT_LEAVE_TIME", "3600"))
 
 # ───── Error Handling ───── #
-DEBUG_IGNORE_LOG =True
+DEBUG_IGNORE_LOG = True
 
 # ───── Storage Cleanup Configuration ───── #
 # Set to False to preserve downloaded songs and thumbnails during restart/update
@@ -69,11 +69,11 @@ SPOTIFY_CLIENT_ID = getenv("SPOTIFY_CLIENT_ID", "22b6125bfe224587b722d6815002db2
 SPOTIFY_CLIENT_SECRET = getenv("SPOTIFY_CLIENT_SECRET", "c9c63c6fbf2f467c8bc68624851e9773")
 
 # ───── Session Strings ───── #
-STRING1 = getenv("STRING_SESSION")
-STRING2 = getenv("STRING_SESSION2")
-STRING3 = getenv("STRING_SESSION3")
-STRING4 = getenv("STRING_SESSION4")
-STRING5 = getenv("STRING_SESSION5")
+STRING1 = getenv("STRING_SESSION", "")
+STRING2 = getenv("STRING_SESSION2", "")
+STRING3 = getenv("STRING_SESSION3", "")
+STRING4 = getenv("STRING_SESSION4", "")
+STRING5 = getenv("STRING_SESSION5", "")
 
 
 
@@ -118,7 +118,22 @@ AYU = ["💞", "🦋", "🔍", "🧪", "⚡️", "🔥", "🎩", "🌈", "🍷",
 BANNED_USERS = filters.user()
 adminlist, lyrical, autoclean, confirmer = {}, {}, [], {}
 
-# ── Minimal validation ─────────────────────────────────────────────────────────
+# ── Validation ────────────────────────────────────────────────────────────────
+if not API_ID or not API_HASH:
+    raise SystemExit("[ERROR] - API_ID and API_HASH are required. Get them from https://my.telegram.org")
+
+if not BOT_TOKEN:
+    raise SystemExit("[ERROR] - BOT_TOKEN is required. Get it from @BotFather")
+
+if not MONGO_DB_URI:
+    raise SystemExit("[ERROR] - MONGO_DB_URI is required. Get it from https://cloud.mongodb.com")
+
+if not COOKIE_URL:
+    raise SystemExit("[ERROR] - COOKIE_URL is required. Provide a paste link to your YouTube cookies.txt")
+
+if not any([STRING1, STRING2, STRING3, STRING4, STRING5]):
+    raise SystemExit("[ERROR] - At least one STRING_SESSION is required. Generate from https://telegram.tools/session-string-generator#pyrogram")
+
 if SUPPORT_CHANNEL and not re.match(r"^https?://", SUPPORT_CHANNEL):
     raise SystemExit("[ERROR] - Invalid SUPPORT_CHANNEL URL. Must start with https://")
 
