@@ -72,8 +72,8 @@ class YouTubeAPI:
             return ("unknown", None, None)
         
         if "/playlist?list=" in query.lower():
-            match = self.regex.search(query)
-            if match and (playlist_id := match.group(1)):
+            playlist_id = query.split("list=")[1].split("&")[0].split("?")[0]
+            if playlist_id:
                 return ("playlist", None, playlist_id)
         
         match = self.regex.search(query)
