@@ -35,7 +35,7 @@ async def inline_query_handler(client, query):
             duration = video.get("duration", "")
             views = video.get("viewCount", {}).get("short", "")
             thumbnails = video.get("thumbnails", [])
-            thumbnail_url = thumbnails[0].get("url", "") if thumbnails else ""
+            thumbnail_url = thumbnails[-1].get("url", "") if thumbnails else ""
             thumbnail = thumbnail_url.split("?")[0] if thumbnail_url else ""
             channel_info = video.get("channel", {})
             channellink = channel_info.get("link", "")

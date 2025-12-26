@@ -68,13 +68,22 @@ def parse_duration(duration):
         duration_str = duration
         duration_sec = int(time_to_seconds(duration_str)) if duration_str and duration_str != "-" else 0
     elif isinstance(duration, dict):
-        seconds_text = duration.get("secondsText")
-        if seconds_text:
-            duration_str = seconds_to_min(int(seconds_text))
-            duration_sec = int(seconds_text)
+        duration_text = duration.get("text")
+        duration_seconds = duration.get("seconds")
+        if duration_text:
+            duration_str = duration_text
+            if duration_seconds:
+                duration_sec = int(duration_seconds)
+            else:
+                duration_sec = int(time_to_seconds(duration_str)) if duration_str and duration_str != "-" else 0
         else:
-            duration_str = None
-            duration_sec = 0
+            seconds_text = duration.get("secondsText")
+            if seconds_text:
+                duration_str = seconds_to_min(int(seconds_text))
+                duration_sec = int(seconds_text)
+            else:
+                duration_str = None
+                duration_sec = 0
     elif isinstance(duration, (int, float)) and duration > 0:
         duration_sec = int(duration)
         duration_str = seconds_to_min(duration_sec)

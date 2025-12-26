@@ -43,6 +43,7 @@ class Track:
             "vidid": self.id,
             "duration_min": self.duration_min,
             "thumb": self.thumbnail or "",
+            "view_count": self.view_count,
         }
 
 
@@ -67,4 +68,5 @@ class LiveTrack:
             "vidid": self.id,
             "duration_min": None,
             "thumb": self.thumbnail or "",
+            "view_count": self.view_count,
         }

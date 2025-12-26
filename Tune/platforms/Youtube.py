@@ -27,16 +27,6 @@ def get_cookies_args() -> List[str]:
         return []
 
 
-def _extract_thumbnail(data: dict) -> str:
-    thumbs = data.get("thumbnails")
-    if isinstance(thumbs, list) and thumbs:
-        url = thumbs[-1].get("url")
-        if url:
-            return url.split("?")[0]
-    thumb = data.get("thumbnail", "")
-    return thumb.split("?")[0] if thumb else ""
-
-
 async def _run_ytdlp_dump(url: str) -> Optional[Dict]:
     proc = await asyncio.create_subprocess_exec(
         "yt-dlp",
@@ -85,6 +75,58 @@ class YouTubeAPI:
         
         return ("unknown", None, None)
 
+    def _extract_thumbnail(self, info: dict) -> str:
+        thumbs = info.get("thumbnails")
+        if isinstance(thumbs, list) and thumbs:
+            thumbnail_url = thumbs[-1].get("url")
+            return thumbnail_url.split("?")[0] if thumbnail_url else ""
+        thumb = info.get("thumbnail", "")
+        return thumb.split("?")[0] if thumb else ""
+
+    def _extract_view_count(self, info: dict) -> Optional[str]:
+        view_count_data = info.get("viewCount")
+        if isinstance(view_count_data, dict):
+            return view_count_data.get("short") or view_count_data.get("text")
+        return view_count_data if isinstance(view_count_data, str) else None
+
+    def _extract_track_from_metadata(self, info: dict, video_id: Optional[str] = None, is_live: Optional[bool] = None) -> Union[Track, LiveTrack, None]:
+        if not info:
+            return None
+        
+        video_id = info.get("id") or video_id or ""
+        if not video_id:
+            return None
+        
+        title = info.get("title", "")
+        url = info.get("webpage_url") or info.get("link") or f"{self.base_url}{video_id}"
+        thumbnail = self._extract_thumbnail(info)
+        view_count = self._extract_view_count(info)
+        
+        if is_live is None:
+            is_live = info.get("is_live") or info.get("isLiveNow", False)
+        
+        if is_live:
+            return LiveTrack(
+                id=video_id,
+                title=title,
+                url=url,
+                thumbnail=thumbnail,
+                view_count=view_count,
+            )
+        
+        duration = info.get("duration")
+        duration_str, duration_sec = parse_duration(duration)
+        
+        return Track(
+            id=video_id,
+            title=title,
+            url=url,
+            duration_min=duration_str,
+            duration_sec=duration_sec,
+            thumbnail=thumbnail,
+            view_count=view_count,
+        )
+
     async def _fetch_raw_metadata(self, query: Optional[str], url_type: str, video_id: Optional[str] = None, playlist_id: Optional[str] = None) -> Optional[dict]:
         if url_type == "playlist":
             try:
@@ -125,25 +167,11 @@ class YouTubeAPI:
             video_id = videoid.strip()
             info = await _run_ytdlp_dump(f"{self.base_url}{video_id}")
             if info:
-                video_id = info.get("id") or video_id or ""
-                title = info.get("title", "")
-                url = info.get("webpage_url") or f"{self.base_url}{video_id}"
-                thumbnail = _extract_thumbnail(info)
-                if info.get("is_live"):
-                    return LiveTrack(id=video_id, title=title, url=url, thumbnail=thumbnail)
-                duration = info.get("duration")
-                duration_str, duration_sec = parse_duration(duration)
-                return Track(id=video_id, title=title, url=url, duration_min=duration_str, duration_sec=duration_sec, thumbnail=thumbnail)
+                return self._extract_track_from_metadata(info, video_id)
             try:
                 info = await Video.get(f"{self.base_url}{video_id}")
                 if info:
-                    video_id = info.get("id") or video_id or ""
-                    title = info.get("title", "")
-                    url = info.get("webpage_url") or info.get("link") or f"{self.base_url}{video_id}"
-                    thumbnail = _extract_thumbnail(info)
-                    duration = info.get("duration")
-                    duration_str, duration_sec = parse_duration(duration)
-                    return Track(id=video_id, title=title, url=url, duration_min=duration_str, duration_sec=duration_sec, thumbnail=thumbnail)
+                    return self._extract_track_from_metadata(info, video_id)
             except Exception:
                 pass
             return None
@@ -156,30 +184,8 @@ class YouTubeAPI:
         if not info:
             return None
         
-        video_id = info.get("id") or video_id or ""
-        title = info.get("title", "")
-        url = info.get("webpage_url") or info.get("link") or f"{self.base_url}{video_id}"
-        thumbnail = _extract_thumbnail(info)
-        
-        if url_type == "live" or info.get("is_live"):
-            return LiveTrack(
-                id=video_id,
-                title=title,
-                url=url,
-                thumbnail=thumbnail,
-            )
-        
-        duration = info.get("duration")
-        duration_str, duration_sec = parse_duration(duration)
-        
-        return Track(
-            id=video_id,
-            title=title,
-            url=url,
-            duration_min=duration_str,
-            duration_sec=duration_sec,
-            thumbnail=thumbnail,
-        )
+        is_live = (url_type == "live") or info.get("is_live") or info.get("isLiveNow", False)
+        return self._extract_track_from_metadata(info, video_id, is_live)
 
     @capture_internal_err
     async def exists(self, link: str, videoid: Union[str, bool, None] = None) -> bool:
@@ -263,11 +269,12 @@ class YouTubeAPI:
         r = results[query_type]
         duration = r.get("duration")
         duration_str, _ = parse_duration(duration)
+        thumbnail = self._extract_thumbnail(r)
         
         return (
             r.get("title", ""),
             duration_str if duration_str and duration_str != "-" else None,
-            _extract_thumbnail(r),
+            thumbnail,
             r.get("id", ""),
         )
 
