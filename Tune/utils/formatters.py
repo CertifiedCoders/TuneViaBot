@@ -63,6 +63,31 @@ def time_to_seconds(time):
     return sum(int(x) * 60**i for i, x in enumerate(reversed(stringt.split(":"))))
 
 
+def parse_duration(duration):
+    if isinstance(duration, str):
+        duration_str = duration
+        duration_sec = int(time_to_seconds(duration_str)) if duration_str and duration_str != "-" else 0
+    elif isinstance(duration, dict):
+        seconds_text = duration.get("secondsText")
+        if seconds_text:
+            duration_str = seconds_to_min(int(seconds_text))
+            duration_sec = int(seconds_text)
+        else:
+            duration_str = None
+            duration_sec = 0
+    elif isinstance(duration, (int, float)) and duration > 0:
+        duration_sec = int(duration)
+        duration_str = seconds_to_min(duration_sec)
+    else:
+        duration_str = None
+        duration_sec = 0
+    
+    if duration_str and duration_str == "-":
+        duration_str = None
+    
+    return duration_str, duration_sec
+
+
 def seconds_to_min(seconds):
     if seconds is not None:
         seconds = int(seconds)

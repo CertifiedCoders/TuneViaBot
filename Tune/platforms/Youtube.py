@@ -13,7 +13,7 @@ from youtubesearchpython.aio import VideosSearch, Video, Playlist
 from Tune.utils.cookie_handler import COOKIE_PATH
 from Tune.utils.downloader import yt_dlp_download
 from Tune.utils.errors import capture_internal_err
-from Tune.utils.formatters import time_to_seconds, seconds_to_min
+from Tune.utils.formatters import parse_duration
 from Tune.utils.tuning import YTDLP_TIMEOUT, Track, LiveTrack
 
 YOUTUBE_ID_RE = re.compile(r"^[A-Za-z0-9_-]{11}$")
@@ -132,9 +132,8 @@ class YouTubeAPI:
                 if info.get("is_live"):
                     return LiveTrack(id=video_id, title=title, url=url, thumbnail=thumbnail)
                 duration = info.get("duration")
-                duration_str = duration if isinstance(duration, str) else (seconds_to_min(int(duration.get("secondsText"))) if isinstance(duration, dict) and duration.get("secondsText") else None)
-                duration_sec = int(time_to_seconds(duration_str)) if duration_str and duration_str != "-" else 0
-                return Track(id=video_id, title=title, url=url, duration_min=duration_str if duration_str and duration_str != "-" else None, duration_sec=duration_sec, thumbnail=thumbnail)
+                duration_str, duration_sec = parse_duration(duration)
+                return Track(id=video_id, title=title, url=url, duration_min=duration_str, duration_sec=duration_sec, thumbnail=thumbnail)
             try:
                 info = await Video.get(f"{self.base_url}{video_id}")
                 if info:
@@ -143,9 +142,8 @@ class YouTubeAPI:
                     url = info.get("webpage_url") or info.get("link") or f"{self.base_url}{video_id}"
                     thumbnail = _extract_thumbnail(info)
                     duration = info.get("duration")
-                    duration_str = duration if isinstance(duration, str) else (seconds_to_min(int(duration.get("secondsText"))) if isinstance(duration, dict) and duration.get("secondsText") else None)
-                    duration_sec = int(time_to_seconds(duration_str)) if duration_str and duration_str != "-" else 0
-                    return Track(id=video_id, title=title, url=url, duration_min=duration_str if duration_str and duration_str != "-" else None, duration_sec=duration_sec, thumbnail=thumbnail)
+                    duration_str, duration_sec = parse_duration(duration)
+                    return Track(id=video_id, title=title, url=url, duration_min=duration_str, duration_sec=duration_sec, thumbnail=thumbnail)
             except Exception:
                 pass
             return None
@@ -172,14 +170,13 @@ class YouTubeAPI:
             )
         
         duration = info.get("duration")
-        duration_str = duration if isinstance(duration, str) else (seconds_to_min(int(duration.get("secondsText"))) if isinstance(duration, dict) and duration.get("secondsText") else None)
-        duration_sec = int(time_to_seconds(duration_str)) if duration_str and duration_str != "-" else 0
+        duration_str, duration_sec = parse_duration(duration)
         
         return Track(
             id=video_id,
             title=title,
             url=url,
-            duration_min=duration_str if duration_str and duration_str != "-" else None,
+            duration_min=duration_str,
             duration_sec=duration_sec,
             thumbnail=thumbnail,
         )
@@ -265,7 +262,7 @@ class YouTubeAPI:
         
         r = results[query_type]
         duration = r.get("duration")
-        duration_str = duration if isinstance(duration, str) else (seconds_to_min(int(duration.get("secondsText"))) if isinstance(duration, dict) and duration.get("secondsText") else None)
+        duration_str, _ = parse_duration(duration)
         
         return (
             r.get("title", ""),
