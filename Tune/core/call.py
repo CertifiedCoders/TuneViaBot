@@ -7,6 +7,7 @@ from typing import Union
 
 from ntgcalls import ConnectionNotFound, TelegramServerError
 from pyrogram import Client
+from pyrogram.enums import ParseMode
 from pyrogram.errors import ChatAdminRequired, FloodWait
 from pyrogram.types import InlineKeyboardMarkup
 from pytgcalls import PyTgCalls
@@ -360,6 +361,7 @@ class Call:
             photo=img,
             caption=caption,
             reply_markup=InlineKeyboardMarkup(button),
+            parse_mode=ParseMode.HTML,
         )
         set_current_message(chat_id, run, markup)
 

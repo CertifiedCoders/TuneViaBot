@@ -3,6 +3,7 @@
 import asyncio
 import random
 from pyrogram import filters
+from pyrogram.enums import ParseMode
 from pyrogram.types import CallbackQuery, InlineKeyboardMarkup
 from config import (
     BANNED_USERS,
@@ -65,7 +66,8 @@ async def _send_stream_message(message, _, chat_id, videoid, title, duration, us
     run = await message.reply_photo(
         photo=photo,
         caption=caption,
-        reply_markup=InlineKeyboardMarkup(buttons)
+        reply_markup=InlineKeyboardMarkup(buttons),
+        parse_mode=ParseMode.HTML,
     )
     set_current_message(chat_id, run, msg_key)
     return run

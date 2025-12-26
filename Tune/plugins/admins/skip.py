@@ -1,4 +1,5 @@
 # Authored By Certified Coders © 2025
+from pyrogram.enums import ParseMode
 from pyrogram.types import InlineKeyboardMarkup, Message
 from pyrogram import filters
 
@@ -96,6 +97,7 @@ async def send_stream_message(message: Message, _, chat_id, check, queued, title
                 user,
             ),
             reply_markup=InlineKeyboardMarkup(button),
+            parse_mode=ParseMode.HTML,
         )
         set_current_message(chat_id, run, "tg")
     
@@ -127,6 +129,7 @@ async def send_stream_message(message: Message, _, chat_id, check, queued, title
                 user,
             ),
             reply_markup=InlineKeyboardMarkup(button),
+            parse_mode=ParseMode.HTML,
         )
         set_current_message(chat_id, run, "stream")
         await mystic.delete()
@@ -141,6 +144,7 @@ async def send_stream_message(message: Message, _, chat_id, check, queued, title
             photo=config.STREAM_IMG_URL,
             caption=_["stream_2"].format(user),
             reply_markup=InlineKeyboardMarkup(button),
+            parse_mode=ParseMode.HTML,
         )
         set_current_message(chat_id, run, "tg")
     
@@ -173,6 +177,7 @@ async def send_stream_message(message: Message, _, chat_id, check, queued, title
             photo=photo,
             caption=caption,
             reply_markup=InlineKeyboardMarkup(button),
+            parse_mode=ParseMode.HTML,
         )
         set_current_message(chat_id, run, msg_type)
 

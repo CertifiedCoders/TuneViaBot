@@ -5,6 +5,7 @@ import os
 from random import randint
 from typing import Union
 
+from pyrogram.enums import ParseMode
 from pyrogram.types import InlineKeyboardMarkup
 
 import config
@@ -90,6 +91,7 @@ async def _send_stream_photo(_, original_chat_id, photo, caption, chat_id, marku
         photo=photo,
         caption=caption,
         reply_markup=InlineKeyboardMarkup(button),
+        parse_mode=ParseMode.HTML,
     )
     set_current_message(chat_id, run, markup)
 
