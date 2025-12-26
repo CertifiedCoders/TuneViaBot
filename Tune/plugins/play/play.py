@@ -223,7 +223,8 @@ async def play_command(
         if await YouTube.exists(url):
             if "playlist" in url:
                 try:
-                    details = await YouTube.playlist(url, config.PLAYLIST_FETCH_LIMIT, user_id)
+                    tracks = await YouTube.playlist(url, config.PLAYLIST_FETCH_LIMIT, user_id)
+                    details = [track.id for track in tracks]
                 except Exception as e:
                     return await mystic.edit_text(f"{_['play_3']}\nʀᴇᴀsᴏɴ: {e}")
 
@@ -645,7 +646,8 @@ async def play_playlists_command(client, CallbackQuery, _):
 
         if ptype == "yt":
             spotify = False
-            result = await YouTube.playlist("", config.PLAYLIST_FETCH_LIMIT, CallbackQuery.from_user.id, videoid=videoid)
+            tracks = await YouTube.playlist("", config.PLAYLIST_FETCH_LIMIT, CallbackQuery.from_user.id, videoid=videoid)
+            result = [track.id for track in tracks]
             internal_type = "playlist"
             log_label = "Youtube playlist"
         elif ptype == "scplay":
@@ -717,10 +719,12 @@ async def slider_queries(client, CallbackQuery, _):
         if query_type < 0:
             query_type = 9
 
-        title, duration_min, thumbnail, vidid = await YouTube.slider(query, query_type)
+        track = await YouTube.slider(query, query_type)
+        if not track:
+            return
 
-        buttons = slider_markup(_, vidid, user_id, query, query_type, cplay, fplay)
-        med = InputMediaPhoto(media=thumbnail, caption=_["play_10"].format(title.title(), duration_min))
+        buttons = slider_markup(_, track.id, user_id, query, query_type, cplay, fplay)
+        med = InputMediaPhoto(media=track.thumbnail or "", caption=_["play_10"].format(track.title.title(), track.duration_min or "Unknown"))
 
         await CallbackQuery.edit_message_media(media=med, reply_markup=InlineKeyboardMarkup(buttons))
         await CallbackQuery.answer(_["playcb_2"])

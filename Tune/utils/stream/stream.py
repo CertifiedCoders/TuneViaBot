@@ -159,9 +159,7 @@ async def stream(
                     return await SoundCloud.details(search_item)
                 else:
                     metadata = await YouTube.get_metadata(search_item, videoid=search_item if spotify and len(search_item) == 11 and search_item.replace("-", "").replace("_", "").isalnum() else None)
-                    if metadata:
-                        return (metadata.title, metadata.duration_min, metadata.duration_sec, metadata.thumbnail or "", metadata.id)
-                    return None
+                    return metadata
             except Exception:
                 return None
 
@@ -175,10 +173,21 @@ async def stream(
             if isinstance(metadata_result, Exception) or metadata_result is None:
                 continue
 
-            try:
-                title, duration_min, duration_sec, thumbnail, vidid = metadata_result
-            except (ValueError, TypeError):
-                continue
+            if isinstance(metadata_result, tuple):
+                try:
+                    title, duration_min, duration_sec, thumbnail, vidid = metadata_result
+                except (ValueError, TypeError):
+                    continue
+            else:
+                from Tune.utils.tuning import Track, LiveTrack
+                if isinstance(metadata_result, (Track, LiveTrack)):
+                    title = metadata_result.title
+                    duration_min = metadata_result.duration_min
+                    duration_sec = metadata_result.duration_sec
+                    thumbnail = metadata_result.thumbnail or ""
+                    vidid = metadata_result.id
+                else:
+                    continue
 
             if duration_min is None or str(duration_min) == "None":
                 continue
@@ -198,7 +207,8 @@ async def stream(
                 msg += f"{_['play_20']} {position}\n\n"
             elif not first_song_played:
                 download_coro = _download_track(_, vidid, mystic, is_video, title, chat_id)
-                thumb_task = get_thumb(vidid)
+                thumb_arg = metadata_result if isinstance(metadata_result, (Track, LiveTrack)) else vidid
+                thumb_task = get_thumb(thumb_arg)
                 try:
                     download_result, img = await asyncio.gather(
                         _manage_download_task(chat_id, download_coro), thumb_task, return_exceptions=False

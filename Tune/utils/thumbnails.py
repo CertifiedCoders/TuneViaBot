@@ -4,11 +4,12 @@ import re
 import hashlib
 import aiofiles
 import aiohttp
+from typing import Union
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
-from youtubesearchpython.aio import VideosSearch
 from config import YOUTUBE_IMG_URL, SOUNCLOUD_IMG_URL
 from Tune.core.dir import CACHE_DIR
 from Tune.platforms.Soundcloud import is_soundcloud_url
+from Tune.utils.tuning import Track, LiveTrack
 
 PANEL_W, PANEL_H = 763, 545
 PANEL_X = (1280 - PANEL_W) // 2
@@ -178,7 +179,41 @@ async def get_soundcloud_thumb(url: str) -> str:
     )
 
 
-async def get_thumb(videoid: str) -> str:
+async def get_thumb(videoid_or_track: Union[str, Track, LiveTrack]) -> str:
+    if isinstance(videoid_or_track, (Track, LiveTrack)):
+        track = videoid_or_track
+        videoid = track.id
+        
+        if is_soundcloud_url(videoid):
+            return await get_soundcloud_thumb(videoid)
+        
+        if videoid == "soundcloud":
+            return SOUNCLOUD_IMG_URL
+        
+        cache_path = os.path.join(CACHE_DIR, f"{videoid}_v4.png")
+        if os.path.exists(cache_path):
+            return cache_path
+        
+        title = _normalize_title(track.title or "Unsupported Title")
+        thumbnail = track.thumbnail or YOUTUBE_IMG_URL
+        is_live = isinstance(track, LiveTrack)
+        duration_text = "Live" if is_live else (track.duration_min or "Unknown Mins")
+        views = track.view_count or "Unknown Views"
+        platform_text = f"YouTube | {views}"
+        
+        return await _create_decorated_thumbnail(
+            title=title,
+            thumbnail_url=thumbnail,
+            duration_text=duration_text,
+            platform_text=platform_text,
+            cache_path=cache_path,
+            cache_id=videoid,
+            fallback_url=YOUTUBE_IMG_URL,
+            is_live=is_live,
+        )
+    
+    videoid = str(videoid_or_track)
+    
     if is_soundcloud_url(videoid):
         return await get_soundcloud_thumb(videoid)
 
@@ -189,23 +224,20 @@ async def get_thumb(videoid: str) -> str:
     if os.path.exists(cache_path):
         return cache_path
 
-    results = VideosSearch(f"https://www.youtube.com/watch?v={videoid}", limit=1)
+    from Tune.platforms.Youtube import YouTube
+    
     try:
-        results_data = await results.next()
-        result_items = results_data.get("result", [])
-        if not result_items:
-            raise ValueError("No results found.")
-        data = result_items[0]
-        title = _normalize_title(data.get("title", "Unsupported Title"))
-        thumbnail = data.get("thumbnails", [{}])[0].get("url", YOUTUBE_IMG_URL)
-        duration = data.get("duration")
-        views = data.get("viewCount", {}).get("short", "Unknown Views")
+        track = await YouTube.get_metadata(f"https://www.youtube.com/watch?v={videoid}", videoid=videoid)
+        if track:
+            return await get_thumb(track)
     except Exception:
-        title, thumbnail, views = "Unsupported Title", YOUTUBE_IMG_URL, "Unknown Views"
-        duration = None
+        pass
 
-    is_live = not duration or str(duration).strip().lower() in {"", "live", "live now"}
-    duration_text = "Live" if is_live else duration or "Unknown Mins"
+    title = "Unsupported Title"
+    thumbnail = YOUTUBE_IMG_URL
+    views = "Unknown Views"
+    is_live = False
+    duration_text = "Unknown Mins"
     platform_text = f"YouTube | {views}"
 
     return await _create_decorated_thumbnail(

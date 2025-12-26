@@ -224,7 +224,7 @@ class YouTubeAPI:
             return (0, "")
 
     @capture_internal_err
-    async def playlist(self, link: str, limit: int, user_id, videoid: Union[str, bool, None] = None) -> List[str]:
+    async def playlist(self, link: str, limit: int, user_id, videoid: Union[str, bool, None] = None) -> List[Track]:
         if videoid:
             playlist_id = str(videoid)
         else:
@@ -233,13 +233,20 @@ class YouTubeAPI:
                 raise ValueError("Not a valid playlist URL")
         
         url = f"{self.playlist_url}{playlist_id}"
+        tracks = []
+        
         try:
             playlist_info = await Playlist.get(url)
             if playlist_info:
-                items = [v.get("id") if isinstance(v, dict) else getattr(v, "id", None)
-                        for v in playlist_info.get("videos", [])[:limit]]
-                if items := [i for i in items if i]:
-                    return items
+                videos = playlist_info.get("videos", [])[:limit]
+                for v in videos:
+                    video_id = v.get("id") if isinstance(v, dict) else getattr(v, "id", None)
+                    if video_id:
+                        track = self._extract_track_from_metadata(v if isinstance(v, dict) else v.__dict__ if hasattr(v, "__dict__") else {}, video_id)
+                        if track:
+                            tracks.append(track)
+                if tracks:
+                    return tracks
         except Exception:
             pass
         
@@ -250,12 +257,17 @@ class YouTubeAPI:
         )
         try:
             stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=YTDLP_TIMEOUT)
-            return [i for i in (stdout.decode().strip().split("\n") if stdout else []) if i]
+            video_ids = [i for i in (stdout.decode().strip().split("\n") if stdout else []) if i]
+            for video_id in video_ids:
+                metadata = await self.get_metadata(f"{self.base_url}{video_id}", video_id)
+                if metadata:
+                    tracks.append(metadata)
+            return tracks
         except Exception:
             return []
 
     @capture_internal_err
-    async def slider(self, link: str, query_type: int, videoid: Union[str, bool, None] = None) -> Tuple[str, Optional[str], str, str]:
+    async def slider(self, link: str, query_type: int, videoid: Union[str, bool, None] = None) -> Optional[Track]:
         if videoid:
             query = f"{self.base_url}{videoid}"
         else:
@@ -267,16 +279,7 @@ class YouTubeAPI:
             raise IndexError(f"Query type index {query_type} out of range (found {len(results)} results)")
         
         r = results[query_type]
-        duration = r.get("duration")
-        duration_str, _ = parse_duration(duration)
-        thumbnail = self._extract_thumbnail(r)
-        
-        return (
-            r.get("title", ""),
-            duration_str if duration_str and duration_str != "-" else None,
-            thumbnail,
-            r.get("id", ""),
-        )
+        return self._extract_track_from_metadata(r)
 
     @capture_internal_err
     async def download(
