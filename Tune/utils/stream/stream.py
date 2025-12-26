@@ -158,10 +158,10 @@ async def stream(
                 if is_soundcloud:
                     return await SoundCloud.details(search_item)
                 else:
-                    if spotify and len(search_item) == 11 and search_item.replace("-", "").replace("_", "").isalnum():
-                        return await YouTube.details(search_item, videoid=search_item)
-                    else:
-                        return await YouTube.details(search_item)
+                    metadata = await YouTube.get_metadata(search_item, videoid=search_item if spotify and len(search_item) == 11 and search_item.replace("-", "").replace("_", "").isalnum() else None)
+                    if metadata:
+                        return (metadata.title, metadata.duration_min, metadata.duration_sec, metadata.thumbnail or "", metadata.id)
+                    return None
             except Exception:
                 return None
 

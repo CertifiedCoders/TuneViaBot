@@ -105,7 +105,7 @@ async def send_stream_message(message: Message, _, chat_id, check, queued, title
             file_path, direct = await YouTube.download(
                 videoid,
                 mystic,
-                videoid=True,
+                videoid=videoid,
                 video=status,
                 title=title,
             )

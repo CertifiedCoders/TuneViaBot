@@ -400,7 +400,7 @@ class Call:
         download_task = YouTube.download(
             videoid,
             mystic,
-            videoid=True,
+            videoid=videoid,
             video=(str(streamtype) == "video"),
             title=title,
         )

@@ -234,20 +234,21 @@ async def play_command(
                 internal_type = "playlist"
                 log_label = "Youtube playlist"
             else:
-                is_live_task = YouTube.is_live(url)
                 try:
-                    is_live = await is_live_task
-                    if is_live:
-                        details, track_id = await YouTube.live_track(url)
-                    else:
-                        details, track_id = await YouTube.track(url)
+                    metadata = await YouTube.get_metadata(url)
+                    if not metadata:
+                        return await mystic.edit_text(_["play_3"])
+                    
+                    from Tune.utils.tuning import LiveTrack
+                    is_live = isinstance(metadata, LiveTrack)
+                    details = metadata.to_dict()
+                    track_id = metadata.id
                 except Exception as e:
                     return await mystic.edit_text(f"{_['play_3']}\nʀᴇᴀsᴏɴ: {e}")
 
                 img = details["thumb"]
                 u = url.lower()
                 
-                # Handle live streams
                 if is_live:
                     internal_type = "live"
                     log_label = "Youtube Live Stream"
@@ -436,7 +437,11 @@ async def play_command(
             query = query.replace("-v", "")
 
         try:
-            details, track_id = await YouTube.track(query)
+            metadata = await YouTube.get_metadata(query)
+            if not metadata:
+                return await mystic.edit_text(_["play_3"])
+            details = metadata.to_dict()
+            track_id = metadata.id
         except Exception as e:
             return await mystic.edit_text(f"{_['play_3']}\nʀᴇᴀsᴏɴ: {e}")
 
@@ -568,7 +573,11 @@ async def play_music(client, CallbackQuery, _):
 
         mystic = await _create_mystic_message(CallbackQuery.message, channel, _)
 
-        details, track_id = await YouTube.track(vidid, videoid=vidid)
+        metadata = await YouTube.get_metadata(vidid, videoid=vidid)
+        if not metadata:
+            return
+        details = metadata.to_dict()
+        track_id = metadata.id
 
         if details.get("duration_min"):
             duration_sec = time_to_seconds(details["duration_min"])

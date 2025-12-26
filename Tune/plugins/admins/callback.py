@@ -207,7 +207,7 @@ async def handle_skip_replay(callback: CallbackQuery, _, chat_id: int, command: 
                 file_path, direct = await YouTube.download(
                     videoid,
                     mystic,
-                    videoid=True,
+                    videoid=videoid,
                     video=status,
                     title=title,
                 )

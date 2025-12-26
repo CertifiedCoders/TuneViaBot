@@ -9,6 +9,7 @@ from Tune.utils.channelplay import get_channeplayCB
 from Tune.utils.decorators.language import languageCB
 from Tune.utils.errors import capture_callback_err
 from Tune.utils.stream.stream import stream
+from Tune.utils.tuning import LiveTrack
 from config import AYU, BANNED_USERS
 
 
@@ -51,12 +52,13 @@ async def play_live_stream(client, CallbackQuery, _):
     )
 
     try:
-        details, track_id = await YouTube.live_track("", videoid=vidid)
+        metadata = await YouTube.get_metadata("", videoid=vidid)
+        if not metadata or not isinstance(metadata, LiveTrack):
+            return await mystic.edit_text("» ɴᴏᴛ ᴀ ʟɪᴠᴇ sᴛʀᴇᴀᴍ.")
+        details = metadata.to_dict()
+        track_id = metadata.id
     except Exception as e:
         return await mystic.edit_text(f"{_['play_3']}\nʀᴇᴀsᴏɴ: {e}")
-
-    if details.get("duration_min") is not None:
-        return await mystic.edit_text("» ɴᴏᴛ ᴀ ʟɪᴠᴇ sᴛʀᴇᴀᴍ.")
 
     try:
         await stream(
