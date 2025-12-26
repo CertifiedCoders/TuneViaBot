@@ -13,7 +13,7 @@ from youtubesearchpython.aio import VideosSearch, Video, Playlist
 from Tune.utils.cookie_handler import COOKIE_PATH
 from Tune.utils.downloader import yt_dlp_download
 from Tune.utils.errors import capture_internal_err
-from Tune.utils.formatters import parse_duration
+from Tune.utils.formatters import parse_duration, parse_view_count
 from Tune.utils.tuning import YTDLP_TIMEOUT, Track, LiveTrack
 
 YOUTUBE_ID_RE = re.compile(r"^[A-Za-z0-9_-]{11}$")
@@ -83,12 +83,6 @@ class YouTubeAPI:
         thumb = info.get("thumbnail", "")
         return thumb.split("?")[0] if thumb else ""
 
-    def _extract_view_count(self, info: dict) -> Optional[str]:
-        view_count_data = info.get("viewCount")
-        if isinstance(view_count_data, dict):
-            return view_count_data.get("short") or view_count_data.get("text")
-        return view_count_data if isinstance(view_count_data, str) else None
-
     def _extract_track_from_metadata(self, info: dict, video_id: Optional[str] = None, is_live: Optional[bool] = None) -> Union[Track, LiveTrack, None]:
         if not info:
             return None
@@ -100,7 +94,7 @@ class YouTubeAPI:
         title = info.get("title", "")
         url = info.get("webpage_url") or info.get("link") or f"{self.base_url}{video_id}"
         thumbnail = self._extract_thumbnail(info)
-        view_count = self._extract_view_count(info)
+        view_count = parse_view_count(info)
         
         if is_live is None:
             is_live = info.get("is_live") or info.get("isLiveNow", False)

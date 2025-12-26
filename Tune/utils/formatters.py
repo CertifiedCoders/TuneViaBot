@@ -1,6 +1,7 @@
 ﻿# Authored By Certified Coders © 2025
 import json
 import subprocess
+from typing import Optional
 
 def get_readable_time(seconds: int) -> str:
     count = 0
@@ -61,6 +62,24 @@ async def alpha_to_int(user_id_alphabet: str) -> int:
 def time_to_seconds(time):
     stringt = str(time)
     return sum(int(x) * 60**i for i, x in enumerate(reversed(stringt.split(":"))))
+
+
+def parse_view_count(info: dict) -> Optional[str]:
+    view_count_data = info.get("viewCount") or info.get("view_count")
+    if isinstance(view_count_data, dict):
+        return view_count_data.get("short") or view_count_data.get("text")
+    if isinstance(view_count_data, str):
+        return view_count_data
+    if isinstance(view_count_data, (int, float)) and view_count_data > 0:
+        if view_count_data >= 1_000_000_000:
+            return f"{view_count_data / 1_000_000_000:.1f}B views"
+        elif view_count_data >= 1_000_000:
+            return f"{view_count_data / 1_000_000:.1f}M views"
+        elif view_count_data >= 1_000:
+            return f"{view_count_data / 1_000:.1f}K views"
+        else:
+            return f"{int(view_count_data)} views"
+    return None
 
 
 def parse_duration(duration):

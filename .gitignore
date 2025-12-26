@@ -10,3 +10,4 @@ cache/
 downloads/
 __pycache__/
 *.session-journal
+test/
