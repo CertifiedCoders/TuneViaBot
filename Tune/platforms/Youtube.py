@@ -4,7 +4,7 @@ import asyncio
 import json
 import os
 import re
-from typing import List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 from pyrogram.enums import MessageEntityType
 from pyrogram.types import Message
@@ -37,6 +37,23 @@ def _extract_thumbnail(data: dict) -> str:
     return thumb.split("?")[0] if thumb else ""
 
 
+async def _run_ytdlp_dump(url: str) -> Optional[Dict]:
+    proc = await asyncio.create_subprocess_exec(
+        "yt-dlp",
+        *get_cookies_args(),
+        "--dump-json",
+        "--no-warnings",
+        url,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    try:
+        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=YTDLP_TIMEOUT)
+        return json.loads(stdout.decode()) if stdout else None
+    except Exception:
+        return None
+
+
 class YouTubeAPI:
     def __init__(self) -> None:
         self.base_url = "https://www.youtube.com/watch?v="
@@ -54,21 +71,17 @@ class YouTubeAPI:
         if not self._url_pattern.search(query):
             return ("unknown", None, None)
         
+        if "/playlist?list=" in query.lower():
+            match = self.regex.search(query)
+            if match and (playlist_id := match.group(1)):
+                return ("playlist", None, playlist_id)
+        
         match = self.regex.search(query)
-        if not match:
+        if not match or not (id_match := match.group(1)):
             return ("unknown", None, None)
-        
-        id_match = match.group(1)
-        if not id_match:
-            return ("unknown", None, None)
-        
-        if id_match.startswith("PL") and len(id_match) > 2:
-            return ("playlist", None, id_match)
         
         if len(id_match) == 11 and YOUTUBE_ID_RE.match(id_match):
-            if "/live/" in query.lower() or "youtube.com/live/" in query.lower():
-                return ("live", id_match, None)
-            return ("video", id_match, None)
+            return ("live", id_match, None) if "/live/" in query.lower() else ("video", id_match, None)
         
         return ("unknown", None, None)
 
@@ -82,19 +95,8 @@ class YouTubeAPI:
         if url_type == "live":
             if not video_id:
                 return None
-            try:
-                proc = await asyncio.create_subprocess_exec(
-                    "yt-dlp", *self.cookies, "--dump-json", "--no-warnings", f"{self.base_url}{video_id}",
-                    stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
-                )
-                stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=YTDLP_TIMEOUT)
-                if stdout:
-                    info = json.loads(stdout.decode())
-                    if info.get("is_live"):
-                        return info
-            except Exception:
-                pass
-            return None
+            info = await _run_ytdlp_dump(f"{self.base_url}{video_id}")
+            return info if info and info.get("is_live") else None
         
         if url_type == "video":
             if not video_id:
@@ -120,11 +122,37 @@ class YouTubeAPI:
     @capture_internal_err
     async def get_metadata(self, link: str, videoid: Union[str, bool, None] = None) -> Union[Track, LiveTrack, None]:
         if isinstance(videoid, str) and videoid.strip():
-            url_type, video_id = "video", videoid.strip()
-        else:
-            url_type, video_id, playlist_id = self._validate_url(link)
-            if url_type == "playlist":
-                return None
+            video_id = videoid.strip()
+            info = await _run_ytdlp_dump(f"{self.base_url}{video_id}")
+            if info:
+                video_id = info.get("id") or video_id or ""
+                title = info.get("title", "")
+                url = info.get("webpage_url") or f"{self.base_url}{video_id}"
+                thumbnail = _extract_thumbnail(info)
+                if info.get("is_live"):
+                    return LiveTrack(id=video_id, title=title, url=url, thumbnail=thumbnail)
+                duration = info.get("duration")
+                duration_str = duration if isinstance(duration, str) else (seconds_to_min(int(duration.get("secondsText"))) if isinstance(duration, dict) and duration.get("secondsText") else None)
+                duration_sec = int(time_to_seconds(duration_str)) if duration_str and duration_str != "-" else 0
+                return Track(id=video_id, title=title, url=url, duration_min=duration_str if duration_str and duration_str != "-" else None, duration_sec=duration_sec, thumbnail=thumbnail)
+            try:
+                info = await Video.get(f"{self.base_url}{video_id}")
+                if info:
+                    video_id = info.get("id") or video_id or ""
+                    title = info.get("title", "")
+                    url = info.get("webpage_url") or info.get("link") or f"{self.base_url}{video_id}"
+                    thumbnail = _extract_thumbnail(info)
+                    duration = info.get("duration")
+                    duration_str = duration if isinstance(duration, str) else (seconds_to_min(int(duration.get("secondsText"))) if isinstance(duration, dict) and duration.get("secondsText") else None)
+                    duration_sec = int(time_to_seconds(duration_str)) if duration_str and duration_str != "-" else 0
+                    return Track(id=video_id, title=title, url=url, duration_min=duration_str if duration_str and duration_str != "-" else None, duration_sec=duration_sec, thumbnail=thumbnail)
+            except Exception:
+                pass
+            return None
+        
+        url_type, video_id, playlist_id = self._validate_url(link)
+        if url_type == "playlist":
+            return None
         
         info = await self._fetch_raw_metadata(link if url_type == "unknown" else None, url_type, video_id)
         if not info:

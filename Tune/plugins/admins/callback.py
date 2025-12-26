@@ -273,7 +273,9 @@ async def handle_seek(callback: CallbackQuery, _, chat_id: int, command: str, us
     await callback.answer()
     mystic = await callback.message.reply_text(_["admin_24"])
     
-    if "vid_" in file_path:
+    if playing[0].get("speed_path"):
+        file_path = playing[0]["speed_path"]
+    elif "vid_" in file_path:
         n, file_path = await YouTube.video(playing[0]["vidid"], True)
         if n == 0:
             return await mystic.edit_text(_["admin_22"])
