@@ -574,7 +574,7 @@ async def play_music(client, CallbackQuery, _):
 
         mystic = await _create_mystic_message(CallbackQuery.message, channel, _)
 
-        metadata = await YouTube.get_metadata(vidid, videoid=vidid)
+        metadata = await YouTube.get_metadata("", videoid=vidid)
         if not metadata:
             return
         details = metadata.to_dict()

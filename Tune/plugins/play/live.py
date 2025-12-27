@@ -56,7 +56,6 @@ async def play_live_stream(client, CallbackQuery, _):
         if not metadata or not isinstance(metadata, LiveTrack):
             return await mystic.edit_text("» ɴᴏᴛ ᴀ ʟɪᴠᴇ sᴛʀᴇᴀᴍ.")
         details = metadata.to_dict()
-        track_id = metadata.id
     except Exception as e:
         return await mystic.edit_text(f"{_['play_3']}\nʀᴇᴀsᴏɴ: {e}")
 

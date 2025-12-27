@@ -227,7 +227,7 @@ async def get_thumb(videoid_or_track: Union[str, Track, LiveTrack]) -> str:
     from Tune.platforms.Youtube import YouTube
     
     try:
-        track = await YouTube.get_metadata(f"https://www.youtube.com/watch?v={videoid}", videoid=videoid)
+        track = await YouTube.get_metadata("", videoid=videoid)
         if track:
             return await get_thumb(track)
     except Exception:

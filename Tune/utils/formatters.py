@@ -64,58 +64,6 @@ def time_to_seconds(time):
     return sum(int(x) * 60**i for i, x in enumerate(reversed(stringt.split(":"))))
 
 
-def parse_view_count(info: dict) -> Optional[str]:
-    view_count_data = info.get("viewCount") or info.get("view_count")
-    if isinstance(view_count_data, dict):
-        return view_count_data.get("short") or view_count_data.get("text")
-    if isinstance(view_count_data, str):
-        return view_count_data
-    if isinstance(view_count_data, (int, float)) and view_count_data > 0:
-        if view_count_data >= 1_000_000_000:
-            return f"{view_count_data / 1_000_000_000:.1f}B views"
-        elif view_count_data >= 1_000_000:
-            return f"{view_count_data / 1_000_000:.1f}M views"
-        elif view_count_data >= 1_000:
-            return f"{view_count_data / 1_000:.1f}K views"
-        else:
-            return f"{int(view_count_data)} views"
-    return None
-
-
-def parse_duration(duration):
-    if isinstance(duration, str):
-        duration_str = duration
-        duration_sec = int(time_to_seconds(duration_str)) if duration_str and duration_str != "-" else 0
-    elif isinstance(duration, dict):
-        duration_text = duration.get("text")
-        duration_seconds = duration.get("seconds")
-        if duration_text:
-            duration_str = duration_text
-            if duration_seconds:
-                duration_sec = int(duration_seconds)
-            else:
-                duration_sec = int(time_to_seconds(duration_str)) if duration_str and duration_str != "-" else 0
-        else:
-            seconds_text = duration.get("secondsText")
-            if seconds_text:
-                duration_str = seconds_to_min(int(seconds_text))
-                duration_sec = int(seconds_text)
-            else:
-                duration_str = None
-                duration_sec = 0
-    elif isinstance(duration, (int, float)) and duration > 0:
-        duration_sec = int(duration)
-        duration_str = seconds_to_min(duration_sec)
-    else:
-        duration_str = None
-        duration_sec = 0
-    
-    if duration_str and duration_str == "-":
-        duration_str = None
-    
-    return duration_str, duration_sec
-
-
 def seconds_to_min(seconds):
     if seconds is not None:
         seconds = int(seconds)

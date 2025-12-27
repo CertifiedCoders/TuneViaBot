@@ -376,7 +376,7 @@ class Call:
 
     async def _handle_live_stream(self, client, chat_id: int, videoid: str, video: bool, original_chat_id: int, _: dict, current: dict) -> None:
         try:
-            n, link = await YouTube.video(videoid, True)
+            n, link = await YouTube.video("", videoid=videoid)
             if n == 0 or not link:
                 return await app.send_message(original_chat_id, text=_["call_6"])
             stream = dynamic_media_stream(path=link, video=video)
@@ -400,7 +400,7 @@ class Call:
     async def _handle_vid_stream(self, client, chat_id: int, videoid: str, video: bool, streamtype: str, title: str, original_chat_id: int, _: dict, current: dict) -> None:
         mystic = await app.send_message(original_chat_id, _["call_7"])
         download_task = YouTube.download(
-            videoid,
+            "",
             mystic,
             videoid=videoid,
             video=(str(streamtype) == "video"),

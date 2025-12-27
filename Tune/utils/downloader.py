@@ -4,7 +4,7 @@ import contextlib
 import glob
 import os
 import re
-from typing import Dict, Optional
+from typing import Dict, List, Optional, Tuple
 
 import aiofiles
 import aiohttp
@@ -13,7 +13,7 @@ from yt_dlp import YoutubeDL
 
 from Tune.core.dir import CACHE_DIR, DOWNLOAD_DIR
 from Tune.utils.cookie_handler import COOKIE_PATH as _COOKIES_FILE
-from Tune.utils.tuning import CHUNK_SIZE, SEM
+from Tune.utils.tuning import CHUNK_SIZE, SEM, YTDLP_TIMEOUT, extract_youtube_id
 from config import API_KEY, API_URL, VIDEO_API_URL
 from Tune.logging import LOGGER
 
@@ -25,7 +25,6 @@ _inflight: Dict[str, asyncio.Future] = {}
 _inflight_lock = asyncio.Lock()
 _session: Optional[aiohttp.ClientSession] = None
 _session_lock = asyncio.Lock()
-YOUTUBE_ID_RE = re.compile(r"^[a-zA-Z0-9_-]{11}$")
 SOUNDCLOUD_RE = re.compile(r"^https?://(?:www\.)?(soundcloud\.com|on\.soundcloud\.com)/.+", re.I)
 
 
@@ -33,18 +32,6 @@ def log_download_source(media_type: str, title: str, source: str) -> None:
     LOGGER.info(f"[{media_type}] Track '{title}' - Downloaded by {source}")
 
 
-def extract_video_id(link: str) -> str:
-    if not link:
-        return ""
-    s = link.strip()
-    if YOUTUBE_ID_RE.match(s):
-        return s
-    if "v=" in s:
-        return s.split("v=")[-1].split("&")[0]
-    last = s.split("/")[-1].split("?")[0]
-    if YOUTUBE_ID_RE.match(last):
-        return last
-    return ""
 
 
 def get_cookie_file() -> Optional[str]:
@@ -161,7 +148,7 @@ async def _api_poll_and_download(poll_url: str, video_id: str, default_format: s
 async def api_download_audio(link: str) -> Optional[str]:
     if not USE_AUDIO_API:
         return None
-    vid = extract_video_id(link)
+    vid = extract_youtube_id(link)
     if not vid:
         return None
     poll_url = f"{API_URL}/song/{vid}?api={API_KEY}"
@@ -171,7 +158,7 @@ async def api_download_audio(link: str) -> Optional[str]:
 async def api_download_video(link: str) -> Optional[str]:
     if not USE_VIDEO_API:
         return None
-    vid = extract_video_id(link)
+    vid = extract_youtube_id(link)
     if not vid:
         return None
     poll_url = f"{VIDEO_API_URL}/video/{vid}?api={API_KEY}"
@@ -309,3 +296,51 @@ async def yt_dlp_download(link: str, type: str, title: str = "") -> Optional[str
         return await _download_media(link, fmt, api_download_video, title, is_soundcloud, "video")
     
     return None
+
+
+async def yt_dlp_get_stream_url(link: str) -> Tuple[int, str]:
+    try:
+        opts = get_ytdlp_base_opts(is_soundcloud=False)
+        opts["format"] = "best[height<=?720][width<=?1280]"
+        
+        loop = asyncio.get_running_loop()
+        
+        def get_url():
+            with YoutubeDL(opts) as ydl:
+                info = ydl.extract_info(link, download=False)
+                url = info.get("url")
+                if url:
+                    return (1, url)
+                formats = info.get("formats", [])
+                if formats:
+                    for fmt in formats:
+                        if fmt.get("url"):
+                            return (1, fmt.get("url"))
+                return (0, "")
+        
+        result = await run_with_semaphore(loop.run_in_executor(None, get_url))
+        return result if result else (0, "")
+    except Exception as e:
+        LOGGER.error(f"yt-dlp stream URL failed for {link}: {e}")
+        return (0, "")
+
+
+async def yt_dlp_get_playlist_ids(playlist_url: str, limit: int) -> List[str]:
+    try:
+        opts = get_ytdlp_base_opts(is_soundcloud=False)
+        opts["extract_flat"] = True
+        opts["playlistend"] = limit
+        
+        loop = asyncio.get_running_loop()
+        
+        def get_ids():
+            with YoutubeDL(opts) as ydl:
+                info = ydl.extract_info(playlist_url, download=False)
+                entries = info.get("entries", [])
+                return [entry.get("id", "") for entry in entries if entry.get("id")]
+        
+        ids = await run_with_semaphore(loop.run_in_executor(None, get_ids))
+        return ids if ids else []
+    except Exception as e:
+        LOGGER.error(f"yt-dlp playlist IDs failed for {playlist_url}: {e}")
+        return []

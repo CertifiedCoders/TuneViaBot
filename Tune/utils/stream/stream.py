@@ -63,7 +63,7 @@ async def _download_track(_, vidid: str, mystic, is_video: bool, title: str, cha
                 return file_path, True
             else:
                 file_path, direct = await asyncio.wait_for(
-                    YouTube.download(vidid, mystic, video=is_video, videoid=vidid, title=title),
+                    YouTube.download("", mystic, video=is_video, videoid=vidid, title=title),
                     timeout=DOWNLOAD_TIMEOUT
                 )
                 if not file_path:
@@ -263,7 +263,7 @@ async def stream(
         duration_min = result.get("duration_min")
         thumbnail = result["thumb"]
 
-        download_coro = YouTube.download(vidid, mystic, video=is_video, videoid=vidid, title=title)
+        download_coro = YouTube.download("", mystic, video=is_video, videoid=vidid, title=title)
         thumb_task = get_thumb(vidid)
         try:
             download_result, img = await asyncio.gather(
@@ -360,7 +360,7 @@ async def stream(
             )
         else:
             try:
-                n, file_path = await YouTube.video(link)
+                n, file_path = await YouTube.video("", videoid=vidid)
                 if n == 0 or not file_path:
                     raise AssistantErr(_["str_3"])
             except AssistantErr:

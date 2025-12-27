@@ -193,7 +193,7 @@ async def handle_skip_replay(callback: CallbackQuery, _, chat_id: int, command: 
 
     try:
         if "live_" in queued:
-            n, new_link = await YouTube.video(videoid, True)
+            n, new_link = await YouTube.video("", videoid=videoid)
             if n == 0:
                 return await callback.message.reply_text(
                     _["admin_7"].format(title),
@@ -207,7 +207,7 @@ async def handle_skip_replay(callback: CallbackQuery, _, chat_id: int, command: 
             mystic = await callback.message.reply_text(_["call_7"], disable_web_page_preview=True)
             try:
                 file_path, direct = await YouTube.download(
-                    videoid,
+                    "",
                     mystic,
                     videoid=videoid,
                     video=status,
@@ -278,7 +278,7 @@ async def handle_seek(callback: CallbackQuery, _, chat_id: int, command: str, us
     if playing[0].get("speed_path"):
         file_path = playing[0]["speed_path"]
     elif "vid_" in file_path:
-        n, file_path = await YouTube.video(playing[0]["vidid"], True)
+        n, file_path = await YouTube.video("", videoid=playing[0]["vidid"])
         if n == 0:
             return await mystic.edit_text(_["admin_22"])
     

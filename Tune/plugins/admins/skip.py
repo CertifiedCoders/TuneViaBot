@@ -78,7 +78,7 @@ async def send_stream_message(message: Message, _, chat_id, check, queued, title
     duration = check[0]["dur"]
     
     if "live_" in queued:
-        n, link = await YouTube.video(videoid, True)
+        n, link = await YouTube.video("", videoid=videoid)
         if n == 0:
             return await message.reply_text(_["admin_7"].format(title))
         
@@ -105,7 +105,7 @@ async def send_stream_message(message: Message, _, chat_id, check, queued, title
         mystic = await message.reply_text(_["call_7"], disable_web_page_preview=True)
         try:
             file_path, direct = await YouTube.download(
-                videoid,
+                "",
                 mystic,
                 videoid=videoid,
                 video=status,

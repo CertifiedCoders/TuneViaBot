@@ -1,144 +1,37 @@
 # Authored By Certified Coders © 2025
 
-import asyncio
-import json
-import os
-import re
-from typing import Dict, List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 from pyrogram.enums import MessageEntityType
 from pyrogram.types import Message
 from youtubesearchpython.aio import VideosSearch, Video, Playlist
 
-from Tune.utils.cookie_handler import COOKIE_PATH
-from Tune.utils.downloader import yt_dlp_download
+from Tune.utils.downloader import yt_dlp_download, yt_dlp_get_stream_url, yt_dlp_get_playlist_ids
 from Tune.utils.errors import capture_internal_err
-from Tune.utils.formatters import parse_duration, parse_view_count
-from Tune.utils.tuning import YTDLP_TIMEOUT, Track, LiveTrack
-
-YOUTUBE_ID_RE = re.compile(r"^[A-Za-z0-9_-]{11}$")
-
-
-def get_cookies_args() -> List[str]:
-    try:
-        path = str(COOKIE_PATH)
-        return ["--cookies", path] if path and os.path.exists(path) and os.path.getsize(path) > 0 else []
-    except Exception:
-        return []
-
-
-async def _run_ytdlp_dump(url: str) -> Optional[Dict]:
-    proc = await asyncio.create_subprocess_exec(
-        "yt-dlp",
-        *get_cookies_args(),
-        "--dump-json",
-        "--no-warnings",
-        url,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-    )
-    try:
-        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=YTDLP_TIMEOUT)
-        return json.loads(stdout.decode()) if stdout else None
-    except Exception:
-        return None
+from Tune.utils.tuning import (
+    Track, LiveTrack, validate_youtube_url, extract_youtube_id,
+    create_track_from_youtube_metadata, YOUTUBE_ID_RE
+)
 
 
 class YouTubeAPI:
     def __init__(self) -> None:
         self.base_url = "https://www.youtube.com/watch?v="
         self.playlist_url = "https://youtube.com/playlist?list="
-        self._url_pattern = re.compile(r"(youtube\.com|youtu\.be|music\.youtube\.com)")
-        self.regex = re.compile(r"([A-Za-z0-9_-]{11}|PL[A-Za-z0-9_-]+)([&?][^\s]*)?")
-        self._cookies = get_cookies_args()
 
-    @property
-    def cookies(self) -> List[str]:
-        return self._cookies
-
-    def _validate_url(self, query: str) -> Tuple[str, Optional[str], Optional[str]]:
-        query = query.strip()
-        if not self._url_pattern.search(query):
-            return ("unknown", None, None)
-        
-        if "/playlist?list=" in query.lower():
-            playlist_id = query.split("list=")[1].split("&")[0].split("?")[0]
-            if playlist_id:
-                return ("playlist", None, playlist_id)
-        
-        match = self.regex.search(query)
-        if not match or not (id_match := match.group(1)):
-            return ("unknown", None, None)
-        
-        if len(id_match) == 11 and YOUTUBE_ID_RE.match(id_match):
-            return ("live", id_match, None) if "/live/" in query.lower() else ("video", id_match, None)
-        
-        return ("unknown", None, None)
-
-    def _extract_thumbnail(self, info: dict) -> str:
-        thumbs = info.get("thumbnails")
-        if isinstance(thumbs, list) and thumbs:
-            thumbnail_url = thumbs[-1].get("url")
-            return thumbnail_url.split("?")[0] if thumbnail_url else ""
-        thumb = info.get("thumbnail", "")
-        return thumb.split("?")[0] if thumb else ""
-
-    def _extract_track_from_metadata(self, info: dict, video_id: Optional[str] = None, is_live: Optional[bool] = None) -> Union[Track, LiveTrack, None]:
-        if not info:
-            return None
-        
-        video_id = info.get("id") or video_id or ""
-        if not video_id:
-            return None
-        
-        title = info.get("title", "")
-        url = info.get("webpage_url") or info.get("link") or f"{self.base_url}{video_id}"
-        thumbnail = self._extract_thumbnail(info)
-        view_count = parse_view_count(info)
-        
-        if is_live is None:
-            is_live = info.get("is_live") or info.get("isLiveNow", False)
-        
-        if is_live:
-            return LiveTrack(
-                id=video_id,
-                title=title,
-                url=url,
-                thumbnail=thumbnail,
-                view_count=view_count,
-            )
-        
-        duration = info.get("duration")
-        duration_str, duration_sec = parse_duration(duration)
-        
-        return Track(
-            id=video_id,
-            title=title,
-            url=url,
-            duration_min=duration_str,
-            duration_sec=duration_sec,
-            thumbnail=thumbnail,
-            view_count=view_count,
-        )
-
-    async def _fetch_raw_metadata(self, query: Optional[str], url_type: str, video_id: Optional[str] = None, playlist_id: Optional[str] = None) -> Optional[dict]:
+    async def _fetch_raw_metadata(self, query: Optional[str], url_type: str, video_id: Optional[str] = None, playlist_id: Optional[str] = None, url: Optional[str] = None) -> Optional[dict]:
         if url_type == "playlist":
             try:
                 return await Playlist.get(f"{self.playlist_url}{playlist_id}")
             except Exception:
                 return None
         
-        if url_type == "live":
-            if not video_id:
-                return None
-            info = await _run_ytdlp_dump(f"{self.base_url}{video_id}")
-            return info if info and info.get("is_live") else None
-        
         if url_type == "video":
             if not video_id:
                 return None
             try:
-                return await Video.get(f"{self.base_url}{video_id}")
+                video_url = url or f"{self.base_url}{video_id}"
+                return await Video.get(video_url)
             except Exception:
                 return None
         
@@ -159,33 +52,30 @@ class YouTubeAPI:
     async def get_metadata(self, link: str, videoid: Union[str, bool, None] = None) -> Union[Track, LiveTrack, None]:
         if isinstance(videoid, str) and videoid.strip():
             video_id = videoid.strip()
-            info = await _run_ytdlp_dump(f"{self.base_url}{video_id}")
-            if info:
-                return self._extract_track_from_metadata(info, video_id)
             try:
                 info = await Video.get(f"{self.base_url}{video_id}")
                 if info:
-                    return self._extract_track_from_metadata(info, video_id)
+                    return create_track_from_youtube_metadata(info, video_id, self.base_url)
             except Exception:
                 pass
             return None
         
-        url_type, video_id, playlist_id = self._validate_url(link)
+        url_type, video_id, playlist_id = validate_youtube_url(link)
         if url_type == "playlist":
             return None
         
-        info = await self._fetch_raw_metadata(link if url_type == "unknown" else None, url_type, video_id)
+        info = await self._fetch_raw_metadata(link if url_type == "unknown" else None, url_type, video_id, url=link if url_type == "video" else None)
         if not info:
             return None
         
-        is_live = (url_type == "live") or info.get("is_live") or info.get("isLiveNow", False)
-        return self._extract_track_from_metadata(info, video_id, is_live)
+        return create_track_from_youtube_metadata(info, video_id, self.base_url)
 
     @capture_internal_err
     async def exists(self, link: str, videoid: Union[str, bool, None] = None) -> bool:
         if videoid:
             return bool(YOUTUBE_ID_RE.match(str(videoid)))
-        return bool(self._url_pattern.search(link))
+        url_type, _, _ = validate_youtube_url(link)
+        return url_type != "unknown"
 
     @capture_internal_err
     async def url(self, message: Message) -> Optional[str]:
@@ -201,28 +91,25 @@ class YouTubeAPI:
         return None
 
     @capture_internal_err
-    async def video(self, link: str, videoid: Union[str, bool, None] = None) -> Tuple[int, str]:
-        url_type, video_id, _ = self._validate_url(link)
-        if not video_id and isinstance(videoid, str) and videoid.strip():
+    async def video(self, link: str = "", videoid: Union[str, bool, None] = None) -> Tuple[int, str]:
+        video_id = None
+        if isinstance(videoid, str) and videoid.strip():
             video_id = videoid.strip()
+        elif link:
+            url_type, video_id, _ = validate_youtube_url(link)
         
-        url = f"{self.base_url}{video_id}" if video_id else link
-        proc = await asyncio.create_subprocess_exec(
-            "yt-dlp", *self.cookies, "-g", "-f", "best[height<=?720][width<=?1280]", url,
-            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
-        )
-        try:
-            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=YTDLP_TIMEOUT)
-            return (1, stdout.decode().split("\n")[0]) if stdout else (0, stderr.decode())
-        except Exception:
+        if not video_id:
             return (0, "")
+        
+        url = f"{self.base_url}{video_id}"
+        return await yt_dlp_get_stream_url(url)
 
     @capture_internal_err
     async def playlist(self, link: str, limit: int, user_id, videoid: Union[str, bool, None] = None) -> List[Track]:
         if videoid:
             playlist_id = str(videoid)
         else:
-            url_type, _, playlist_id = self._validate_url(link)
+            url_type, _, playlist_id = validate_youtube_url(link)
             if url_type != "playlist":
                 raise ValueError("Not a valid playlist URL")
         
@@ -236,7 +123,8 @@ class YouTubeAPI:
                 for v in videos:
                     video_id = v.get("id") if isinstance(v, dict) else getattr(v, "id", None)
                     if video_id:
-                        track = self._extract_track_from_metadata(v if isinstance(v, dict) else v.__dict__ if hasattr(v, "__dict__") else {}, video_id)
+                        video_data = v if isinstance(v, dict) else v.__dict__ if hasattr(v, "__dict__") else {}
+                        track = create_track_from_youtube_metadata(video_data, video_id, self.base_url)
                         if track:
                             tracks.append(track)
                 if tracks:
@@ -244,28 +132,19 @@ class YouTubeAPI:
         except Exception:
             pass
         
-        proc = await asyncio.create_subprocess_exec(
-            "yt-dlp", *self.cookies, "-i", "--get-id", "--flat-playlist",
-            "--playlist-end", str(limit), "--skip-download", url,
-            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
-        )
-        try:
-            stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=YTDLP_TIMEOUT)
-            video_ids = [i for i in (stdout.decode().strip().split("\n") if stdout else []) if i]
-            for video_id in video_ids:
-                metadata = await self.get_metadata(f"{self.base_url}{video_id}", video_id)
-                if metadata:
-                    tracks.append(metadata)
-            return tracks
-        except Exception:
-            return []
+        video_ids = await yt_dlp_get_playlist_ids(url, limit)
+        for video_id in video_ids:
+            metadata = await self.get_metadata("", videoid=video_id)
+            if metadata:
+                tracks.append(metadata)
+        return tracks
 
     @capture_internal_err
     async def slider(self, link: str, query_type: int, videoid: Union[str, bool, None] = None) -> Optional[Track]:
         if videoid:
             query = f"{self.base_url}{videoid}"
         else:
-            url_type, video_id, _ = self._validate_url(link)
+            url_type, video_id, _ = validate_youtube_url(link)
             query = f"{self.base_url}{video_id}" if video_id else link
         
         results = (await VideosSearch(query, limit=10).next()).get("result", [])
@@ -273,13 +152,13 @@ class YouTubeAPI:
             raise IndexError(f"Query type index {query_type} out of range (found {len(results)} results)")
         
         r = results[query_type]
-        return self._extract_track_from_metadata(r)
+        return create_track_from_youtube_metadata(r, None, self.base_url)
 
     @capture_internal_err
     async def download(
         self,
-        link: str,
-        mystic,
+        link: str = "",
+        mystic = None,
         *,
         video: Union[bool, str, None] = None,
         videoid: Union[str, bool, None] = None,
@@ -288,21 +167,27 @@ class YouTubeAPI:
         if isinstance(videoid, bool):
             videoid = None
         
-        url_type, video_id, _ = self._validate_url(link)
-        url = f"{self.base_url}{video_id}" if video_id else link
+        video_id = None
+        if isinstance(videoid, str) and videoid.strip():
+            video_id = videoid.strip()
+        elif link:
+            url_type, video_id, _ = validate_youtube_url(link)
         
-        if videoid and not video_id:
-            url_type, video_id, _ = self._validate_url(str(videoid))
-            url = f"{self.base_url}{video_id}" if video_id else url
+        if not video_id:
+            return (None, None)
         
-        metadata = await self.get_metadata(url, videoid)
+        metadata = await self.get_metadata("", videoid=video_id)
+        if not metadata:
+            return (None, None)
+        
         if isinstance(metadata, LiveTrack) and video:
-            status, stream_url = await self.video(url)
+            status, stream_url = await self.video("", videoid=video_id)
             return (stream_url, None) if status == 1 else (None, None)
         
         if not title:
             title = metadata.title if metadata else ""
         
+        url = metadata.url
         p = await yt_dlp_download(url, type="video" if video else "audio", title=title)
         return (p, True) if p else (None, None)
 
