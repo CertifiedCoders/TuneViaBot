@@ -5,7 +5,7 @@ import time
 from pyrogram import filters
 from pyrogram.enums import ChatType
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
-from youtubesearchpython.aio import VideosSearch
+from youtubesearchpython.aio import Video
 
 import config
 from config import BANNED_USERS, HELP_IMG_URL, START_VIDS, STICKERS
@@ -58,21 +58,18 @@ async def start_pm(client, message: Message, _):
         elif name.startswith("inf"):
             m = await message.reply_text("🔎")
             videoid = name.replace("info_", "", 1)
-            query = f"https://www.youtube.com/watch?v={videoid}"
-            results = VideosSearch(query, limit=1)
-            search_results = (await results.next())["result"]
-            if not search_results:
+            result = await Video.get(videoid)
+            if not result:
                 await m.delete()
                 return
-            result = search_results[0]
             title = result["title"]
-            duration = result["duration"]
+            duration = result["duration"]["text"]
             views = result["viewCount"]["short"]
             thumbnail = result["thumbnails"][0]["url"].split("?")[0]
             channellink = result["channel"]["link"]
             channel = result["channel"]["name"]
             link = result["link"]
-            published = result["publishedTime"]
+            published = result.get("publishedTime") or ""
             searched_text = _["start_6"].format(
                 title, duration, views, published, channellink, channel, app.mention
             )
