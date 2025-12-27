@@ -124,7 +124,7 @@ def parse_view_count_from_metadata(info: dict) -> Optional[str]:
     return None
 
 
-def create_track_from_youtube_metadata(info: dict, video_id: Optional[str] = None, base_url: str = "https://www.youtube.com/watch?v=") -> Optional[Union[Track, LiveTrack]]:
+def create_track_from_youtube_metadata(info: dict, video_id: Optional[str] = None, base_url: str = "https://www.youtube.com/watch?v=") -> Optional[Union["Track", "LiveTrack"]]:
     if not info:
         return None
     
