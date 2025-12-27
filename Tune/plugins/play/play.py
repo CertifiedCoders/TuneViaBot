@@ -28,6 +28,7 @@ from Tune.utils.inline import (
 )
 from Tune.utils.logger import play_logs
 from Tune.utils.stream.stream import stream
+from Tune.utils.tuning import LiveTrack
 
 
 async def _create_mystic_message(message_or_callback, channel, _):
@@ -240,7 +241,6 @@ async def play_command(
                     if not metadata:
                         return await mystic.edit_text(_["play_3"])
                     
-                    from Tune.utils.tuning import LiveTrack
                     is_live = isinstance(metadata, LiveTrack)
                     details = metadata.to_dict()
                     track_id = metadata.id

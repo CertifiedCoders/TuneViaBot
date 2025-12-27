@@ -140,5 +140,3 @@ def git():
         LOGGER(__name__).warning(f"Requirements installation had issues: {stderr}")
     else:
         LOGGER(__name__).info("Requirements installed successfully")
-
-    LOGGER(__name__).info("Fetching updates from upstream repository...")

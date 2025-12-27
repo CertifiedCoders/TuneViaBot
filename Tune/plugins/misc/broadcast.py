@@ -18,6 +18,7 @@ from pyrogram.errors import (
 
 from Tune import app
 from Tune.misc import SUDOERS
+from Tune.core.userbot import assistants
 from Tune.utils.database import (
     get_active_chats,
     get_authuser_names,
@@ -239,8 +240,6 @@ async def _broadcast_to_users(message, is_forward: bool, source_chat: int, msg_i
 
 
 async def _broadcast_to_assistants(message, is_forward: bool, source_chat: int, msg_id: int, query: str, _):
-    from Tune.core.userbot import assistants
-    
     aw = await message.reply_text(_["broad_5"])
     text = _["broad_6"]
     

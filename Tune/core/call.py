@@ -50,6 +50,7 @@ from Tune.utils.inline.play import stream_markup
 from Tune.utils.stream.autoclear import auto_clean
 from Tune.utils.thumbnails import get_thumb
 from Tune.utils.tuning import JOIN_CALL_TIMEOUT
+from Tune.core.userbot import get_available_sessions
 
 autoend = {}
 counter = {}
@@ -105,8 +106,6 @@ async def _clear_(chat_id: int) -> None:
 
 class Call:
     def __init__(self):
-        from Tune.core.userbot import get_available_sessions
-        
         available_sessions = get_available_sessions()
         max_sessions = 5
         self.userbots = [None] * max_sessions
@@ -586,7 +585,6 @@ class Call:
 
     async def start(self) -> None:
         active_count = len([a for a in self.assistants_list if a])
-        LOGGER(__name__).info(f"Starting PyTgCalls Clients... (Found {active_count} active assistant{'s' if active_count != 1 else ''})")
         started_count = 0
         failed_count = 0
         for idx, assistant in enumerate(self.assistants_list, 1):

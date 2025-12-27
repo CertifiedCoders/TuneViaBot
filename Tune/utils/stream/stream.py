@@ -20,7 +20,7 @@ from Tune.utils.pastebin import TuneBin
 from Tune.utils.stream.queue import put_queue, put_queue_index
 from Tune.utils.thumbnails import get_thumb
 from Tune.utils.errors import capture_internal_err
-from Tune.utils.tuning import DOWNLOAD_TIMEOUT, get_chat_semaphore
+from Tune.utils.tuning import DOWNLOAD_TIMEOUT, get_chat_semaphore, Track, LiveTrack
 
 _active_downloads: dict[int, asyncio.Task] = {}
 _downloads_lock = asyncio.Lock()
@@ -181,7 +181,6 @@ async def stream(
                 except (ValueError, TypeError):
                     continue
             else:
-                from Tune.utils.tuning import Track, LiveTrack
                 if isinstance(metadata_result, (Track, LiveTrack)):
                     title = metadata_result.title
                     duration_min = metadata_result.duration_min

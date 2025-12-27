@@ -10,6 +10,8 @@ from config import YOUTUBE_IMG_URL, SOUNCLOUD_IMG_URL
 from Tune.core.dir import CACHE_DIR
 from Tune.platforms.Soundcloud import is_soundcloud_url
 from Tune.utils.tuning import Track, LiveTrack
+from Tune import SoundCloud
+from Tune.platforms.Youtube import YouTube
 
 PANEL_W, PANEL_H = 763, 545
 PANEL_X = (1280 - PANEL_W) // 2
@@ -141,8 +143,6 @@ async def _create_decorated_thumbnail(
 
 
 async def get_soundcloud_thumb(url: str) -> str:
-    from Tune import SoundCloud
-
     cache_id = hashlib.md5(url.encode()).hexdigest()
     cache_path = os.path.join(CACHE_DIR, f"sc_{cache_id}_v4.png")
 
@@ -223,8 +223,6 @@ async def get_thumb(videoid_or_track: Union[str, Track, LiveTrack]) -> str:
     cache_path = os.path.join(CACHE_DIR, f"{videoid}_v4.png")
     if os.path.exists(cache_path):
         return cache_path
-
-    from Tune.platforms.Youtube import YouTube
     
     try:
         track = await YouTube.get_metadata("", videoid=videoid)

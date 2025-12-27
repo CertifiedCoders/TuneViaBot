@@ -6,6 +6,8 @@ import re
 from dataclasses import dataclass
 from typing import Dict, Optional, Tuple, Union
 
+from Tune.utils.formatters import time_to_seconds, seconds_to_min
+
 CPU = os.cpu_count() or 4
 MAX_CONCURRENT = min(128, CPU * 16)
 CHUNK_SIZE = 256 * 1024
@@ -71,8 +73,6 @@ def extract_thumbnail(info: dict) -> str:
 
 
 def parse_duration_from_metadata(duration) -> Tuple[Optional[str], int]:
-    from Tune.utils.formatters import time_to_seconds, seconds_to_min
-    
     if isinstance(duration, str):
         duration_str = duration
         duration_sec = int(time_to_seconds(duration_str)) if duration_str and duration_str != "-" else 0
