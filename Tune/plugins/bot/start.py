@@ -58,36 +58,47 @@ async def start_pm(client, message: Message, _):
         elif name.startswith("inf"):
             m = await message.reply_text("🔎")
             videoid = name.replace("info_", "", 1)
-            result = await Video.get(videoid)
-            if not result:
-                await m.delete()
-                return
-            title = result["title"]
-            duration = result["duration"]["text"]
-            views = result["viewCount"]["short"]
-            thumbnail = result["thumbnails"][0]["url"].split("?")[0]
-            channellink = result["channel"]["link"]
-            channel = result["channel"]["name"]
-            link = result["link"]
-            published = result.get("publishedTime") or ""
-            searched_text = _["start_6"].format(
-                title, duration, views, published, channellink, channel, app.mention
-            )
-            key = InlineKeyboardMarkup(
-                [
+            try:
+                result = await Video.get(videoid)
+                if not result:
+                    await m.delete()
+                    return
+                title = result.get("title", "N/A")
+                duration_obj = result.get("duration", {})
+                duration = duration_obj.get("text", "N/A") if isinstance(duration_obj, dict) else str(duration_obj)
+                views_obj = result.get("viewCount", {})
+                views = views_obj.get("short", "N/A") if isinstance(views_obj, dict) else str(views_obj)
+                thumbnails = result.get("thumbnails", [])
+                if not thumbnails:
+                    await m.delete()
+                    return
+                thumbnail = thumbnails[-1]["url"].split("?")[0]
+                channel_obj = result.get("channel", {})
+                channellink = channel_obj.get("link", "") if isinstance(channel_obj, dict) else ""
+                channel = channel_obj.get("name", "N/A") if isinstance(channel_obj, dict) else str(channel_obj)
+                link = result.get("link", "")
+                published = result.get("publishedTime") or "N/A"
+                searched_text = _["start_6"].format(
+                    title, duration, views, published, channellink, channel, app.mention
+                )
+                key = InlineKeyboardMarkup(
                     [
-                        InlineKeyboardButton(text=_["S_B_6"], url=link),
-                        InlineKeyboardButton(text=_["S_B_4"], url=config.SUPPORT_CHAT),
+                        [
+                            InlineKeyboardButton(text=_["S_B_6"], url=link),
+                            InlineKeyboardButton(text=_["S_B_4"], url=config.SUPPORT_CHAT),
+                        ]
                     ]
-                ]
-            )
-            await m.delete()
-            await app.send_video(
-                chat_id=message.chat.id,
-                video=thumbnail,
-                caption=searched_text,
-                reply_markup=key,
-            )
+                )
+                await m.delete()
+                await app.send_video(
+                    chat_id=message.chat.id,
+                    video=thumbnail,
+                    caption=searched_text,
+                    reply_markup=key,
+                )
+            except Exception as e:
+                await m.delete()
+                await message.reply_text(f"Error fetching video info: {str(e)}")
             if await is_on_off(2):
                 await app.send_message(
                     chat_id=config.LOGGER_ID,
