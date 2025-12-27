@@ -59,7 +59,7 @@ async def seek_comm(cli, message: Message, _, chat_id):
     if track.get("speed_path"):
         file_path = track["speed_path"]
     elif "vid_" in file_path:
-        n, file_path = await YouTube.video(track["vidid"], True)
+        n, file_path = await YouTube.video("", videoid=track["vidid"])
         if n == 0:
             return await message.reply_text(_["admin_22"])
     
