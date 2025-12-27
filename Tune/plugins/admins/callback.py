@@ -34,14 +34,6 @@ from Tune.utils.inline import close_markup, stream_markup, stream_markup_timer
 from Tune.utils.stream.autoclear import auto_clean
 from Tune.utils.thumbnails import get_thumb
 
-checker = {}
-
-
-def parse_chat_info(chat_info: str):
-    if "_" in chat_info:
-        return int(chat_info.split("_")[0])
-    return int(chat_info)
-
 
 async def _send_stream_message(message, _, chat_id, videoid, title, duration, user, streamtype, msg_type, queued=None):
     if videoid == "telegram":
@@ -62,11 +54,10 @@ async def _send_stream_message(message, _, chat_id, videoid, title, duration, us
         caption = _["stream_2"].format(user)
         msg_key = "tg"
     
-    buttons = stream_markup(_, chat_id)
     run = await message.reply_photo(
         photo=photo,
         caption=caption,
-        reply_markup=InlineKeyboardMarkup(buttons),
+        reply_markup=InlineKeyboardMarkup(stream_markup(_, chat_id)),
         parse_mode=ParseMode.HTML,
     )
     set_current_message(chat_id, run, msg_key)
@@ -96,9 +87,11 @@ async def unban_assistant(_, callback: CallbackQuery):
 async def manage_callback(client, callback: CallbackQuery, _):
     data = callback.data.strip().split(None, 1)[1]
     command, chat_info = data.split("|", 1)
-    chat_id = parse_chat_info(chat_info)
+    chat_id = int(chat_info.split("_")[0]) if "_" in chat_info else int(chat_info)
+    
     if not await is_active_chat(chat_id):
         return await callback.answer(_["general_5"], show_alert=True)
+    
     user_mention = callback.from_user.mention
     
     if command == "Pause":
@@ -131,10 +124,8 @@ async def manage_callback(client, callback: CallbackQuery, _):
 
     elif command == "Shuffle":
         playlist = db.get(chat_id)
-        if not playlist:
-            return await callback.answer(_["admin_42"], show_alert=True)
-        if len(playlist) < 2:
-            return await callback.answer(_["admin_43"], show_alert=True)
+        if not playlist or len(playlist) < 2:
+            return await callback.answer(_["admin_42"] if not playlist else _["admin_43"], show_alert=True)
         try:
             popped = playlist.pop(0)
         except Exception:
@@ -155,8 +146,10 @@ async def handle_skip_replay(callback: CallbackQuery, _, chat_id: int, command: 
     if not playlist:
         return await callback.answer(_["queue_2"], show_alert=True)
 
-    if command == "Skip":
-        text_msg = f"➻ sᴛʀᴇᴀᴍ sᴋɪᴩᴩᴇᴅ 🎄\n│ \n└ʙʏ : {user_mention} 🥀"
+    is_skip = command == "Skip"
+    text_msg = f"➻ sᴛʀᴇᴀᴍ {'sᴋɪᴩᴩᴇᴅ' if is_skip else 'ʀᴇᴩʟᴀʏᴇᴅ'} 🎄\n│ \n└ʙʏ : {user_mention} 🥀"
+    
+    if is_skip:
         try:
             popped = playlist.pop(0)
             if popped:
@@ -170,8 +163,6 @@ async def handle_skip_replay(callback: CallbackQuery, _, chat_id: int, command: 
                 reply_markup=close_markup(_)
             )
             return await StreamController.stop_stream(chat_id)
-    else:
-        text_msg = f"➻ sᴛʀᴇᴀᴍ ʀᴇᴩʟᴀʏᴇᴅ 🎄\n│ \n└ʙʏ : {user_mention} 🥀"
 
     await callback.answer()
 
@@ -182,7 +173,7 @@ async def handle_skip_replay(callback: CallbackQuery, _, chat_id: int, command: 
     duration = current_track["dur"]
     streamtype = current_track["streamtype"]
     videoid = current_track["vidid"]
-    status = True if str(streamtype) == "video" else None
+    status = str(streamtype) == "video"
 
     db[chat_id][0]["played"] = 0
     if current_track.get("old_dur"):
@@ -195,10 +186,7 @@ async def handle_skip_replay(callback: CallbackQuery, _, chat_id: int, command: 
         if "live_" in queued:
             n, new_link = await YouTube.video("", videoid=videoid)
             if n == 0:
-                return await callback.message.reply_text(
-                    _["admin_7"].format(title),
-                    reply_markup=close_markup(_)
-                )
+                return await callback.message.reply_text(_["admin_7"].format(title), reply_markup=close_markup(_))
             await StreamController.skip_stream(chat_id, new_link, video=status)
             await _send_stream_message(callback.message, _, chat_id, videoid, title, duration, user, streamtype, "tg")
             await callback.edit_message_text(text_msg, reply_markup=close_markup(_))
@@ -206,13 +194,7 @@ async def handle_skip_replay(callback: CallbackQuery, _, chat_id: int, command: 
         elif "vid_" in queued:
             mystic = await callback.message.reply_text(_["call_7"], disable_web_page_preview=True)
             try:
-                file_path, direct = await YouTube.download(
-                    "",
-                    mystic,
-                    videoid=videoid,
-                    video=status,
-                    title=title,
-                )
+                file_path, direct = await YouTube.download("", mystic, videoid=videoid, video=status, title=title)
                 if not file_path:
                     return await mystic.edit_text(_["call_6"])
                 await StreamController.skip_stream(chat_id, file_path, video=status)
@@ -241,61 +223,51 @@ async def handle_seek(callback: CallbackQuery, _, chat_id: int, command: str, us
     if not playing:
         return await callback.answer(_["queue_2"], show_alert=True)
     
-    duration_seconds = int(playing[0]["seconds"])
-    if duration_seconds == 0:
+    track = playing[0]
+    duration_seconds = int(track["seconds"])
+    file_path = track["file"]
+    
+    if duration_seconds == 0 or "index_" in file_path or "live_" in file_path:
         return await callback.answer(_["admin_22"], show_alert=True)
     
-    file_path = playing[0]["file"]
-    if "index_" in file_path or "live_" in file_path:
-        return await callback.answer(_["admin_22"], show_alert=True)
-    
-    duration_played = int(playing[0]["played"])
+    duration_played = int(track["played"])
     command_int = int(command)
     duration_to_skip = 10 if command_int in [1, 2] else 30
-    duration = playing[0]["dur"]
+    duration = track["dur"]
     is_backward = command_int in [1, 3]
-    
-    bet = seconds_to_min(duration_played)
-    error_msg = (
-        f"» ʙᴏᴛ ɪs ᴜɴᴀʙʟᴇ ᴛᴏ sᴇᴇᴋ ʙᴇᴄᴀᴜsᴇ ᴛʜᴇ ᴅᴜʀᴀᴛɪᴏɴ ᴇxᴄᴇᴇᴅs.\n\n"
-        f"ᴄᴜʀʀᴇɴᴛʟʏ ᴩʟᴀʏᴇᴅ :** {bet}** ᴍɪɴᴜᴛᴇs ᴏᴜᴛ ᴏғ **{duration}** ᴍɪɴᴜᴛᴇs."
-    )
     
     if is_backward:
         new_position = duration_played - duration_to_skip
         if new_position <= 10:
+            bet = seconds_to_min(duration_played)
+            error_msg = f"» ʙᴏᴛ ɪs ᴜɴᴀʙʟᴇ ᴛᴏ sᴇᴇᴋ ʙᴇᴄᴀᴜsᴇ ᴛʜᴇ ᴅᴜʀᴀᴛɪᴏɴ ᴇxᴄᴇᴇᴅs.\n\nᴄᴜʀʀᴇɴᴛʟʏ ᴩʟᴀʏᴇᴅ :** {bet}** ᴍɪɴᴜᴛᴇs ᴏᴜᴛ ᴏғ **{duration}** ᴍɪɴᴜᴛᴇs."
             return await callback.answer(error_msg, show_alert=True)
         to_seek = new_position + 1
     else:
         new_position = duration_played + duration_to_skip
         if (duration_seconds - new_position) <= 10:
+            bet = seconds_to_min(duration_played)
+            error_msg = f"» ʙᴏᴛ ɪs ᴜɴᴀʙʟᴇ ᴛᴏ sᴇᴇᴋ ʙᴇᴄᴀᴜsᴇ ᴛʜᴇ ᴅᴜʀᴀᴛɪᴏɴ ᴇxᴄᴇᴇᴅs.\n\nᴄᴜʀʀᴇɴᴛʟʏ ᴩʟᴀʏᴇᴅ :** {bet}** ᴍɪɴᴜᴛᴇs ᴏᴜᴛ ᴏғ **{duration}** ᴍɪɴᴜᴛᴇs."
             return await callback.answer(error_msg, show_alert=True)
         to_seek = new_position + 1
     
     await callback.answer()
     mystic = await callback.message.reply_text(_["admin_24"])
     
-    if playing[0].get("speed_path"):
-        file_path = playing[0]["speed_path"]
+    if track.get("speed_path"):
+        file_path = track["speed_path"]
     elif "vid_" in file_path:
-        n, file_path = await YouTube.video("", videoid=playing[0]["vidid"])
+        n, file_path = await YouTube.video("", videoid=track["vidid"])
         if n == 0:
             return await mystic.edit_text(_["admin_22"])
     
     try:
-        await StreamController.seek_stream(
-            chat_id,
-            file_path,
-            seconds_to_min(to_seek),
-            duration,
-            playing[0]["streamtype"],
-        )
+        await StreamController.seek_stream(chat_id, file_path, seconds_to_min(to_seek), duration, track["streamtype"])
     except Exception:
         return await mystic.edit_text(_["admin_26"])
     
     db[chat_id][0]["played"] = new_position
-    seek_message = _["admin_25"].format(seconds_to_min(to_seek))
-    await mystic.edit_text(f"{seek_message}\n\nᴄʜᴀɴɢᴇs ᴅᴏɴᴇ ʙʏ : {user_mention} !")
+    await mystic.edit_text(f"{_['admin_25'].format(seconds_to_min(to_seek))}\n\nᴄʜᴀɴɢᴇs ᴅᴏɴᴇ ʙʏ : {user_mention} !")
 
 
 async def markup_timer():
@@ -309,28 +281,21 @@ async def markup_timer():
                 playing = db.get(chat_id)
                 if not playing:
                     continue
-                duration_seconds = int(playing[0]["seconds"])
-                if duration_seconds == 0:
+                track = playing[0]
+                if int(track["seconds"]) == 0:
                     continue
-                mystic = playing[0].get("mystic")
+                mystic = track.get("mystic")
                 if not mystic:
                     continue
-                if chat_id in checker and mystic.id in checker[chat_id]:
-                    if checker[chat_id][mystic.id] is False:
-                        continue
                 try:
                     language = await get_lang(chat_id)
                     _lang = get_string(language)
                 except Exception:
                     _lang = get_string("en")
                 try:
-                    buttons = stream_markup_timer(
-                        _lang,
-                        chat_id,
-                        seconds_to_min(playing[0]["played"]),
-                        playing[0]["dur"],
-                    )
-                    await mystic.edit_reply_markup(reply_markup=InlineKeyboardMarkup(buttons))
+                    buttons = stream_markup_timer(_lang, chat_id, seconds_to_min(track["played"]), track["dur"])
+                    if buttons:
+                        await mystic.edit_reply_markup(reply_markup=InlineKeyboardMarkup(buttons))
                 except Exception:
                     continue
             except Exception:

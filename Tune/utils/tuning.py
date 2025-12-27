@@ -36,9 +36,7 @@ def extract_youtube_id(link: str) -> str:
     if "v=" in s:
         return s.split("v=")[-1].split("&")[0].split("?")[0]
     last = s.split("/")[-1].split("?")[0]
-    if YOUTUBE_ID_RE.match(last):
-        return last
-    return ""
+    return last if YOUTUBE_ID_RE.match(last) else ""
 
 
 def validate_youtube_url(query: str) -> Tuple[str, Optional[str], Optional[str]]:
@@ -63,77 +61,94 @@ def validate_youtube_url(query: str) -> Tuple[str, Optional[str], Optional[str]]
 
 def extract_thumbnail(info: dict) -> str:
     thumbs = info.get("thumbnails")
-    if isinstance(thumbs, list) and thumbs:
-        for thumb in reversed(thumbs):
-            url = thumb.get("url") if isinstance(thumb, dict) else ""
-            if url and ("maxresdefault" in url or "hq720" in url):
-                return url.split("?")[0]
-        return thumbs[-1].get("url", "").split("?")[0] if isinstance(thumbs[-1], dict) else ""
+    if not isinstance(thumbs, list) or not thumbs:
+        return ""
+    
+    for thumb in reversed(thumbs):
+        if not isinstance(thumb, dict):
+            continue
+        url = thumb.get("url", "")
+        if url and ("maxresdefault" in url or "hq720" in url):
+            return url.split("?")[0]
+    
+    last_thumb = thumbs[-1]
+    if isinstance(last_thumb, dict):
+        return last_thumb.get("url", "").split("?")[0]
     return ""
 
 
 def parse_duration_from_metadata(duration) -> Tuple[Optional[str], int]:
     if isinstance(duration, str):
-        duration_str = duration
-        duration_sec = int(time_to_seconds(duration_str)) if duration_str and duration_str != "-" else 0
-    elif isinstance(duration, dict):
+        if duration and duration != "-":
+            return duration, int(time_to_seconds(duration))
+        return None, 0
+    
+    if isinstance(duration, dict):
         duration_text = duration.get("text")
         duration_seconds = duration.get("seconds")
+        
         if duration_text:
-            duration_str = duration_text
             if duration_seconds:
-                duration_sec = int(duration_seconds)
-            else:
-                duration_sec = int(time_to_seconds(duration_str)) if duration_str and duration_str != "-" else 0
-        else:
-            seconds_text = duration.get("secondsText")
-            if seconds_text:
-                duration_str = seconds_to_min(int(seconds_text))
-                duration_sec = int(seconds_text)
-            else:
-                duration_str = None
-                duration_sec = 0
-    elif isinstance(duration, (int, float)) and duration > 0:
-        duration_sec = int(duration)
-        duration_str = seconds_to_min(duration_sec)
-    else:
-        duration_str = None
-        duration_sec = 0
+                return duration_text, int(duration_seconds)
+            if duration_text != "-":
+                return duration_text, int(time_to_seconds(duration_text))
+            return None, 0
+        
+        seconds_text = duration.get("secondsText")
+        if seconds_text:
+            return seconds_to_min(int(seconds_text)), int(seconds_text)
+        return None, 0
     
-    if duration_str and duration_str == "-":
-        duration_str = None
+    if isinstance(duration, (int, float)) and duration > 0:
+        return seconds_to_min(int(duration)), int(duration)
     
-    return duration_str, duration_sec
+    return None, 0
 
 
 def parse_view_count_from_metadata(info: dict) -> Optional[str]:
     view_count_data = info.get("viewCount") or info.get("view_count")
+    
     if isinstance(view_count_data, dict):
         return view_count_data.get("short") or view_count_data.get("text")
+    
     if isinstance(view_count_data, str):
         return view_count_data
+    
     if isinstance(view_count_data, (int, float)) and view_count_data > 0:
         if view_count_data >= 1_000_000_000:
             return f"{view_count_data / 1_000_000_000:.1f}B views"
-        elif view_count_data >= 1_000_000:
+        if view_count_data >= 1_000_000:
             return f"{view_count_data / 1_000_000:.1f}M views"
-        elif view_count_data >= 1_000:
+        if view_count_data >= 1_000:
             return f"{view_count_data / 1_000:.1f}K views"
-        else:
-            return f"{int(view_count_data)} views"
+        return f"{int(view_count_data)} views"
+    
     return None
+
+
+def _extract_common_metadata(info: dict, video_id: Optional[str], base_url: str) -> Optional[Tuple[str, str, str, Optional[str], Optional[str], Optional[str]]]:
+    video_id = info.get("id") or video_id or ""
+    if not video_id:
+        return None
+    
+    title = info.get("title", "")
+    url = info.get("link") or f"{base_url}{video_id}"
+    thumbnail = extract_thumbnail(info)
+    view_count = parse_view_count_from_metadata(info)
+    
+    channel = info.get("channel", {})
+    channel_name = channel.get("name") if isinstance(channel, dict) else None
+    
+    return video_id, title, url, thumbnail, view_count, channel_name
 
 
 def create_track_from_youtube_metadata(info: dict, video_id: Optional[str] = None, base_url: str = "https://www.youtube.com/watch?v=") -> Optional[Union["Track", "LiveTrack"]]:
     if not info:
         return None
     
-    is_live = info.get("isLiveNow", False)
-    
-    if is_live:
+    if info.get("isLiveNow", False):
         return LiveTrack.from_youtube_metadata(info, video_id, base_url)
-    else:
-        return Track.from_youtube_metadata(info, video_id, base_url)
+    return Track.from_youtube_metadata(info, video_id, base_url)
 
 
 @dataclass
@@ -154,22 +169,12 @@ class Track:
     
     @classmethod
     def from_youtube_metadata(cls, info: dict, video_id: Optional[str] = None, base_url: str = "https://www.youtube.com/watch?v=") -> Optional["Track"]:
-        if not info:
+        metadata = _extract_common_metadata(info, video_id, base_url)
+        if not metadata:
             return None
         
-        video_id = info.get("id") or video_id or ""
-        if not video_id:
-            return None
-        
-        title = info.get("title", "")
-        url = info.get("link") or f"{base_url}{video_id}"
-        thumbnail = extract_thumbnail(info)
-        view_count = parse_view_count_from_metadata(info)
-        duration = info.get("duration")
-        duration_str, duration_sec = parse_duration_from_metadata(duration)
-        
-        channel = info.get("channel", {})
-        channel_name = channel.get("name") if isinstance(channel, dict) else None
+        video_id, title, url, thumbnail, view_count, channel_name = metadata
+        duration_str, duration_sec = parse_duration_from_metadata(info.get("duration"))
         
         return cls(
             id=video_id,
@@ -209,20 +214,11 @@ class LiveTrack:
     
     @classmethod
     def from_youtube_metadata(cls, info: dict, video_id: Optional[str] = None, base_url: str = "https://www.youtube.com/watch?v=") -> Optional["LiveTrack"]:
-        if not info:
+        metadata = _extract_common_metadata(info, video_id, base_url)
+        if not metadata:
             return None
         
-        video_id = info.get("id") or video_id or ""
-        if not video_id:
-            return None
-        
-        title = info.get("title", "")
-        url = info.get("link") or f"{base_url}{video_id}"
-        thumbnail = extract_thumbnail(info)
-        view_count = parse_view_count_from_metadata(info)
-        
-        channel = info.get("channel", {})
-        channel_name = channel.get("name") if isinstance(channel, dict) else None
+        video_id, title, url, thumbnail, view_count, channel_name = metadata
         
         return cls(
             id=video_id,

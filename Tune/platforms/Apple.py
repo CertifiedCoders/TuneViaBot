@@ -12,40 +12,31 @@ class AppleAPI:
     _USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
     _TITLE_CLEANUP_PATTERN = re.compile(r'\s*\|\s*Apple Music.*$', re.IGNORECASE)
     _SONG_URL_PATTERN = re.compile(r'/song/([^/]+)/')
-
-    def __init__(self):
-        self.regex = re.compile(r"^https://music\.apple\.com/.+")
-        self.base = "https://music.apple.com/in/playlist/"
+    _URL_PATTERN = re.compile(r"^https://music\.apple\.com/.+")
+    _BASE_URL = "https://music.apple.com/in/playlist/"
 
     async def valid(self, link: str) -> bool:
-        return bool(self.regex.search(link or ""))
+        return bool(self._URL_PATTERN.search(link or ""))
 
-    def _build_url(self, url: str, playid: Union[bool, str]) -> str:
-        return self.base + url if playid else url
-
-    def _extract_title_from_soup(self, soup: BeautifulSoup, url: str) -> Optional[str]:
+    def _extract_title(self, soup: BeautifulSoup, url: str) -> Optional[str]:
         og_title = soup.find("meta", property="og:title")
-        if og_title and og_title.get("content"):
-            return og_title.get("content")
+        if og_title and (content := og_title.get("content")):
+            return content
 
         for script in soup.find_all("script", type="application/ld+json"):
             try:
-                script_content = script.string or script.get_text()
-                if not script_content:
-                    continue
-                json_data = json.loads(script_content)
+                json_data = json.loads(script.string or script.get_text() or "")
                 if isinstance(json_data, dict):
-                    if json_data.get("@type") == "MusicRecording" and json_data.get("name"):
-                        return json_data.get("name")
-                    if "name" in json_data:
-                        return json_data.get("name")
+                    if json_data.get("@type") == "MusicRecording" and (name := json_data.get("name")):
+                        return name
+                    if name := json_data.get("name"):
+                        return name
             except (json.JSONDecodeError, AttributeError, TypeError):
                 continue
 
         title_tag = soup.find("title")
         if title_tag and title_tag.string:
-            title = title_tag.string.strip()
-            return self._TITLE_CLEANUP_PATTERN.sub('', title)
+            return self._TITLE_CLEANUP_PATTERN.sub('', title_tag.string.strip())
 
         h1_tag = soup.find("h1")
         if h1_tag:
@@ -58,26 +49,22 @@ class AppleAPI:
 
         return None
 
-    async def _fetch_html(self, url: str, use_headers: bool = False) -> Optional[str]:
-        headers = {"User-Agent": self._USER_AGENT} if use_headers else None
+    async def _fetch_html(self, url: str) -> Optional[str]:
         async with aiohttp.ClientSession() as session:
-            async with session.get(url, headers=headers) as response:
-                if response.status != 200:
-                    return None
-                return await response.text()
+            async with session.get(url, headers={"User-Agent": self._USER_AGENT}) as response:
+                if response.status == 200:
+                    return await response.text()
+                return None
 
     async def track(self, url: str, playid: Union[bool, str] = None) -> Union[Tuple[dict, str], bool]:
-        url = self._build_url(url, playid)
-        html = await self._fetch_html(url, use_headers=True)
+        url = self._BASE_URL + url if playid else url
+        html = await self._fetch_html(url)
         if not html:
             return False
 
         soup = BeautifulSoup(html, "html.parser")
-        title_query = self._extract_title_from_soup(soup, url)
-        if not title_query:
-            return False
-        title_query = title_query.strip()
-        if not title_query:
+        title_query = self._extract_title(soup, url)
+        if not title_query or not (title_query := title_query.strip()):
             return False
 
         results = VideosSearch(title_query, limit=1)
@@ -96,10 +83,10 @@ class AppleAPI:
         return track_details, track_details["vidid"]
 
     async def playlist(self, url: str, playid: Union[bool, str] = None) -> Union[Tuple[List[str], str], bool]:
-        url = self._build_url(url, playid)
+        url = self._BASE_URL + url if playid else url
         try:
             playlist_id = url.split("playlist/")[1]
-        except (IndexError, AttributeError):
+        except IndexError:
             return False
 
         html = await self._fetch_html(url)
@@ -107,9 +94,8 @@ class AppleAPI:
             return False
 
         soup = BeautifulSoup(html, "html.parser")
-        applelinks = soup.find_all("meta", attrs={"property": "music:song"})
         results: List[str] = []
-        for item in applelinks:
+        for item in soup.find_all("meta", attrs={"property": "music:song"}):
             try:
                 slug = item["content"].split("album/")[1].split("/")[0]
                 results.append(slug.replace("-", " "))

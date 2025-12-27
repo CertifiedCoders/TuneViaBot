@@ -63,19 +63,6 @@ def _load_fonts() -> tuple[ImageFont.FreeTypeFont, ImageFont.FreeTypeFont]:
         return default, default
 
 
-async def _download_thumbnail(url: str, path: str) -> bool:
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url) as resp:
-                if resp.status == 200:
-                    async with aiofiles.open(path, "wb") as f:
-                        await f.write(await resp.read())
-                    return True
-    except Exception:
-        pass
-    return False
-
-
 async def _create_decorated_thumbnail(
     title: str,
     thumbnail_url: str,
@@ -88,8 +75,29 @@ async def _create_decorated_thumbnail(
 ) -> str:
     thumb_path = os.path.join(CACHE_DIR, f"thumb{cache_id}.png")
 
-    if not await _download_thumbnail(thumbnail_url, thumb_path):
-        if not await _download_thumbnail(fallback_url, thumb_path):
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(thumbnail_url) as resp:
+                if resp.status == 200:
+                    async with aiofiles.open(thumb_path, "wb") as f:
+                        await f.write(await resp.read())
+                else:
+                    async with session.get(fallback_url) as fallback_resp:
+                        if fallback_resp.status == 200:
+                            async with aiofiles.open(thumb_path, "wb") as f:
+                                await f.write(await fallback_resp.read())
+                        else:
+                            return fallback_url
+    except Exception:
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(fallback_url) as resp:
+                    if resp.status == 200:
+                        async with aiofiles.open(thumb_path, "wb") as f:
+                            await f.write(await resp.read())
+                    else:
+                        return fallback_url
+        except Exception:
             return fallback_url
 
     try:
@@ -150,28 +158,26 @@ async def get_soundcloud_thumb(url: str) -> str:
         return cache_path
 
     try:
-        title, duration_min, duration_sec, thumbnail, track_url = await SoundCloud.details(url)
+        title, duration_min, duration_sec, thumbnail, _ = await SoundCloud.details(url)
     except Exception:
         return SOUNCLOUD_IMG_URL
 
-    title = _normalize_title(title)
-
+    uploader = "SoundCloud"
     try:
         info = await SoundCloud._extract_info(url)
-        uploader = info.get("uploader", "SoundCloud") if info else "SoundCloud"
-        platform_text = f"SoundCloud | {uploader}"
+        if info:
+            uploader = info.get("uploader", "SoundCloud")
     except Exception:
-        platform_text = "SoundCloud"
+        pass
 
     is_live = duration_sec == 0 or duration_min is None
     duration_text = "Live" if is_live else (duration_min or "Unknown Mins")
-    thumbnail_url = thumbnail if thumbnail else SOUNCLOUD_IMG_URL
 
     return await _create_decorated_thumbnail(
-        title=title,
-        thumbnail_url=thumbnail_url,
+        title=_normalize_title(title),
+        thumbnail_url=thumbnail or SOUNCLOUD_IMG_URL,
         duration_text=duration_text,
-        platform_text=platform_text,
+        platform_text=f"SoundCloud | {uploader}",
         cache_path=cache_path,
         cache_id=cache_id,
         fallback_url=SOUNCLOUD_IMG_URL,
@@ -183,37 +189,10 @@ async def get_thumb(videoid_or_track: Union[str, Track, LiveTrack]) -> str:
     if isinstance(videoid_or_track, (Track, LiveTrack)):
         track = videoid_or_track
         videoid = track.id
-        
-        if is_soundcloud_url(videoid):
-            return await get_soundcloud_thumb(videoid)
-        
-        if videoid == "soundcloud":
-            return SOUNCLOUD_IMG_URL
-        
-        cache_path = os.path.join(CACHE_DIR, f"{videoid}_v4.png")
-        if os.path.exists(cache_path):
-            return cache_path
-        
-        title = _normalize_title(track.title or "Unsupported Title")
-        thumbnail = track.thumbnail or YOUTUBE_IMG_URL
-        is_live = isinstance(track, LiveTrack)
-        duration_text = "Live" if is_live else (track.duration_min or "Unknown Mins")
-        views = track.view_count or "Unknown Views"
-        platform_text = f"YouTube | {views}"
-        
-        return await _create_decorated_thumbnail(
-            title=title,
-            thumbnail_url=thumbnail,
-            duration_text=duration_text,
-            platform_text=platform_text,
-            cache_path=cache_path,
-            cache_id=videoid,
-            fallback_url=YOUTUBE_IMG_URL,
-            is_live=is_live,
-        )
-    
-    videoid = str(videoid_or_track)
-    
+    else:
+        videoid = str(videoid_or_track)
+        track = None
+
     if is_soundcloud_url(videoid):
         return await get_soundcloud_thumb(videoid)
 
@@ -223,26 +202,33 @@ async def get_thumb(videoid_or_track: Union[str, Track, LiveTrack]) -> str:
     cache_path = os.path.join(CACHE_DIR, f"{videoid}_v4.png")
     if os.path.exists(cache_path):
         return cache_path
-    
-    try:
-        track = await YouTube.get_metadata("", videoid=videoid)
-        if track:
-            return await get_thumb(track)
-    except Exception:
-        pass
 
-    title = "Unsupported Title"
-    thumbnail = YOUTUBE_IMG_URL
-    views = "Unknown Views"
-    is_live = False
-    duration_text = "Unknown Mins"
-    platform_text = f"YouTube | {views}"
+    if not track:
+        try:
+            track = await YouTube.get_metadata("", videoid=videoid)
+            if track:
+                return await get_thumb(track)
+        except Exception:
+            pass
+
+    if track:
+        title = _normalize_title(track.title or "Unsupported Title")
+        thumbnail = track.thumbnail or YOUTUBE_IMG_URL
+        is_live = isinstance(track, LiveTrack)
+        duration_text = "Live" if is_live else (track.duration_min or "Unknown Mins")
+        views = track.view_count or "Unknown Views"
+    else:
+        title = "Unsupported Title"
+        thumbnail = YOUTUBE_IMG_URL
+        is_live = False
+        duration_text = "Unknown Mins"
+        views = "Unknown Views"
 
     return await _create_decorated_thumbnail(
         title=title,
         thumbnail_url=thumbnail,
         duration_text=duration_text,
-        platform_text=platform_text,
+        platform_text=f"YouTube | {views}",
         cache_path=cache_path,
         cache_id=videoid,
         fallback_url=YOUTUBE_IMG_URL,

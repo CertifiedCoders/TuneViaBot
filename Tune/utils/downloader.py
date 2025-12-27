@@ -13,7 +13,7 @@ from yt_dlp import YoutubeDL
 
 from Tune.core.dir import CACHE_DIR, DOWNLOAD_DIR
 from Tune.utils.cookie_handler import COOKIE_PATH as _COOKIES_FILE
-from Tune.utils.tuning import CHUNK_SIZE, SEM, YTDLP_TIMEOUT, extract_youtube_id
+from Tune.utils.tuning import CHUNK_SIZE, SEM, extract_youtube_id
 from config import API_KEY, API_URL, VIDEO_API_URL
 from Tune.logging import LOGGER
 
@@ -32,9 +32,7 @@ def log_download_source(media_type: str, title: str, source: str) -> None:
     LOGGER.info(f"[{media_type}] Track '{title}' - Downloaded by {source}")
 
 
-
-
-def get_cookie_file() -> Optional[str]:
+def _get_cookie_file() -> Optional[str]:
     try:
         if _COOKIES_FILE and os.path.exists(_COOKIES_FILE) and os.path.getsize(_COOKIES_FILE) > 0:
             return _COOKIES_FILE
@@ -43,7 +41,7 @@ def get_cookie_file() -> Optional[str]:
     return None
 
 
-def get_ytdlp_base_opts(is_soundcloud: bool = False) -> Dict[str, object]:
+def _get_ytdlp_opts(is_soundcloud: bool = False) -> Dict:
     opts = {
         "quiet": True,
         "no_warnings": True,
@@ -57,23 +55,27 @@ def get_ytdlp_base_opts(is_soundcloud: bool = False) -> Dict[str, object]:
     }
     
     if is_soundcloud:
-        opts["socket_timeout"] = 30
-        opts["retries"] = 3
-        opts["extractor_args"] = {"soundcloud": {"client_id": None}}
+        opts.update({
+            "socket_timeout": 30,
+            "retries": 3,
+            "extractor_args": {"soundcloud": {"client_id": None}}
+        })
     else:
-        opts["concurrent_fragment_downloads"] = 32
-        opts["http_chunk_size"] = 2 << 20
-        opts["socket_timeout"] = 10
-        opts["retries"] = 2
-        opts["fragment_retries"] = 2
-        opts["merge_output_format"] = "mp4"
+        opts.update({
+            "concurrent_fragment_downloads": 32,
+            "http_chunk_size": 2 << 20,
+            "socket_timeout": 10,
+            "retries": 2,
+            "fragment_retries": 2,
+            "merge_output_format": "mp4"
+        })
     
-    if cookiefile := get_cookie_file():
+    if cookiefile := _get_cookie_file():
         opts["cookiefile"] = cookiefile
     return opts
 
 
-async def get_http_session() -> aiohttp.ClientSession:
+async def _get_session() -> aiohttp.ClientSession:
     global _session
     if _session and not _session.closed:
         return _session
@@ -97,35 +99,40 @@ async def get_http_session() -> aiohttp.ClientSession:
         return _session
 
 
-async def close_http_session() -> None:
-    global _session
-    async with _session_lock:
-        if _session and not _session.closed:
-            await _session.close()
-        _session = None
-
-
-async def download_file(url: str, out_path: str) -> Optional[str]:
+async def _download_file(url: str, out_path: str) -> Optional[str]:
     if not url:
         return None
     try:
-        session = await get_http_session()
+        session = await _get_session()
         async with session.get(url) as resp:
             if resp.status != 200:
                 return None
             async with aiofiles.open(out_path, "wb") as f:
                 async for chunk in resp.content.iter_chunked(CHUNK_SIZE):
-                    if not chunk:
-                        break
-                    await f.write(chunk)
+                    if chunk:
+                        await f.write(chunk)
         return out_path if os.path.exists(out_path) else None
     except Exception:
         return None
 
 
-async def _api_poll_and_download(poll_url: str, video_id: str, default_format: str) -> Optional[str]:
+async def _api_download(link: str, media_type: str) -> Optional[str]:
+    if media_type == "audio" and not USE_AUDIO_API:
+        return None
+    if media_type == "video" and not USE_VIDEO_API:
+        return None
+    
+    vid = extract_youtube_id(link)
+    if not vid:
+        return None
+    
+    base_url = API_URL if media_type == "audio" else VIDEO_API_URL
+    endpoint = "song" if media_type == "audio" else "video"
+    poll_url = f"{base_url}/{endpoint}/{vid}?api={API_KEY}"
+    default_format = "webm" if media_type == "audio" else "mp4"
+    
     try:
-        session = await get_http_session()
+        session = await _get_session()
         while True:
             async with session.get(poll_url) as r:
                 if r.status != 200:
@@ -138,34 +145,16 @@ async def _api_poll_and_download(poll_url: str, video_id: str, default_format: s
                 if status != "done":
                     return None
                 dl_url = data.get("link")
+                if not dl_url:
+                    return None
                 fmt = data.get("format", default_format)
-                out_path = f"{DOWNLOAD_DIR}/{video_id}.{fmt}"
-                return await download_file(dl_url, out_path)
+                out_path = f"{DOWNLOAD_DIR}/{vid}.{fmt}"
+                return await _download_file(dl_url, out_path)
     except Exception:
         return None
 
 
-async def api_download_audio(link: str) -> Optional[str]:
-    if not USE_AUDIO_API:
-        return None
-    vid = extract_youtube_id(link)
-    if not vid:
-        return None
-    poll_url = f"{API_URL}/song/{vid}?api={API_KEY}"
-    return await _api_poll_and_download(poll_url, vid, "webm")
-
-
-async def api_download_video(link: str) -> Optional[str]:
-    if not USE_VIDEO_API:
-        return None
-    vid = extract_youtube_id(link)
-    if not vid:
-        return None
-    poll_url = f"{VIDEO_API_URL}/video/{vid}?api={API_KEY}"
-    return await _api_poll_and_download(poll_url, vid, "mp4")
-
-
-def get_final_path_from_info(info: Dict) -> Optional[str]:
+def _get_downloaded_path(info: Dict) -> Optional[str]:
     vid = info.get("id")
     if not vid:
         return None
@@ -174,39 +163,27 @@ def get_final_path_from_info(info: Dict) -> Optional[str]:
         p = f"{DOWNLOAD_DIR}/{vid}.{ext}"
         if os.path.exists(p):
             return p
-    matches = sorted(
-        glob.glob(f"{DOWNLOAD_DIR}/{vid}.*"),
-        key=os.path.getmtime,
-        reverse=True,
-    )
+    matches = sorted(glob.glob(f"{DOWNLOAD_DIR}/{vid}.*"), key=os.path.getmtime, reverse=True)
     return matches[0] if matches else None
 
 
-def download_with_ytdlp_sync(link: str, fmt: str, is_soundcloud: bool = False) -> Optional[str]:
+def _download_with_ytdlp(link: str, fmt: str, is_soundcloud: bool = False) -> Optional[str]:
     try:
-        opts = get_ytdlp_base_opts(is_soundcloud=is_soundcloud)
+        opts = _get_ytdlp_opts(is_soundcloud=is_soundcloud)
         opts["format"] = fmt
         
         with YoutubeDL(opts) as ydl:
             info = ydl.extract_info(link, download=False)
-            
-            if path := get_final_path_from_info(info):
+            if path := _get_downloaded_path(info):
                 return path
-            
             ydl.download([link])
-            
-            return get_final_path_from_info(info)
+            return _get_downloaded_path(info)
     except Exception as e:
         LOGGER.error(f"yt-dlp download failed for {link}: {e}")
         return None
 
 
-async def run_with_semaphore(coro):
-    async with SEM:
-        return await coro
-
-
-async def deduplicate_download(key: str, runner):
+async def _deduplicate_download(key: str, runner):
     async with _inflight_lock:
         if fut := _inflight.get(key):
             return await fut
@@ -224,10 +201,9 @@ async def deduplicate_download(key: str, runner):
             _inflight.pop(key, None)
 
 
-async def race_ytdlp_and_api(yt_task, api_task, title: str, media_type: str):
-    done, pending = await asyncio.wait(
-        {yt_task, api_task}, return_when=asyncio.FIRST_COMPLETED
-    )
+async def _race_downloads(yt_task, api_task, title: str, media_type: str):
+    done, pending = await asyncio.wait({yt_task, api_task}, return_when=asyncio.FIRST_COMPLETED)
+    
     for task in done:
         try:
             result = task.result()
@@ -249,40 +225,33 @@ async def race_ytdlp_and_api(yt_task, api_task, title: str, media_type: str):
                 source = "yt-dlp" if task is yt_task else "API"
                 log_download_source(media_type, title, source)
                 return result
-        except asyncio.CancelledError:
-            pass
-        except Exception:
+        except (asyncio.CancelledError, Exception):
             pass
     return None
 
 
-async def _download_media(link: str, fmt: str, api_func, title: str, is_soundcloud: bool, media_type: str):
+async def _download_media(link: str, fmt: str, media_type: str, title: str, is_soundcloud: bool):
     loop = asyncio.get_running_loop()
     key = f"{media_type}:{link}"
     
     async def run():
-        ytdlp_task = asyncio.create_task(
-            run_with_semaphore(
-                loop.run_in_executor(None, download_with_ytdlp_sync, link, fmt, is_soundcloud)
-            )
-        )
+        async def ytdlp_wrapper():
+            async with SEM:
+                return await loop.run_in_executor(None, _download_with_ytdlp, link, fmt, is_soundcloud)
+        
+        ytdlp_task = asyncio.create_task(ytdlp_wrapper())
         use_api = (USE_AUDIO_API if media_type == "audio" else USE_VIDEO_API) and not is_soundcloud
-        api_task = asyncio.create_task(api_func(link)) if use_api else None
+        api_task = asyncio.create_task(_api_download(link, media_type)) if use_api else None
         
         if api_task:
-            return await race_ytdlp_and_api(
-                ytdlp_task,
-                api_task,
-                title or "Unknown",
-                media_type.capitalize(),
-            )
+            return await _race_downloads(ytdlp_task, api_task, title or "Unknown", media_type.capitalize())
         
         result = await ytdlp_task
         if result and title:
             log_download_source(media_type.capitalize(), title, "yt-dlp")
         return result
-
-    return await deduplicate_download(key, run)
+    
+    return await _deduplicate_download(key, run)
 
 
 async def yt_dlp_download(link: str, type: str, title: str = "") -> Optional[str]:
@@ -290,17 +259,17 @@ async def yt_dlp_download(link: str, type: str, title: str = "") -> Optional[str
     
     if type == "audio":
         fmt = "bestaudio/best" if is_soundcloud else "bestaudio[ext=webm][acodec=opus]/bestaudio[ext=m4a][acodec=aac]/bestaudio/best"
-        return await _download_media(link, fmt, api_download_audio, title, is_soundcloud, "audio")
+        return await _download_media(link, fmt, "audio", title, is_soundcloud)
     elif type == "video":
         fmt = "(bestvideo[height<=?720][width<=?1280][ext=mp4][fps<=?30])+(bestaudio[acodec=opus]/bestaudio[acodec=aac]/bestaudio)"
-        return await _download_media(link, fmt, api_download_video, title, is_soundcloud, "video")
+        return await _download_media(link, fmt, "video", title, is_soundcloud)
     
     return None
 
 
 async def yt_dlp_get_stream_url(link: str) -> Tuple[int, str]:
     try:
-        opts = get_ytdlp_base_opts(is_soundcloud=False)
+        opts = _get_ytdlp_opts(is_soundcloud=False)
         opts["format"] = "best[height<=?720][width<=?1280]"
         
         loop = asyncio.get_running_loop()
@@ -308,17 +277,15 @@ async def yt_dlp_get_stream_url(link: str) -> Tuple[int, str]:
         def get_url():
             with YoutubeDL(opts) as ydl:
                 info = ydl.extract_info(link, download=False)
-                url = info.get("url")
-                if url:
+                if url := info.get("url"):
                     return (1, url)
-                formats = info.get("formats", [])
-                if formats:
-                    for fmt in formats:
-                        if fmt.get("url"):
-                            return (1, fmt.get("url"))
+                for fmt in info.get("formats", []):
+                    if url := fmt.get("url"):
+                        return (1, url)
                 return (0, "")
         
-        result = await run_with_semaphore(loop.run_in_executor(None, get_url))
+        async with SEM:
+            result = await loop.run_in_executor(None, get_url)
         return result if result else (0, "")
     except Exception as e:
         LOGGER.error(f"yt-dlp stream URL failed for {link}: {e}")
@@ -327,7 +294,7 @@ async def yt_dlp_get_stream_url(link: str) -> Tuple[int, str]:
 
 async def yt_dlp_get_playlist_ids(playlist_url: str, limit: int) -> List[str]:
     try:
-        opts = get_ytdlp_base_opts(is_soundcloud=False)
+        opts = _get_ytdlp_opts(is_soundcloud=False)
         opts["extract_flat"] = True
         opts["playlistend"] = limit
         
@@ -339,7 +306,8 @@ async def yt_dlp_get_playlist_ids(playlist_url: str, limit: int) -> List[str]:
                 entries = info.get("entries", [])
                 return [entry.get("id", "") for entry in entries if entry.get("id")]
         
-        ids = await run_with_semaphore(loop.run_in_executor(None, get_ids))
+        async with SEM:
+            ids = await loop.run_in_executor(None, get_ids)
         return ids if ids else []
     except Exception as e:
         LOGGER.error(f"yt-dlp playlist IDs failed for {playlist_url}: {e}")

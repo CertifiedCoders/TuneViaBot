@@ -10,7 +10,6 @@ from Tune.utils.downloader import yt_dlp_download
 from Tune.utils.formatters import seconds_to_min
 
 _SC_RE = re.compile(r"^https?://(?:www\.)?(soundcloud\.com|on\.soundcloud\.com)/.+", re.I)
-
 _info_cache: Dict[str, Tuple[Dict[str, Any], float]] = {}
 _cache_max_age = 300
 
@@ -20,76 +19,52 @@ def is_soundcloud_url(url: str) -> bool:
 
 
 def _get_cached_info(url: str) -> Optional[Dict[str, Any]]:
-    if url in _info_cache:
-        info, timestamp = _info_cache[url]
-        if time.time() - timestamp < _cache_max_age:
-            return info
+    if url not in _info_cache:
+        return None
+    info, timestamp = _info_cache[url]
+    if time.time() - timestamp >= _cache_max_age:
         del _info_cache[url]
-    return None
+        return None
+    return info
 
 
 def _cache_info(url: str, info: Dict[str, Any]) -> None:
     _info_cache[url] = (info, time.time())
 
 
-def _extract_duration(info: Dict[str, Any]) -> int:
-    try:
-        return int(info.get("duration") or 0)
-    except Exception:
-        return 0
-
-
-def _extract_thumbnail(info: Dict[str, Any]) -> str:
-    return (
-        info.get("thumbnail")
-        or (info.get("thumbnails") or [{}])[0].get("url")
-        or ""
-    )
-
-
-def _extract_title(info: Dict[str, Any], default: str = "SoundCloud") -> str:
-    return (info.get("title") or default).strip()
-
-
 class SoundAPI:
     async def valid(self, link: str) -> bool:
-        return bool(link and _SC_RE.match(link))
+        return is_soundcloud_url(link)
 
     async def is_playlist(self, url: str) -> bool:
-        try:
-            info = await self._extract_info(url, allow_playlist=True, use_cache=True)
-            return info is not None and info.get("_type") == "playlist"
-        except Exception:
-            return False
+        info = await self._extract_info(url, allow_playlist=True)
+        return info is not None and info.get("_type") == "playlist"
 
     async def _extract_info(self, url: str, allow_playlist: bool = False, use_cache: bool = True) -> Optional[Dict[str, Any]]:
         if use_cache:
             cached = _get_cached_info(url)
-            if cached:
-                cached_type = cached.get("_type")
-                if allow_playlist or cached_type != "playlist":
-                    return cached
-        
+            if cached and (allow_playlist or cached.get("_type") != "playlist"):
+                return cached
+
+        opts = {
+            "quiet": True,
+            "no_warnings": True,
+            "skip_download": True,
+        }
+        if not allow_playlist:
+            opts["noplaylist"] = True
+
         def _run(u: str):
-            opts = {
-                "quiet": True,
-                "no_warnings": True,
-                "skip_download": True,
-            }
-            if not allow_playlist:
-                opts["noplaylist"] = True
             with YoutubeDL(opts) as ydl:
                 return ydl.extract_info(u, download=False)
 
         try:
             loop = asyncio.get_running_loop()
             info = await loop.run_in_executor(None, _run, url)
-            
             if not info:
                 return None
 
-            info_type = info.get("_type", "")
-            if info_type in ("url", "url_transparent") and info.get("url"):
+            if info.get("_type") in ("url", "url_transparent") and info.get("url"):
                 try:
                     info = await loop.run_in_executor(None, _run, info["url"])
                 except Exception:
@@ -103,17 +78,14 @@ class SoundAPI:
             return None
 
     async def download(self, url: str) -> Union[Tuple[Dict[str, Any], str], bool]:
-        try:
-            info = await self._extract_info(url, allow_playlist=False, use_cache=True)
-            if not info or info.get("_type") == "playlist":
-                return False
-        except Exception:
+        info = await self._extract_info(url, allow_playlist=False)
+        if not info or info.get("_type") == "playlist":
             return False
 
-        title = _extract_title(info)
-        duration_sec = _extract_duration(info)
+        title = (info.get("title") or "SoundCloud").strip()
+        duration_sec = int(info.get("duration") or 0)
         uploader = info.get("uploader") or ""
-        thumb = _extract_thumbnail(info)
+        thumb = info.get("thumbnail") or (info.get("thumbnails") or [{}])[0].get("url") or ""
 
         out_path = await yt_dlp_download(url, type="audio", title=title)
         if not out_path:
@@ -133,38 +105,29 @@ class SoundAPI:
         )
 
     async def details(self, url: str) -> Tuple[str, Optional[str], int, str, str]:
-        try:
-            info = await self._extract_info(url)
-            if not info or info.get("_type") == "playlist":
-                raise ValueError("Invalid track or playlist")
-        except Exception as e:
-            raise ValueError(f"Failed to extract SoundCloud track info: {e}") from e
+        info = await self._extract_info(url)
+        if not info or info.get("_type") == "playlist":
+            raise ValueError("Invalid track or playlist")
 
-        title = _extract_title(info, "SoundCloud Track")
-        duration_sec = _extract_duration(info)
+        title = (info.get("title") or "SoundCloud Track").strip()
+        duration_sec = int(info.get("duration") or 0)
         duration_min = seconds_to_min(max(duration_sec, 0)) if duration_sec > 0 else None
-        thumb = _extract_thumbnail(info)
+        thumb = info.get("thumbnail") or (info.get("thumbnails") or [{}])[0].get("url") or ""
         track_url = info.get("webpage_url") or url
 
         return title, duration_min, duration_sec, thumb, track_url
 
     async def playlist(self, url: str, limit: int, user_id) -> List[str]:
-        try:
-            info = await self._extract_info(url, allow_playlist=True)
-            if not info or info.get("_type") != "playlist":
-                return []
-            
-            entries = info.get("entries", [])
-            if not entries:
-                return []
-
-            return [
-                entry["webpage_url"]
-                for entry in entries[:limit]
-                if entry and entry.get("webpage_url")
-            ]
-        except Exception:
+        info = await self._extract_info(url, allow_playlist=True)
+        if not info or info.get("_type") != "playlist":
             return []
+
+        entries = info.get("entries", [])
+        return [
+            entry["webpage_url"]
+            for entry in entries[:limit]
+            if entry and entry.get("webpage_url")
+        ]
 
 
 SoundCloud = SoundAPI()
