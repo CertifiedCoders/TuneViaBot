@@ -1,4 +1,5 @@
 ﻿# Authored By Certified Coders © 2025
+import os
 import random
 from os.path import realpath
 
@@ -102,6 +103,11 @@ class CarbonAPI:
             except client_exceptions.ClientConnectorError:
                 raise UnableToFetchCarbon("Can not reach the Host!")
             resp = await request.read()
-            with open(f"cache/carbon{user_id}.jpg", "wb") as f:
+            if not resp or len(resp) == 0:
+                raise UnableToFetchCarbon("Empty response from Carbon API")
+            file_path = f"cache/carbon{user_id}.jpg"
+            with open(file_path, "wb") as f:
                 f.write(resp)
-            return realpath(f.name)
+            if os.path.getsize(file_path) == 0:
+                raise UnableToFetchCarbon("Generated file is empty")
+            return realpath(file_path)

@@ -248,11 +248,13 @@ async def stream(
         link = await TuneBin(msg)
         lines = msg.count("\n")
         car = os.linesep.join(msg.split(os.linesep)[:17]) if lines >= 17 else msg
+        playlist_photo = config.PLAYLIST_IMG_URL
         try:
             carbon = await Carbon.generate(car, randint(100, 10000000))
-            playlist_photo = carbon
+            if carbon and os.path.exists(carbon) and os.path.getsize(carbon) > 0:
+                playlist_photo = carbon
         except Exception:
-            playlist_photo = config.PLAYLIST_IMG_URL
+            pass
         upl = close_markup(_)
         final_position = len(db.get(chat_id) or []) - 1
         if final_position < 0:
